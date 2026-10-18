@@ -49,6 +49,8 @@ export const DICT = {
   'footer.status': ['系统状态', 'System status'],
   'footer.contact': ['联系我们', 'Contact'],
   'footer.xhs': ['小红书', 'Xiaohongshu'],
+  'footer.sponsor': ['赞助合作：hello@signalgarden.site', 'Sponsorships: hello@signalgarden.site'],
+  'nav.sponsor': ['赞助', 'Sponsor'],
 
   /* ── Section 01 黑场与呼吸 ────────────────────────────────────────── */
   /* 大标题 "Something new / is taking shape." 按策略 a 保持英文，不进字典 */
@@ -93,10 +95,6 @@ export const DICT = {
   'pd.agents': ['适用平台', 'Platforms'],
   'pd.requirements': ['已识别的要求', 'Documented requirements'],
   'pd.costUnknown': ['未确认', 'Not confirmed'],
-  'pricing.planned': ['开发中 · 暂未开放购买', 'IN DEVELOPMENT · PURCHASES NOT OPEN'],
-  'pricing.available': ['现在可用', 'AVAILABLE NOW'],
-  'pricing.preview': ['先看看实际内容', 'See what you get today'],
-  'pricing.previewBody': ['完整榜单、项目能力和限制都可以免费查看。先用真实项目判断是否对你有帮助。', 'The full edition, project capabilities and limitations are free to read. Explore real projects to see if they help you.'],
   'hero.system': ['每日发现系统', 'DAILY DISCOVERY SYSTEM'],
   'hero.promise': ['给正在做东西的人。', 'For people who make things.'],
   'hero.sub': [
@@ -179,6 +177,9 @@ export const DICT = {
   'pd.hero.openRepo': ['打开仓库', 'Open repository'],
   'pd.hero.homepage': ['官网', 'Homepage'],
   'pd.hero.rising': ['上升中', 'Rising'],
+  'pd.subscribe.kicker': ['每日精选', 'DAILY DIGEST'],
+  'pd.subscribe.title': ['把每天值得打开的项目寄到邮箱。', 'Get the projects worth opening, by email.'],
+  'pd.subscribe.cta': ['订阅每日精选', 'Subscribe to the daily digest'],
   'pd.hero.install': ['怎么装：', 'Install:'],
   'pd.install.kicker': ['上手', 'GET STARTED'],
   'pd.install.title': ['怎么装', 'How to install'],
@@ -556,8 +557,8 @@ export const DICT = {
   'pa.unsavedLocal': ['已从本设备移除。', 'Removed from this device.'],
   'pa.needLogin': ['登录后即可收藏和关注项目。', 'Sign in to save and follow projects.'],
   'pa.limit': [
-    '升级 Signal Garden Pro 以解锁无限收藏和关注。',
-    'Upgrade to Signal Garden Pro for unlimited saves and follows.',
+    '收藏或关注已到上限。',
+    'You have reached the save or follow limit.',
   ],
   'pa.failed': ['操作失败，请稍后再试。', 'That didn’t work. Try again in a moment.'],
   'act.filterClear': ['清除筛选', 'Clear filters'],
@@ -576,119 +577,55 @@ export const DICT = {
   /* ── My Garden ───────────────────────────────────────────────────── */
   'pg.garden.kicker': ['我的花园', 'MY GARDEN'],
   'pg.garden.title': ['你收藏的项目', 'Your saved projects'],
-  'pg.garden.subscription': ['订阅', 'Subscription'],
   'pg.garden.localSaves': ['本地收藏', 'Local saves'],
   'pg.garden.saved': ['收藏', 'Saved'],
   'pg.garden.following': ['关注', 'Following'],
   'pg.garden.emptySaved': ['还没有收藏项目。', 'No saved projects yet.'],
   'pg.garden.emptyFollowing': ['还没有关注项目。', 'No followed projects yet.'],
 
-  /* ── Subscription（V1 暂不开放购买）──────────────────────────────── */
-  'sub.kicker': ['订阅', 'SUBSCRIPTION'],
-  'sub.title': ['Free + Pro', 'Free + Pro'],
-  'sub.intro': [
-    '免费版适合日常浏览；Pro 解锁无限收藏、无限关注和个性化能力。',
-    'Free is for everyday browsing; Pro unlocks unlimited saves, unlimited follows and personalised features.',
+  /* ── 赞助 ─────────────────────────────────────────────────────────── */
+  'sponsor.kicker': ['赞助', 'SPONSOR'],
+  'sponsor.title': ['赞助', 'Sponsor'],
+  'sponsor.intro': [
+    'Signal Garden 是每日 GitHub 雷达，按近 7 日新增 fork 排序，帮开发者发现正在被 fork 的项目，而不是只看累计 star。',
+    'Signal Garden is a daily GitHub radar ranked by 7-day new forks, so you find projects people are actually forking, not just starring.',
   ],
-  'sub.freeFeat1': ['浏览、搜索、查看项目详情', 'Browse, search and view project details'],
-  'sub.freeFeat2': ['收藏最多 {n} 个项目', 'Save up to {n} projects'],
-  'sub.freeFeat3': ['关注最多 {n} 个项目', 'Follow up to {n} projects'],
-  'sub.freeFeat4': ['按兴趣浏览推荐项目', 'Browse recommendations by interest'],
-  'sub.proFeat1': ['无限收藏和关注', 'Unlimited saves and follows'],
-  'sub.proFeat2': ['按你的兴趣定制推荐', 'Recommendations tailored to your interests'],
-  'sub.proFeat3': ['你关注领域的新项目提醒', 'New project alerts for your interests'],
-  'sub.proFeat4': ['高级筛选、趋势分析和深度解读', 'Advanced filters, trend analysis and deeper write-ups'],
-  'sub.proFeat5': ['每周精选报告', 'Weekly curated report'],
-  'sub.notOpen': ['升级到 Pro', 'Upgrade to Pro'],
-  'sub.manageUnavailable': ['管理订阅', 'Manage subscription'],
-  'sub.pricing': ['查看定价', 'View pricing'],
+  'sponsor.audienceTitle': ['读者', 'Audience'],
+  'sponsor.audienceBody': [
+    '读者是每天追踪 GitHub 趋势仓库的开发者。榜单按 7 日新增 fork 排序。他们关心开源、GitHub、独立开发和开发者工具。',
+    'The audience is developers who track trending GitHub repositories every day. The list is ranked by 7-day new forks. They follow open source, GitHub, indie building, and developer tools.',
+  ],
+  'sponsor.placementsTitle': ['可以放的位置', 'Placements'],
+  'sponsor.placeTodayTitle': ['今日榜一条', 'A /today strip'],
+  'sponsor.placeTodayBody': [
+    '在 /today 榜单上方放一行文字或小标识，链到你的站点。',
+    'A line of text or a small mark above the /today list, linking to your site.',
+  ],
+  'sponsor.placeDigestTitle': ['周一邮件周刊', 'Monday email digest'],
+  'sponsor.placeDigestBody': [
+    '每周一的邮件周刊里放一段：名称、一句话和链接。确认订阅之后才会发信。',
+    'A short block in the Monday digest: a name, one sentence, and a link. Mail goes out only after someone confirms.',
+  ],
+  'sponsor.placeRssTitle': ['RSS 一行（可选）', 'An RSS line (optional)'],
+  'sponsor.placeRssBody': [
+    '在 feed 里加一行文字链，可以作为今日榜和周刊的附赠。',
+    'A single text link in the feed, as an optional extra with the strip and the digest.',
+  ],
+  'sponsor.note': [
+    '这是早期独立站的品牌试跑，不是正式刊例。我们只保证位置在，不保证曝光或转化。',
+    'This is an early independent site and a brand trial, not a rate card. We promise the placement exists. We do not promise reach or conversions.',
+  ],
+  'sponsor.contactTitle': ['联系', 'Contact'],
+  'sponsor.contactBody': [
+    '请写信说明品牌、一句介绍，以及希望放在今日榜、周一周刊，还是两者都要。RSS 一行可以一并问。',
+    'Email your brand, a one-line description, and whether you want the /today strip, the Monday digest, or both. You can ask for the RSS line in the same note.',
+  ],
+  'sponsor.contactCta': ['写信咨询赞助', 'Email about sponsorship'],
 
   /* ── 公共法律页 ───────────────────────────────────────────────────── */
   'legal.lastUpdatedLabel': ['最后更新：', 'Last updated: '],
   'legal.contactPrompt': ['联系方式：', 'Contact:'],
   'legal.sectionsAria': ['法律页面章节', 'Legal page sections'],
-
-  /* ── Pricing ─────────────────────────────────────────────────────── */
-  'pricing.kicker': ['定价', 'PRICING'],
-  'pricing.title': ['定价', 'Pricing'],
-  'pricing.intro': [
-    '榜单、搜索和项目详情免费开放。Pro 正在开发，以下为计划中的能力与定价，暂未开放购买。',
-    'Editions, search and project details are free. Pro is in development; the features and price below are planned, and purchases are not open.',
-  ],
-  'pricing.taxNote': ['价格以美元计价，税费按结账页显示。', 'Prices are displayed in USD; taxes are shown at checkout.'],
-  'pricing.noteTitle': ['免费开始', 'START FREE'],
-  'pricing.noteBody': [
-    '免费版即可浏览全部榜单、搜索和查看项目详情。随时可以升级到 Pro，也可以随时取消。',
-    'Free lets you browse every list, search and view project details. Upgrade to Pro at any time, and cancel at any time.',
-  ],
-  'pricing.freeName': ['Free', 'Free'],
-  'pricing.freePrice': ['$0', '$0'],
-  'pricing.freePeriod': ['长期免费', 'free forever'],
-  'pricing.freeDesc': [
-    '适合日常浏览、搜索和收藏项目。',
-    'For daily browsing, search and saving projects.',
-  ],
-  'pricing.freeFeat1': ['浏览、搜索、查看项目详情', 'Browse, search and view project details'],
-  'pricing.freeFeat2': ['收藏最多 {n} 个项目', 'Save up to {n} projects'],
-  'pricing.freeFeat3': ['关注最多 {n} 个项目', 'Follow up to {n} projects'],
-  'pricing.freeFeat4': ['按兴趣浏览推荐项目', 'Browse recommendations by interest'],
-  'pricing.proName': ['Pro', 'Pro'],
-  'pricing.proPrice': ['${usd} / 月', '${usd} / month'],
-  'pricing.proPeriod': ['约 ¥{cny} · 按月自动续费', '≈ ¥{cny} · automatically renewed monthly'],
-  'pricing.proDesc': [
-    '计划提供更多收藏、关注和定制推荐。下面列出的 Pro 能力尚未开放。',
-    'Planned for more saves, follows and tailored recommendations. The Pro features below are not yet available.',
-  ],
-  'pricing.proFeat1': ['无限收藏和关注', 'Unlimited saves and follows'],
-  'pricing.proFeat2': ['按你的兴趣定制推荐', 'Recommendations tailored to your interests'],
-  'pricing.proFeat3': ['你关注领域的新项目提醒', 'New project alerts for your interests'],
-  'pricing.proFeat4': ['高级筛选、趋势分析和深度解读', 'Advanced filters, trend analysis and deeper write-ups'],
-  'pricing.proFeat5': ['每周精选报告', 'Weekly curated report'],
-  'pricing.billingTitle': ['计费与取消', 'BILLING & CANCELLATION'],
-  'pricing.billingP1': [
-    'Pro 以美元计价，按月自动续费。结账页会显示实际金额、币种和下一次扣费日期。',
-    'Pro is priced in USD and automatically renews monthly. Checkout shows the exact amount, currency and next billing date.',
-  ],
-  'pricing.billingP2': [
-    '你可以随时取消自动续费。取消后停止下一次扣费，当前已付周期结束前仍可使用 Pro；已经支付的那一期不退，除非符合退款政策。',
-    'You can cancel automatic renewal at any time. Cancellation stops the next charge and Pro remains available until the end of the paid period; the already-paid period is not refunded unless the refund policy applies.',
-  ],
-  'pricing.paymentTitle': ['支付方式', 'PAYMENT METHODS'],
-  'pricing.paymentP1': [
-    '支持 Visa、Mastercard 和 Alipay。实际可用的支付方式以结账页为准。',
-    'Supports Visa, Mastercard and Alipay. The methods actually available are those shown at checkout.',
-  ],
-  'pricing.policyTitle': ['退款与条款', 'REFUNDS & TERMS'],
-  'pricing.policyBody': [
-    '退款规则见退款政策。订阅和网站使用同时受服务条款与隐私政策约束。',
-    'Refund rules are in the refund policy. Subscriptions and use of the site are also governed by the Terms and Privacy Policy.',
-  ],
-  'pricing.faqTitle': ['常见问题', 'FREQUENTLY ASKED QUESTIONS'],
-  'pricing.faqCancelQ': ['怎么取消订阅？', 'How do I cancel a subscription?'],
-  'pricing.faqCancelA': [
-    '取消入口在账户设置中。取消后不再进行下一次扣费，当前已付周期结束前仍可使用 Pro。',
-    'The cancellation control is in account settings. Cancelling stops the next charge, and Pro remains available until the end of the current paid period.',
-  ],
-  'pricing.faqRefundQ': ['怎么申请退款？', 'How do I request a refund?'],
-  'pricing.faqRefundA': [
-    '在付款后 14 天内发邮件到 hello@signalgarden.site，说明订单邮箱和原因。退款由 Dodo Payments 原路执行。',
-    'Email hello@signalgarden.site within 14 days of payment with the order email and reason. Refunds are processed by Dodo Payments back to the original payment method.',
-  ],
-  'pricing.faqPayQ': ['支持哪些支付方式？', 'Which payment methods are supported?'],
-  'pricing.faqPayA': [
-    '支持 Visa、Mastercard 和 Alipay。实际可用的支付方式以结账页为准。',
-    'Supports Visa, Mastercard and Alipay. The methods actually available are those shown at checkout.',
-  ],
-  'pricing.faqChangeQ': ['价格会变吗？变了怎么通知？', 'Can prices change, and how will you tell me?'],
-  'pricing.faqChangeA': [
-    '价格可能因税费、支付成本或产品范围变化而调整。影响现有订阅的变更会至少提前 30 天通过邮件通知，你可以在生效前取消。',
-    'Prices may change because of taxes, payment costs or product scope. Changes affecting existing subscriptions will be emailed at least 30 days in advance, and you can cancel before they take effect.',
-  ],
-  'pricing.faqManageQ': ['升级后怎么管理订阅？', 'How do I manage my subscription after upgrading?'],
-  'pricing.faqManageA': [
-    '升级后可以在账户设置中查看当前方案和续费状态，也可以在那里取消自动续费。',
-    'After upgrading, you can view your current plan and renewal status in account settings, and cancel automatic renewal there.',
-  ],
 
   'newsletter.title': ['每日精选', 'Daily digest'],
   'newsletter.body': [
@@ -780,8 +717,8 @@ export const DICT = {
     'To provide the service, we also store saves, follows, interest selections and email delivery state. Anonymous local saves stay in your browser localStorage unless you use account saves while signed in.',
   ],
   'privacy.collectP3': [
-    '支付由 Dodo Payments 处理，我们不接触也不存储你的完整卡号。',
-    'Payments are handled by Dodo Payments. We do not receive or store your full card number.',
+    '我们不向读者收费，也不收集银行卡号。',
+    'We do not charge readers, and we do not collect card numbers.',
   ],
   'privacy.whyTitle': ['2. 我们为什么收集', '2. Why we collect it'],
   'privacy.whyP1': [
@@ -793,14 +730,13 @@ export const DICT = {
   'privacy.use2': ['保持登录会话，让你不需要每次重新登录。', 'Keep your login session so you do not need to sign in again each time.'],
   'privacy.use3': ['保存你的收藏、关注和兴趣选择。', 'Store your saves, follows and interest selections.'],
   'privacy.use4': ['发送你要求的邮件，例如每日信号或账户通知。', 'Send email you request, such as the daily signal or account notices.'],
-  'privacy.use5': ['检测批量注册、滥用和支付欺诈。', 'Detect bulk registration, abuse and payment fraud.'],
+  'privacy.use5': ['检测批量注册和滥用。', 'Detect bulk registration and abuse.'],
   'privacy.use6': ['排查服务故障并改进产品可靠性。', 'Debug service failures and improve product reliability.'],
   'privacy.shareTitle': ['4. 我们和谁共享', '4. Who we share it with'],
   'privacy.shareP1': [
     '我们不出售你的个人信息。为了运行服务，我们会使用以下第三方处理者：',
     'We do not sell your personal information. We use the following processors to run the service:',
   ],
-  'privacy.share1': ['Dodo Payments：支付处理和订阅管理。', 'Dodo Payments: payment processing and subscription management.'],
   'privacy.share2': ['Supabase：身份认证和数据库托管。', 'Supabase: authentication and database hosting.'],
   'privacy.share3': ['Resend：发送验证码、欢迎邮件和其他事务邮件。', 'Resend: verification codes, welcome email and other transactional mail.'],
   'privacy.share4': [
@@ -896,17 +832,17 @@ export const DICT = {
   ],
   'terms.useTitle': ['4. 可接受使用', '4. Acceptable use'],
   'terms.useP1': [
-    '你可以正常浏览、搜索和收藏项目。不得爬取整站、滥用接口、规避付费限制、转售内容，或用自动化方式对服务造成不合理负载。',
-    'You may browse, search and save projects normally. You may not scrape the whole site, abuse APIs, bypass paid limits, resell content or place unreasonable automated load on the service.',
+    '你可以正常浏览、搜索和收藏项目。不得爬取整站、滥用接口、规避使用限制、转售内容，或用自动化方式对服务造成不合理负载。',
+    'You may browse, search and save projects normally. You may not scrape the whole site, abuse APIs, bypass usage limits, resell content or place unreasonable automated load on the service.',
   ],
-  'terms.paidTitle': ['5. 付费与订阅', '5. Paid plans and subscriptions'],
+  'terms.paidTitle': ['5. 收费', '5. Charges'],
   'terms.paidP1': [
-    'Pro 按月自动续费，结账页会显示价格、币种和计费周期。',
-    'Pro automatically renews monthly, and checkout shows the price, currency and billing period.',
+    'Signal Garden 不向读者出售订阅。',
+    'Signal Garden does not sell a subscription to readers.',
   ],
   'terms.paidP2': [
-    '你可以随时取消自动续费，取消后当前周期结束前仍可使用。价格变更会提前通知；退款规则见退款政策。',
-    'You can cancel automatic renewal at any time, and access continues until the end of the current period. Price changes will be announced in advance; refunds follow the Refund Policy.',
+    '品牌合作见赞助页，来信 hello@signalgarden.site。',
+    'Brand partnerships are on the sponsor page. Email hello@signalgarden.site.',
   ],
   'terms.ipTitle': ['6. 知识产权', '6. Intellectual property'],
   'terms.ipP1': [
@@ -947,17 +883,17 @@ export const DICT = {
   'refund.kicker': ['退款政策', 'REFUNDS'],
   'refund.title': ['退款政策', 'Refund Policy'],
   'refund.intro': [
-    '未来 Pro 订阅开放后，首次购买可在 14 天内无理由申请退款。退款由 Dodo Payments 执行，可能受 Dodo Payments 自身政策约束。',
-    'Once Pro subscriptions launch, first-time purchases can be refunded within 14 days for any reason. Refunds are executed by Dodo Payments and may also be subject to Dodo Payments’ own policies.',
+    'Signal Garden 不向读者收费，因此没有可退的订单。',
+    'Signal Garden does not charge readers, so there is no order to refund.',
   ],
   'refund.summary': [
-    '简单说：14 天内可无理由退款。取消订阅和退款是两件事。',
-    'In short: refunds are available within 14 days for any reason. Cancelling and refunding are two different things.',
+    '简单说：没有向读者收费的订单，也就没有退款。',
+    'In short: there is no reader charge, and nothing to refund.',
   ],
   'refund.canTitle': ['1. 能不能退？', '1. Can I get a refund?'],
   'refund.canP1': [
-    '可以。未来 Pro 订阅开放后，如果你对服务不满意，可以在首次购买后 14 天内申请退款。',
-    'Yes. Once Pro subscriptions launch, you can request a refund within 14 days of your first purchase if you are not satisfied.',
+    '目前没有向读者收费，因此没有可申请的退款。',
+    'There is no charge to readers, so there is no refund to request.',
   ],
   'refund.daysTitle': ['2. 多久内可以退？', '2. How long do I have?'],
   'refund.daysP1': [
@@ -990,8 +926,8 @@ export const DICT = {
     'Cancel: stops the next charge. You keep access until the end of the current period; the paid period is not refunded.',
   ],
   'refund.diffP2': [
-    '退款：把已付的钱退回。退款成功后，Pro 权益可能立即结束。',
-    'Refund: returns money already paid. After a refund, Pro access may end immediately.',
+    '退款：把已付的钱退回。当前没有这类订单。',
+    'Refund: returns money already paid. There is no such order today.',
   ],
   'refund.duplicateTitle': ['8. 重复扣费 / 误扣', '8. Duplicate or mistaken charges'],
   'refund.duplicateP1': [
@@ -1049,8 +985,8 @@ export const DICT = {
   ],
   'cookies.thirdTitle': ['5. 第三方 Cookie', '5. Third-party cookies'],
   'cookies.thirdP1': [
-    'Supabase 可能在与身份认证有关的请求中设置 Cookie。Dodo Payments 尚未接入；正式接入 Checkout 后，Dodo Payments 可能设置支付、安全和反欺诈 Cookie，到时我们会在这里补充。',
-    'Supabase may set cookies in requests related to authentication. Dodo Payments is not integrated yet; once Checkout is enabled, Dodo Payments may set payment, security and anti-fraud cookies, which we will add here.',
+    'Supabase 可能在与身份认证有关的请求中设置 Cookie。我们不运行收款结账。',
+    'Supabase may set cookies in requests related to authentication. We do not run a checkout.',
   ],
   'cookies.manageTitle': ['6. 如何管理 Cookie', '6. How to manage cookies'],
   'cookies.manageP1': [

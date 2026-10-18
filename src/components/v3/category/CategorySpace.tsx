@@ -291,6 +291,7 @@ export function SpaceRow({
   category,
   accent,
   isVerified,
+  track,
 }: {
   index: number;
   slug: string;
@@ -304,10 +305,13 @@ export function SpaceRow({
   category: string;
   accent: string;
   isVerified?: boolean;
+  /** Umami card_click data (no PII). Omit to send no event. */
+  track?: { repo: string; rank: number; page: string };
 }) {
   return (
     <Link
       href={`/p/${slug}`}
+      {...(track ? { "data-umami-event": "card_click", "data-umami-event-repo": track.repo, "data-umami-event-rank": String(track.rank), "data-umami-event-page": track.page } : {})}
       className="space-row lift group flex flex-col gap-4 border-t border-[var(--glass-1-border)] py-8 md:flex-row md:items-baseline md:gap-10"
       style={{ '--i': index } as React.CSSProperties}
     >

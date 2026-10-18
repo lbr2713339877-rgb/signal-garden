@@ -29,7 +29,7 @@ const sections: LegalSection[] = [
     title: 'terms.paidTitle',
     paragraphs: ['terms.paidP1', 'terms.paidP2'],
     links: [
-      { href: '/pricing', k: 'pricing.title' },
+      { href: '/sponsor', k: 'nav.sponsor' },
       { href: '/refund', k: 'refund.title' },
     ],
   },

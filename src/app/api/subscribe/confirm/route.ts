@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { confirmNewsletter } from "@/lib/newsletter/subscribe";
+import { siteOrigin } from "@/lib/edition";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,8 @@ async function tokenFrom(request: Request): Promise<string> {
 export async function POST(request: Request) {
   const token = await tokenFrom(request);
   const outcome = await confirmNewsletter(token);
-  const dest = new URL("/subscribe/confirm", request.url);
+  // Behind nginx request.url is http://localhost:3000; always redirect to the public origin.
+  const dest = new URL("/subscribe/confirm", siteOrigin());
   dest.search = "";
   dest.searchParams.set("status", outcome);
   return NextResponse.redirect(dest, 303);

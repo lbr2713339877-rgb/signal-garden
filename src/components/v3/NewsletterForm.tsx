@@ -6,17 +6,19 @@ import Script from "next/script";
 import { useLang } from "@/components/ui/Lang";
 import { T, t } from "@/lib/dict";
 import { newsletterFormEnabled } from "@/lib/newsletter/flags";
+import { currentUtmSource, trackEvent } from "@/components/analytics/track";
 
 export function NewsletterSignup({ source }: { source: "home" | "today" | "footer" }) {
-  if (!newsletterFormEnabled()) return null;
+  const enabled = newsletterFormEnabled();
+  if (!enabled && source !== "home") return null;
   const frame = source === "home"
     ? "mx-auto max-w-[var(--container)] px-[var(--gutter)] pb-[clamp(48px,8vh,96px)]"
     : source === "today"
       ? "mt-16 max-w-[520px] border-t border-[var(--glass-1-border)] pt-10"
       : "mt-8 max-w-[360px]";
   return (
-    <section className={frame}>
-      <NewsletterForm source={source} />
+    <section id={source === "home" ? "subscribe" : undefined} className={frame}>
+      {enabled ? <NewsletterForm source={source} /> : null}
     </section>
   );
 }
@@ -47,15 +49,22 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
           turnstileToken: token,
         }),
       });
-      if (response.ok) setMessage("ok");
-      else if (response.status === 429) setMessage("rate_limited");
-      else {
+      if (response.ok) {
+        setMessage("ok");
+        trackEvent("subscribe_submit", { page: source, source: currentUtmSource() });
+      } else if (response.status === 429) {
+        setMessage("rate_limited");
+        trackEvent("subscribe_error", { reason: "rate_limited" });
+      } else {
         const body = await response.json().catch(() => null) as { error?: string } | null;
         const error = body?.error;
-        setMessage(error === "too_fast" || error === "turnstile" ? error : "invalid_email");
+        const reason = error === "too_fast" || error === "turnstile" ? error : "invalid_email";
+        setMessage(reason);
+        trackEvent("subscribe_error", { reason: error === reason ? reason : `${reason}:${String(error ?? response.status).slice(0, 20)}` });
       }
     } catch {
       setMessage("invalid_email");
+      trackEvent("subscribe_error", { reason: "network" });
     } finally {
       setPending(false);
     }

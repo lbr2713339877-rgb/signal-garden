@@ -34,7 +34,7 @@ const sections: LegalSection[] = [
     id: 'share',
     title: 'privacy.shareTitle',
     paragraphs: ['privacy.shareP1'],
-    items: ['privacy.share1', 'privacy.share2', 'privacy.share3', 'privacy.share4', 'privacy.share5'],
+    items: ['privacy.share2', 'privacy.share3', 'privacy.share4', 'privacy.share5'],
   },
   {
     id: 'storage',

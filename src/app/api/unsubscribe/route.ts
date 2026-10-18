@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { unsubscribeNewsletter } from "@/lib/newsletter/subscribe";
+import { siteOrigin } from "@/lib/edition";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   }
   const outcome = await unsubscribeNewsletter(token);
   if (redirect) {
-    const dest = new URL("/unsubscribe", request.url);
+    const dest = new URL("/unsubscribe", siteOrigin()); // not request.url: that is localhost behind nginx
     dest.search = "";
     dest.searchParams.set("status", outcome === "unsubscribed" || outcome === "already" || outcome === "suppressed" ? "unsubscribed" : "invalid");
     return NextResponse.redirect(dest, 303);

@@ -29,6 +29,8 @@ import { T } from '@/lib/dict';
 import { Fallback, firstSentence } from '@/lib/i18n';
 
 export interface ProjectSliceData {
+  /** Set on home ranking cards to emit Umami card_click. */
+  trackPage?: string;
   id: string;
   slug: string;
   rank: number;
@@ -98,6 +100,9 @@ export function ProjectArchiveSlice({
      之前只有一个布尔量，而 imageUrl 为空时推导出来的 URL 和原 URL 是同一个 ——
      失败后重算得到同样的地址，于是永远停在裂图状态（例如仓库不存在，
      opengraph 返回 404）。 */
+  const cardTrack = project.trackPage
+    ? { "data-umami-event": "card_click", "data-umami-event-repo": project.fullName ?? project.slug, "data-umami-event-rank": String(project.rank), "data-umami-event-page": project.trackPage }
+    : {};
   const [imgStage, setImgStage] = useState<0 | 1 | 2>(0);
   const count = useCountUp(project.metric, visible);
 
@@ -187,7 +192,7 @@ export function ProjectArchiveSlice({
                   } as React.CSSProperties
                 }
               >
-                <Link href={`/p/${project.slug}`} data-discovery-target={project.slug} data-discovery-placement="grid">{project.name}</Link>
+                <Link href={`/p/${project.slug}`} data-discovery-target={project.slug} data-discovery-placement="grid" {...cardTrack}>{project.name}</Link>
               </h2>
 
               {/* 6. Hook —— step 包一层，保留原来的 700ms 入场错峰 */}
@@ -225,7 +230,7 @@ export function ProjectArchiveSlice({
                 <Link
                   href={`/p/${project.slug}`}
                   data-discovery-target={project.slug}
-                  data-discovery-placement="grid"
+                  data-discovery-placement="grid" {...cardTrack}
                   className="body min-h-11 inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-2)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)] hover:text-[var(--ink-1)]"
                 >
                   <T k="ts.open" as="span" fade={false} />
@@ -247,7 +252,7 @@ export function ProjectArchiveSlice({
               10%，仓库名两端正好被切掉（"heygen-com/hyperframes" 变成
               "eygen-com/ /yperframes"）—— 这就是用户看到的截图切字。
               容器改成 2:1 后，任何视口宽度下都不会再裁。 */}
-          <Link href={`/p/${project.slug}`} aria-label={project.name} data-discovery-target={project.slug} data-discovery-placement="grid" className="glass-1 block aspect-[2/1] w-full overflow-hidden">
+          <Link href={`/p/${project.slug}`} aria-label={project.name} data-discovery-target={project.slug} data-discovery-placement="grid" {...cardTrack} className="glass-1 block aspect-[2/1] w-full overflow-hidden">
             {src ? (
               <img
                 src={src}

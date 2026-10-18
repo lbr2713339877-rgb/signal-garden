@@ -15,7 +15,7 @@ const STATIC_PATHS = [
   '/archive',
   '/c',
   '/search',
-  '/pricing',
+  '/sponsor',
   '/privacy',
   '/terms',
   '/refund',

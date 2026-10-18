@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { V3Shell } from "@/components/v3/V3Shell";
 import { T, type DictKey } from "@/lib/dict";
 import { inspectConfirm } from "@/lib/newsletter/subscribe";
+import { TrackOnLoad } from "@/components/analytics/TrackOnLoad";
 
 export const metadata: Metadata = {
   title: "确认订阅 · Confirm",
@@ -32,6 +33,7 @@ export default async function ConfirmPage({
   return (
     <V3Shell>
       <main className="mx-auto max-w-[var(--container)] px-[var(--gutter)] pt-[clamp(120px,16vh,200px)] pb-[var(--section-gap)]">
+        {params.status === "confirmed" ? <TrackOnLoad event="subscribe_confirmed" /> : null}
         <T k="nl.kicker" as="p" className="system" fade={false} />
         <T k={(posted ?? fallback).title} as="h1" className="page-title mt-4 max-w-[16ch]" />
         <T k={(posted ?? fallback).body} as="p" className="body mt-6 max-w-[58ch] text-[var(--ink-2)]" />

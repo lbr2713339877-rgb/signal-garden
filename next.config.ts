@@ -2,6 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async redirects() {
+    return [
+      { source: "/pricing", destination: "/sponsor", permanent: true },
+      { source: "/pricing/:path*", destination: "/sponsor", permanent: true },
+      { source: "/subscription", destination: "/sponsor", permanent: true },
+      { source: "/subscription/:path*", destination: "/sponsor", permanent: true },
+    ];
+  },
   // PGlite ships a WASM binary; keep it external so Next does not try to
   // bundle it into the server build.
   serverExternalPackages: ["@electric-sql/pglite"],

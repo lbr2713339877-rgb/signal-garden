@@ -23,7 +23,10 @@ import { T, t, bi, both, type DictKey } from '@/lib/dict';
 import { Fallback, LANG } from '@/lib/i18n';
 import { ProjectActions } from '@/components/v3/ProjectActions';
 import { pickLocalizedCopy } from '@/lib/project-copy';
-import { projectPageMetadata } from '@/lib/page-meta';
+import { projectPageMetadata, projectBodySummary } from '@/lib/page-meta';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { githubCodeRepository, projectJsonLd } from '@/lib/jsonld';
+import { siteOrigin } from '@/lib/edition';
 
 export const revalidate = 0;
 
@@ -214,8 +217,22 @@ export default async function ProjectPageV3({
 
   /* ── 渲染 ──────────────────────────────────────────────────────────── */
 
+  const repoUrl = githubCodeRepository(p.primaryUrl, p.fullName);
+  const githubAttrs = /github\.com\//i.test(p.primaryUrl ?? '')
+    ? { 'data-umami-event': 'repo_outbound', 'data-umami-event-repo': p.fullName ?? p.slug }
+    : {};
+
   return (
     <V3Shell>
+      <JsonLd
+        data={projectJsonLd({
+          name: p.name,
+          description: projectBodySummary({ name: p.name, oneLinerZh, oneLinerEn }),
+          slug: p.slug,
+          codeRepository: repoUrl,
+          origin: siteOrigin(),
+        })}
+      />
       {/* ── 第一屏：抽象场景 ─────────────────────────────────────────── */}
       <section className="relative overflow-hidden px-[var(--gutter)] pt-28 pb-10">
         <div className="relative z-10 mx-auto w-full max-w-[var(--container)]">
@@ -258,6 +275,7 @@ export default async function ProjectPageV3({
               href={p.primaryUrl}
               target="_blank"
               rel="noreferrer noopener"
+              {...githubAttrs}
               className="body inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)]"
             >
               {isWebsite ? <LANG zh="打开官网" en="Visit the website" /> : <T k="pd.hero.openRepo" as="span" fade={false} />} <span aria-hidden>↗</span>
@@ -306,7 +324,7 @@ export default async function ProjectPageV3({
 
           <div className="mt-7 max-w-[880px]">
             {!isWebsite && <DetailInstall commands={installs} />}
-            <a href={p.primaryUrl} target="_blank" rel="noopener noreferrer" className="body mt-5 inline-block border-b border-[var(--glass-2-border)] pb-1"><LANG zh={isWebsite ? "打开官方体验入口" : "打开项目文档"} en={isWebsite ? "Visit the official site" : "Open project documentation"} /> ↗</a>
+            <a href={p.primaryUrl} target="_blank" rel="noopener noreferrer" {...githubAttrs} className="body mt-5 inline-block border-b border-[var(--glass-2-border)] pb-1"><LANG zh={isWebsite ? "打开官方体验入口" : "打开项目文档"} en={isWebsite ? "Visit the official site" : "Open project documentation"} /> ↗</a>
           </div>
 
           {!installs.length && (installHint.zh || installHint.en) ? (
@@ -443,6 +461,17 @@ export default async function ProjectPageV3({
               </pre>
             </details>
           </details>
+
+          <div className="mt-12 border-t border-[var(--glass-1-border)] pt-8">
+            <T k="pd.subscribe.kicker" as="p" className="system" fade={false} />
+            <T k="pd.subscribe.title" as="h2" className="editorial mt-4 max-w-[24ch] text-[var(--ink-1)]" />
+            <Link
+              href="/?utm_source=signalgarden&utm_medium=project_page&utm_campaign=subscribe#subscribe"
+              className="body mt-6 inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)]"
+            >
+              <T k="pd.subscribe.cta" as="span" fade={false} /> <span aria-hidden>→</span>
+            </Link>
+          </div>
 
           <div className="mt-12 flex flex-wrap gap-8">
             <Link

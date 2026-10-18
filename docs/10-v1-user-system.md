@@ -3,11 +3,11 @@
 ## 已实现
 
 - Supabase Auth：邮箱注册 / 登录 / 忘记密码 / Google OAuth / 登出
-- 页面：`/login`、`/auth/callback`、`/onboarding`、`/my-garden`、`/subscription`
+- 页面：`/login`、`/auth/callback`、`/onboarding`、`/my-garden`。`/pricing` 与 `/subscription` 永久跳转到 `/sponsor`
 - 数据表：`profiles`、`user_preferences`、`saved_projects`、`follows`、`subscriptions`
 - API：`/api/preferences`、`/api/saved`、`/api/follow`
-- 收藏 / 关注限制：Free 20 / 10，Pro 无限制
-- Stripe：`/api/stripe/checkout`、`/api/stripe/webhook`（当前为 sample，接密钥即生效）
+- 收藏 / 关注有数量上限；达到上限时页面只说明已到上限
+- Stripe：`/api/stripe/checkout`、`/api/stripe/webhook` 仍在，没有公开入口
 - 顶部导航：未登录显示 Sign In，登录后显示头像菜单
 
 ## 需要在 Supabase Dashboard 配置
@@ -47,7 +47,9 @@ pm2 restart signal-garden
 
 ## Stripe 接入
 
-1. 在 Stripe 创建 Pro 订阅价格，填 `STRIPE_PRO_PRICE_ID`
+公开站点不再出售订阅。下面只在重新接通后台时使用。
+
+1. 在 Stripe 创建订阅价格，填 `STRIPE_PRO_PRICE_ID`
 2. Webhook 指向 `https://YOUR_VPS_HOST_OR_DOMAIN/api/stripe/webhook`
 3. 订阅事件：`checkout.session.completed`、`customer.subscription.updated`、`customer.subscription.deleted`
 

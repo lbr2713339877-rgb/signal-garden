@@ -31,9 +31,9 @@ test("rss lists the edition lead first with absolute project links and the editi
   assert.match(xml, /application\/rss\+xml/);
   assert.match(xml, /Alpha &amp; Beta/);
   assert.match(xml, /打开 &lt;工具&gt;/);
-  assert.match(xml, /<link>https:\/\/signalgarden\.site\/p\/alpha<\/link>/);
+  assert.match(xml, /<link>https:\/\/signalgarden\.site\/p\/alpha\?utm_source=rss<\/link>/);
   assert.match(xml, /<guid isPermaLink="false">https:\/\/signalgarden\.site\/p\/alpha#2026-10-16<\/guid>/);
-  assert.match(xml, /<link>https:\/\/signalgarden\.site\/today<\/link>/);
+  assert.match(xml, /<link>https:\/\/signalgarden\.site\/\?utm_source=rss<\/link>/);
   assert.match(xml, /href="https:\/\/signalgarden\.site\/feed\.xml"/);
   assert.match(xml, /Fri, 16 Oct 2026 00:00:00 GMT/);
   assert.match(xml, /hook line/);
