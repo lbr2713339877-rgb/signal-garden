@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import Script from "next/script";
 import { useLang } from "@/components/ui/Lang";
 import { T, t } from "@/lib/dict";
 import { newsletterFormEnabled } from "@/lib/newsletter/flags";
 import { currentUtmSource, trackEvent } from "@/components/analytics/track";
+import { loadTurnstile } from "./turnstile-widget";
+
+function subscribeErrorCode(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return /^[a-z0-9-]{1,48}$/.test(raw) ? raw : "failed";
+}
 
 export function NewsletterSignup({ source }: { source: "home" | "today" | "footer" }) {
   const enabled = newsletterFormEnabled();
@@ -27,15 +32,52 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
   const lang = useLang();
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
+  const [token, setToken] = useState("");
   const [message, setMessage] = useState<"idle" | "ok" | "invalid_email" | "too_fast" | "turnstile" | "rate_limited">("idle");
   const [pending, setPending] = useState(false);
   const [started] = useState(() => Date.now());
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const widgetRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    if (!siteKey) return;
+    const element = widgetRef.current;
+    if (!element) return;
+    let active = true;
+    loadTurnstile()
+      .then((turnstile) => {
+        if (!active || !widgetRef.current) return;
+        const widgetId = turnstile.render(widgetRef.current, {
+          sitekey: siteKey,
+          callback: setToken,
+          "expired-callback": () => setToken(""),
+          "error-callback": () => setToken(""),
+        });
+        widgetIdRef.current = widgetId;
+      })
+      .catch((error) => {
+        console.error("[turnstile] widget failed", error);
+        setToken("");
+      });
+    return () => {
+      active = false;
+      const widgetId = widgetIdRef.current;
+      widgetIdRef.current = null;
+      if (widgetId && window.turnstile) {
+        try {
+          window.turnstile.remove(widgetId);
+        } catch {
+          /* widget already removed */
+        }
+      }
+    };
+  }, [siteKey]);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (siteKey && !token) return;
     setPending(true);
-    const token = document.querySelector<HTMLInputElement>("[name='cf-turnstile-response']")?.value ?? "";
     try {
       const response = await fetch("/api/subscribe", {
         method: "POST",
@@ -56,19 +98,35 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
         setMessage("rate_limited");
         trackEvent("subscribe_error", { reason: "rate_limited" });
       } else {
-        const body = await response.json().catch(() => null) as { error?: string } | null;
+        const body = await response.json().catch(() => null) as { error?: string; code?: string } | null;
         const error = body?.error;
-        const reason = error === "too_fast" || error === "turnstile" ? error : "invalid_email";
-        setMessage(reason);
-        trackEvent("subscribe_error", { reason: error === reason ? reason : `${reason}:${String(error ?? response.status).slice(0, 20)}` });
+        if (error === "turnstile") {
+          setMessage("turnstile");
+          trackEvent("subscribe_error", { reason: `turnstile:${subscribeErrorCode(body?.code)}` });
+        } else {
+          const reason = error === "too_fast" ? "too_fast" : "invalid_email";
+          setMessage(reason);
+          trackEvent("subscribe_error", { reason: error === reason ? reason : `${reason}:${String(error ?? response.status).slice(0, 20)}` });
+        }
       }
     } catch {
       setMessage("invalid_email");
       trackEvent("subscribe_error", { reason: "network" });
     } finally {
+      setToken("");
+      const widgetId = widgetIdRef.current;
+      if (widgetId && window.turnstile) {
+        try {
+          window.turnstile.reset(widgetId);
+        } catch {
+          /* widget already removed */
+        }
+      }
       setPending(false);
     }
   }
+
+  const needsToken = siteKey.length > 0 && token.length === 0;
 
   return (
     <form onSubmit={onSubmit} className="max-w-[520px]">
@@ -92,16 +150,11 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
           placeholder={t(lang, "newsletter.placeholder")}
           className="body min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
         />
-        <button type="submit" className="action-primary" disabled={pending}>
+        <button type="submit" className="action-primary" disabled={pending || needsToken}>
           <T k="newsletter.submit" as="span" fade={false} />
         </button>
       </div>
-      {siteKey ? (
-        <>
-          <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
-          <div className="cf-turnstile mt-4" data-sitekey={siteKey} />
-        </>
-      ) : null}
+      {siteKey ? <div ref={widgetRef} className="mt-4" /> : null}
       <p className="data mt-3 text-[var(--ink-3)]">
         <T k="newsletter.privacy" as="span" fade={false} />{" "}
         <Link href="/privacy" className="underline">

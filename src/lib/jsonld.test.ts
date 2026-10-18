@@ -26,6 +26,10 @@ test("site graph is WebSite + Organization, with SearchAction only when search e
   assert.equal(graph[1].name, "Signal Garden");
   assert.equal(graph[1].url, ORIGIN);
   assert.equal(graph[1].email, "hello@signalgarden.site");
+  const logo = graph[1].logo as { "@type": string; url: string };
+  assert.equal(logo["@type"], "ImageObject");
+  assert.equal(logo.url, `${ORIGIN}/logo-email.png`);
+  assert.deepEqual(graph[1].sameAs, ["https://github.com/lbr2713339877-rgb/signal-garden"]);
 
   const without = siteJsonLd({ origin: ORIGIN, search: false });
   const site = (without["@graph"] as Record<string, unknown>[])[0];
@@ -39,9 +43,12 @@ test("today ItemList ranks repos with position, project url, and name", () => {
       { name: "Gamma", slug: "a b" },
     ],
     ORIGIN,
+    "2026-10-18",
   );
   const items = data.itemListElement as Record<string, unknown>[];
   assert.equal(data["@type"], "ItemList");
+  assert.equal(data.name, "Signal Garden — Today 2026-10-18");
+  assert.equal(data.url, "https://signalgarden.site/today");
   assert.equal(items[0]["@type"], "ListItem");
   assert.equal(items[0].position, 1);
   assert.equal(items[0].name, "Alpha <Beta>");
@@ -57,6 +64,10 @@ test("project JSON-LD is SoftwareSourceCode plus a breadcrumb", () => {
     slug: "oil-ui",
     codeRepository: "https://github.com/acme/oil-ui",
     origin: ORIGIN,
+    programmingLanguage: "TypeScript",
+    license: "MIT",
+    author: "acme",
+    forks7d: 12,
   });
   const graph = data["@graph"] as Record<string, unknown>[];
   assert.equal(graph[0]["@type"], "SoftwareSourceCode");
@@ -64,6 +75,10 @@ test("project JSON-LD is SoftwareSourceCode plus a breadcrumb", () => {
   assert.equal(graph[0].description, "把界面方案摆到一起。");
   assert.equal(graph[0].codeRepository, "https://github.com/acme/oil-ui");
   assert.equal(graph[0].url, "https://signalgarden.site/p/oil-ui");
+  assert.equal(graph[0].programmingLanguage, "TypeScript");
+  assert.equal(graph[0].license, "MIT");
+  assert.deepEqual(graph[0].author, { "@type": "Person", name: "acme", url: "https://github.com/acme" });
+  assert.deepEqual(graph[0].additionalProperty, { "@type": "PropertyValue", name: "7-day new forks", value: 12 });
   assert.equal(graph[1]["@type"], "BreadcrumbList");
   const crumbs = graph[1].itemListElement as Record<string, unknown>[];
   assert.deepEqual(crumbs.map((c) => c.position), [1, 2, 3]);
@@ -83,6 +98,10 @@ test("codeRepository is a GitHub URL and is omitted otherwise", () => {
   });
   const code = (data["@graph"] as Record<string, unknown>[])[0];
   assert.equal("codeRepository" in code, false);
+  assert.equal("programmingLanguage" in code, false);
+  assert.equal("license" in code, false);
+  assert.equal("author" in code, false);
+  assert.equal("additionalProperty" in code, false);
 });
 
 test("json-ld escapes < so a value cannot close the script tag", () => {

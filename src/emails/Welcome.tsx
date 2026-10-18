@@ -12,15 +12,15 @@ export interface DigestWelcomeProps {
 
 export function welcomeSubject(locale: EmailLocale): string {
   return locale === "en"
-    ? "You're subscribed to Signal Garden"
-    : "你已订阅 Signal Garden 每日精选";
+    ? "You're subscribed to the Signal Garden Monday weekly digest"
+    : "你已订阅 Signal Garden 每周一周刊";
 }
 
 export function WelcomeDigestEmail({ locale, todayUrl, unsubscribeUrl, siteUrl }: DigestWelcomeProps) {
   const en = locale === "en";
   const preview = en
-    ? "Your daily digest starts with the next published edition."
-    : "下一期每日精选发布后会发到这个地址。";
+    ? "The Monday weekly digest arrives on Monday."
+    : "每周一周刊会在周一发到这个地址。";
   return (
     <NewsletterFrame locale={locale} preview={preview} siteUrl={siteUrl} unsubscribeUrl={unsubscribeUrl}>
       <Heading as="h1" className="text-ink m-0 text-[26px] font-normal leading-8">
@@ -28,8 +28,8 @@ export function WelcomeDigestEmail({ locale, todayUrl, unsubscribeUrl, siteUrl }
       </Heading>
       <Text className="text-muted mt-4 text-[15px] leading-7">
         {en
-          ? "The daily digest arrives after an edition is published. Every letter has an unsubscribe link, and we do not track opens or clicks."
-          : "每日精选会在当天榜单发布后寄出。每封信都可以退订。我们不追踪打开和点击。"}
+          ? "The Monday weekly digest arrives on Monday. Every letter has an unsubscribe link, and we do not track opens or clicks."
+          : "每周一周刊会在周一寄出。每封信都可以退订。我们不追踪打开和点击。"}
       </Text>
       <Button
         href={todayUrl}

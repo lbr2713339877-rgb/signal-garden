@@ -826,7 +826,7 @@ export const jobRun = pgTable(
 );
 
 /**
- * Double opt-in list for the daily digest.
+ * Double opt-in list for the Monday weekly digest.
  * `email` is lowercase text (PGlite has no citext). After unsubscribe it is
  * cleared within 30 days; `email_hash` stays so the address is not treated as new.
  */

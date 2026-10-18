@@ -23,9 +23,9 @@ export function mailCopy(locale: EmailLocale) {
     en,
     lang: en ? "en" : "zh-CN",
     reason: en
-      ? "You're receiving this email because you subscribed to the Signal Garden daily digest."
-      : "你收到这封邮件，是因为你订阅了 Signal Garden 的每日精选。",
-    unsubscribe: en ? "Unsubscribe from the daily digest" : "退订每日精选",
+      ? "You're receiving this email because you subscribed to the Signal Garden Monday weekly digest."
+      : "你收到这封邮件，是因为你订阅了 Signal Garden 的每周一周刊。",
+    unsubscribe: en ? "Unsubscribe from the Monday weekly digest" : "退订每周一周刊",
     entity: "Signal Garden",
     tagline: en ? "Less noise. More signal." : "Less noise. More signal.",
   };

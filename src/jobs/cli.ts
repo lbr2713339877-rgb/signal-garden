@@ -5,7 +5,7 @@
  *   pnpm job enrich   [--limit 300] [--meta-only]
  *   pnpm job pipeline               # discover, then enrich
  *   pnpm job report
- *   pnpm job newsletter          # daily digest; not part of `daily`
+ *   pnpm job newsletter          # Monday weekly digest; not part of `daily`
  */
 
 import { loadLocalEnv } from "@/lib/env";

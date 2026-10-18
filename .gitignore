@@ -27,6 +27,7 @@ drizzle/meta/_journal.json.bak
 
 # OS
 .DS_Store
+._*
 *.pem
 
 # Logs

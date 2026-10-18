@@ -231,6 +231,10 @@ export default async function ProjectPageV3({
           slug: p.slug,
           codeRepository: repoUrl,
           origin: siteOrigin(),
+          programmingLanguage: p.language,
+          license: p.license,
+          author: p.owner,
+          forks7d: p.forks7d,
         })}
       />
       {/* ── 第一屏：抽象场景 ─────────────────────────────────────────── */}

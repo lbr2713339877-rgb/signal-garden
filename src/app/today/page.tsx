@@ -44,7 +44,7 @@ export default async function TodayPage() {
 
   return (
     <V3Shell>
-      <JsonLd data={todayItemList(cards.map((card) => ({ name: card.name, slug: card.slug })), siteOrigin())} />
+      <JsonLd data={todayItemList(cards.map((card) => ({ name: card.name, slug: card.slug })), siteOrigin(), date)} />
       <div className="mx-auto max-w-[var(--container)] px-[var(--gutter)] pt-28 pb-[var(--section-gap)]">
         {/* 页头 */}
         <T k={isPrevious ? 'home.latestEdition' : 'pg.today.kicker'} as="p" className="system" fade={false} />

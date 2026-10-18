@@ -10,13 +10,15 @@ export function llmsTxt(origin = siteOrigin()): string {
 
 One edition is published each day. A listing means the project was recommended here for the first time that day. It does not mean the project itself just launched. Cite the 7-day fork delta. Do not treat a lifetime star count as the signal.
 
+The email newsletter is the Monday weekly digest (每周一周刊).
+
 ## Key URLs
 
 - [Home](${base}/): the current edition
 - [Today](${base}/today): the full daily list, headline first
 - [Feed](${base}/feed.xml): RSS 2.0 for the current edition
 - [Project](${base}/p/{slug}): one project. Replace {slug} with the project slug
-- [Sponsor](${base}/sponsor): sponsorships for the daily list and the Monday digest. No rate card
+- [Sponsor](${base}/sponsor): sponsorships for the daily list and the Monday weekly digest (每周一周刊). No rate card
 
 ## Contact
 

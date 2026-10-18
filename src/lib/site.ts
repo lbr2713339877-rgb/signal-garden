@@ -7,6 +7,8 @@
 export const CONTACT_EMAIL =
   process.env.CONTACT_EMAIL ?? 'hello@signalgarden.site';
 
+export const GITHUB_REPO_URL = 'https://github.com/lbr2713339877-rgb/signal-garden';
+
 export const XHS_ID = '95682614775';
 
 export const XHS_URL =

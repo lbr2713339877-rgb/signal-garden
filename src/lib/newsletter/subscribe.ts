@@ -28,7 +28,8 @@ import { newsletterSendMode, newsletterTransport, type MailTransport } from "./t
 
 export type SubscribeResult =
   | { ok: true; sent: boolean }
-  | { ok: false; error: "invalid_email" | "too_fast" | "turnstile" | "rate_limited" };
+  | { ok: false; error: "invalid_email" | "too_fast" | "rate_limited" }
+  | { ok: false; error: "turnstile"; code: string };
 
 export interface SubscribeInput {
   email: unknown;
@@ -93,7 +94,7 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
     secret: input.turnstileSecret,
     ip: input.ip,
   });
-  if (turnstile === "failed") return { ok: false, error: "turnstile" };
+  if (turnstile.status === "failed") return { ok: false, error: "turnstile", code: turnstile.code };
 
   const ipKey = sha256(`ip:${input.ip ?? "unknown"}`);
   const ipAllowed = await allowRate({
