@@ -64,7 +64,7 @@ test("mock transport logs one message per idempotency key and keeps From and Rep
   const headers = listUnsubscribeHeaders(site, token);
   const mail = {
     to: "reader@example.com",
-    subject: "Signal Garden daily digest",
+    subject: "Signal Garden Monday weekly digest",
     html: "<p>hi</p>",
     text: "hi",
     headers,

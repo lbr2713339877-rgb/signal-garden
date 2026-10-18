@@ -1,4 +1,8 @@
 import { ImageResponse } from 'next/og';
+import { ogFont } from '@/lib/og/font';
+
+export const runtime = 'nodejs';
+export const revalidate = 86400;
 export const alt = 'Signal Garden — 每天 5 分钟，从全网噪音里筛出值得打开的开发者项目。';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
@@ -16,7 +20,7 @@ export default async function Image() {
           background: '#030303',
           color: '#f2f0ea',
           padding: '72px 80px',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: 'Noto Sans SC',
         }}
       >
         <div
@@ -58,6 +62,9 @@ export default async function Image() {
         </div>
       </div>
     ),
-    size,
+    {
+      ...size,
+      fonts: [{ name: 'Noto Sans SC', data: ogFont(), weight: 400, style: 'normal' }],
+    },
   );
 }

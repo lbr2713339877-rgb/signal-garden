@@ -12,6 +12,9 @@ test("llms.txt names the site, the daily URLs, fork deltas, languages, and conta
   assert.match(text, /7-day fork delta/);
   assert.match(text, /not a lifetime star count|Do not treat a lifetime star count/);
   assert.match(text, /中文 \/ English/);
+  assert.match(text, /Monday weekly digest/);
+  assert.match(text, /每周一周刊/);
+  assert.match(text, /daily discovery site/);
   assert.match(text, /hello@signalgarden\.site/);
   assert.match(text, /robots\.txt allows \//);
 });

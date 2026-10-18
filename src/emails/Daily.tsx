@@ -21,8 +21,8 @@ export interface DailyEmailProps {
 
 export function dailySubject(locale: EmailLocale, date: string): string {
   return locale === "en"
-    ? `Signal Garden daily digest · ${date}`
-    : `Signal Garden 每日精选 · ${date}`;
+    ? `Signal Garden Monday weekly digest · ${date}`
+    : `Signal Garden 每周一周刊 · ${date}`;
 }
 
 function forkLine(locale: EmailLocale, forks7d: number | null): string {

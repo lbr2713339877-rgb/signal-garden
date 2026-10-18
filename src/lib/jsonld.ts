@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL } from "@/lib/site";
+import { CONTACT_EMAIL, GITHUB_REPO_URL } from "@/lib/site";
 import { pageUrl, projectPath } from "@/lib/page-meta";
 import { siteOrigin } from "@/lib/edition";
 
@@ -19,6 +19,11 @@ export function organizationJsonLd(origin = siteOrigin()): Record<string, unknow
     name: "Signal Garden",
     url: origin,
     email: CONTACT_EMAIL,
+    logo: {
+      "@type": "ImageObject",
+      url: pageUrl("/logo-email.png", origin),
+    },
+    sameAs: [GITHUB_REPO_URL],
   };
 }
 
@@ -58,14 +63,21 @@ export function siteJsonLd(options?: { origin?: string; search?: boolean }): Rec
   };
 }
 
+export function todayListName(date?: string | null): string {
+  const value = typeof date === "string" ? date.slice(0, 10) : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `Signal Garden — Today ${value}` : "Signal Garden — Today";
+}
+
 export function todayItemList(
   items: { name: string; slug: string }[],
   origin = siteOrigin(),
+  date?: string | null,
 ): Record<string, unknown> {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "Today",
+    name: todayListName(date),
+    url: pageUrl("/today", origin),
     itemListElement: items.map((item, index) => ({
       "@type": "ListItem",
       position: index + 1,
@@ -88,12 +100,23 @@ export function githubCodeRepository(
   return null;
 }
 
+function textOrNull(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || /^(unknown|none|n\/a|noassertion)$/i.test(trimmed)) return null;
+  return trimmed;
+}
+
 export function projectJsonLd(input: {
   name: string;
   description: string;
   slug: string;
   codeRepository?: string | null;
   origin?: string;
+  programmingLanguage?: string | null;
+  license?: string | null;
+  author?: string | null;
+  forks7d?: number | null;
 }): Record<string, unknown> {
   const origin = input.origin ?? siteOrigin();
   const url = pageUrl(projectPath(input.slug), origin);
@@ -104,6 +127,23 @@ export function projectJsonLd(input: {
     url,
   };
   if (input.codeRepository) code.codeRepository = input.codeRepository;
+  const language = textOrNull(input.programmingLanguage);
+  if (language) code.programmingLanguage = language;
+  const license = textOrNull(input.license);
+  if (license) code.license = license;
+  const author = textOrNull(input.author);
+  if (author) {
+    const person: Record<string, unknown> = { "@type": "Person", name: author };
+    if (/^[\w.-]+$/.test(author)) person.url = `https://github.com/${author}`;
+    code.author = person;
+  }
+  if (typeof input.forks7d === "number" && Number.isFinite(input.forks7d)) {
+    code.additionalProperty = {
+      "@type": "PropertyValue",
+      name: "7-day new forks",
+      value: Math.trunc(input.forks7d),
+    };
+  }
   return {
     "@context": "https://schema.org",
     "@graph": [
