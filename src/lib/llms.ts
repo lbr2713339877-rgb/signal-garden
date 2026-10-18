@@ -16,6 +16,7 @@ One edition is published each day. A listing means the project was recommended h
 - [Today](${base}/today): the full daily list, headline first
 - [Feed](${base}/feed.xml): RSS 2.0 for the current edition
 - [Project](${base}/p/{slug}): one project. Replace {slug} with the project slug
+- [Sponsor](${base}/sponsor): sponsorships for the daily list and the Monday digest. No rate card
 
 ## Contact
 

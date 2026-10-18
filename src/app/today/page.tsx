@@ -17,10 +17,12 @@ import { SpaceRow } from '@/components/v3/category/CategorySpace';
 import { categoryColor, categoryLabelEn } from '@/components/v3/category-color';
 import { getFeedEdition } from '@/db/queries';
 import { T } from '@/lib/dict';
-import { TODAY_LIMIT } from '@/lib/edition';
-import { firstSentence, Fallback } from '@/lib/i18n';
+import { TODAY_LIMIT, siteOrigin } from '@/lib/edition';
+import { Fallback } from '@/lib/i18n';
 import { NewsletterSignup } from '@/components/v3/NewsletterForm';
 import { todayPageMetadata } from '@/lib/page-meta';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { todayItemList } from '@/lib/jsonld';
 
 export const metadata: Metadata = todayPageMetadata();
 export const revalidate = 0;
@@ -42,6 +44,7 @@ export default async function TodayPage() {
 
   return (
     <V3Shell>
+      <JsonLd data={todayItemList(cards.map((card) => ({ name: card.name, slug: card.slug })), siteOrigin())} />
       <div className="mx-auto max-w-[var(--container)] px-[var(--gutter)] pt-28 pb-[var(--section-gap)]">
         {/* 页头 */}
         <T k={isPrevious ? 'home.latestEdition' : 'pg.today.kicker'} as="p" className="system" fade={false} />
@@ -67,7 +70,7 @@ export default async function TodayPage() {
               <T k="pg.today.headline" as="span" fade={false} />
             </p>
 
-            <Link href={`/p/${headline.slug}`} className="group mt-6 block">
+            <Link href={`/p/${headline.slug}`} className="group mt-6 block" data-umami-event="card_click" data-umami-event-repo={headline.fullName ?? headline.slug} data-umami-event-rank="1" data-umami-event-page="today">
               <h2 className="page-title max-w-[28ch] transition-colors duration-[var(--d-micro)] group-hover:text-[var(--ink-2)]">
                 {headline.name}
               </h2>
@@ -125,6 +128,7 @@ export default async function TodayPage() {
                   category={categoryLabelEn(c.primaryCategory)}
                   accent={categoryColor(c.primaryCategory)}
                   isVerified={c.isVerifiedSkill}
+                  track={{ repo: c.fullName ?? c.slug, rank: i + (headline ? 2 : 1), page: 'today' }}
                 />
               ))}
             </div>

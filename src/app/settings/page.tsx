@@ -77,6 +77,7 @@ export default function SettingsPage() {
           <T k="pg.set.emailBody" as="p" className="body mt-4 max-w-[54ch] text-[var(--ink-2)]" />
           <Link
             href="/feed.xml"
+            data-umami-event="rss_click"
             className="system mt-5 inline-flex min-h-11 items-center text-[var(--ink-3)] transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]"
           >
             <T k="pg.set.feedLink" as="span" fade={false} /> <span aria-hidden>→</span>

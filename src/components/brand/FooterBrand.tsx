@@ -41,6 +41,13 @@ export function FooterBrand({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
             <T k="footer.contact" as="span" fade={false} />
             <span aria-hidden> →</span>
           </a>
+          <Link
+            href="/sponsor?utm_source=signalgarden&utm_medium=footer&utm_campaign=sponsor"
+            className="data text-[var(--ink-2)] transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]"
+          >
+            <T k="footer.sponsor" as="span" fade={false} />
+            <span aria-hidden> →</span>
+          </Link>
           <a
             href={XHS_URL}
             target="_blank"
@@ -53,7 +60,6 @@ export function FooterBrand({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
 
           <div className="flex flex-wrap gap-x-2 gap-y-2 md:justify-end">
             {([
-              ['/pricing', 'pricing.title'],
               ['/privacy', 'privacy.title'],
               ['/terms', 'terms.title'],
               ['/refund', 'refund.title'],

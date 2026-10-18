@@ -9,7 +9,6 @@ const MENU: { href: string; k: DictKey }[] = [
   { href: '/my-garden', k: 'nav.myGarden' },
   { href: '/saved', k: 'nav.saved' },
   { href: '/settings', k: 'nav.settings' },
-  { href: '/settings#subscription', k: 'nav.subscription' },
 ];
 
 export function UserMenu() {

@@ -17,7 +17,7 @@ export async function TodaySignals({ limit = TODAY_LIMIT }: { limit?: number }) 
   const projects: ProjectSliceData[] = cards.map((card, index) => {
     const categoryKey = card.primaryCategory ?? 'dev-tools';
     return {
-      id: card.id, slug: card.slug, rank: index + 1, name: card.name, fullName: card.fullName,
+      trackPage: 'home', id: card.id, slug: card.slug, rank: index + 1, name: card.name, fullName: card.fullName,
       hook: { zh: card.hook, en: card.hookEn },
       oneLiner: { zh: card.oneLiner, en: card.oneLinerEn ?? card.description },
       metric: card.forks7d ?? card.stars24h ?? 0,

@@ -41,7 +41,7 @@ export function toFeedChannel(input: {
   const cards = input.cards.slice(0, TODAY_LIMIT);
   return {
     title: "Signal Garden — 今日信号",
-    link: `${origin}/today`,
+    link: `${origin}/?utm_source=rss`,
     self: `${origin}/feed.xml`,
     description: "每天从公开信号里筛出值得打开的开发者项目。",
     language: "zh-CN",
@@ -50,7 +50,7 @@ export function toFeedChannel(input: {
       const path = `${origin}/p/${encodeURIComponent(card.slug)}`;
       return {
         title: card.name,
-        link: path,
+        link: `${path}?utm_source=rss`, // guid stays the bare path so readers keep deduping
         description: summary(card),
         pubDate: publishedAt,
         guid: input.date ? `${path}#${input.date}` : path,

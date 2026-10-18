@@ -29,7 +29,7 @@ const LINKS: { href: string; zhKey: DictKey; enLabel: string }[] = [
   { href: '/c', zhKey: 'nav.categories', enLabel: 'CATEGORIES' },
   { href: '/search', zhKey: 'nav.search', enLabel: 'SEARCH' },
   { href: '/saved', zhKey: 'nav.saved', enLabel: 'SAVED' },
-  { href: '/pricing', zhKey: 'pricing.title', enLabel: 'PRICING' },
+  { href: '/sponsor', zhKey: 'nav.sponsor', enLabel: 'SPONSOR' },
 ];
 
 export function V3Nav() {

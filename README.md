@@ -40,7 +40,7 @@ Secrets the live site may use (all optional for a local read-only run):
 - `GITHUB_TOKEN` — higher GitHub API rate limit
 - `RESEND_API_KEY`, `NEWSLETTER_*`, Turnstile keys — email signup
 - `NEXT_PUBLIC_ANALYTICS_*` — Umami / Plausible snippet
-- Supabase / Stripe — account and Pro features
+- Supabase — accounts. Stripe routes remain in the API and have no public page.
 
 See comments in `.env.example` for the full list.
 

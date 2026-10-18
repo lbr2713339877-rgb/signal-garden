@@ -56,9 +56,6 @@ export default async function MyGardenPage() {
         <T k="pg.garden.kicker" as="p" className="system text-[var(--ink-4)]" fade={false} />
         <T k="pg.garden.title" as="h1" className="display-xl mt-6" />
         <div className="mt-8 flex gap-6 text-[var(--ink-3)]">
-          <Link href="/subscription" className="system hover:text-[var(--ink-1)]">
-            <T k="pg.garden.subscription" as="span" fade={false} />
-          </Link>
           <Link href="/saved" className="system hover:text-[var(--ink-1)]">
             <T k="pg.garden.localSaves" as="span" fade={false} />
           </Link>
