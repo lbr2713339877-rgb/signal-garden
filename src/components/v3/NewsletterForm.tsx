@@ -6,7 +6,8 @@ import { useLang } from "@/components/ui/Lang";
 import { T, t } from "@/lib/dict";
 import { newsletterFormEnabled } from "@/lib/newsletter/flags";
 import { currentUtmSource, trackEvent } from "@/components/analytics/track";
-import { loadTurnstile } from "./turnstile-widget";
+import { loadTurnstile, scheduleTurnstileRender } from "./turnstile-widget";
+import { SUBSCRIBE_ID, SUBSCRIBE_SCROLL_MARGIN_PX } from "@/lib/subscribe-scroll";
 
 function subscribeErrorCode(value: unknown): string {
   const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -22,7 +23,11 @@ export function NewsletterSignup({ source }: { source: "home" | "today" | "foote
       ? "mt-16 max-w-[520px] border-t border-[var(--glass-1-border)] pt-10"
       : "mt-8 max-w-[360px]";
   return (
-    <section id={source === "home" ? "subscribe" : undefined} className={frame}>
+    <section
+      id={source === "home" ? SUBSCRIBE_ID : undefined}
+      className={frame}
+      style={source === "home" ? { scrollMarginTop: SUBSCRIBE_SCROLL_MARGIN_PX } : undefined}
+    >
       {enabled ? <NewsletterForm source={source} /> : null}
     </section>
   );
@@ -42,26 +47,30 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
 
   useEffect(() => {
     if (!siteKey) return;
-    const element = widgetRef.current;
-    if (!element) return;
     let active = true;
-    loadTurnstile()
-      .then((turnstile) => {
-        if (!active || !widgetRef.current) return;
-        const widgetId = turnstile.render(widgetRef.current, {
-          sitekey: siteKey,
-          callback: setToken,
-          "expired-callback": () => setToken(""),
-          "error-callback": () => setToken(""),
-        });
-        widgetIdRef.current = widgetId;
-      })
-      .catch((error) => {
-        console.error("[turnstile] widget failed", error);
-        setToken("");
-      });
+    const job = scheduleTurnstileRender({
+      getHost: () => widgetRef.current,
+      render: (host) => {
+        if (!active || widgetIdRef.current) return;
+        loadTurnstile()
+          .then((turnstile) => {
+            if (!active || widgetIdRef.current || widgetRef.current !== host) return;
+            widgetIdRef.current = turnstile.render(host, {
+              sitekey: siteKey,
+              callback: setToken,
+              "expired-callback": () => setToken(""),
+              "error-callback": () => setToken(""),
+            });
+          })
+          .catch((error) => {
+            console.error("[turnstile] widget failed", error);
+            setToken("");
+          });
+      },
+    });
     return () => {
       active = false;
+      job.cancel();
       const widgetId = widgetIdRef.current;
       widgetIdRef.current = null;
       if (widgetId && window.turnstile) {

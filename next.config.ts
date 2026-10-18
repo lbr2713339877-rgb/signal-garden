@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
       { source: "/pricing/:path*", destination: "/sponsor", permanent: true },
       { source: "/subscription", destination: "/sponsor", permanent: true },
       { source: "/subscription/:path*", destination: "/sponsor", permanent: true },
+      { source: "/subscribe", destination: "/#subscribe", permanent: true },
+      { source: "/subscribe/", destination: "/#subscribe", permanent: true },
+      { source: "/newsletter", destination: "/#subscribe", permanent: true },
+      { source: "/newsletter/", destination: "/#subscribe", permanent: true },
     ];
   },
   // PGlite ships a WASM binary; keep it external so Next does not try to

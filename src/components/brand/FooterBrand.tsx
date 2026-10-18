@@ -10,6 +10,7 @@ import { BrandLogo } from './BrandLogo';
 import { T, type DictKey } from '@/lib/dict';
 import { CONTACT_EMAIL, XHS_ID, XHS_URL } from '@/lib/site';
 import { NewsletterSignup } from '@/components/v3/NewsletterForm';
+import { SubscribeLink } from '@/components/v3/SubscribeLink';
 
 export function FooterBrand({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
   return (
@@ -27,6 +28,13 @@ export function FooterBrand({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
 
         <div className="flex flex-col gap-3 md:items-end">
           <T k="footer.note" as="p" className="system" fade={false} />
+          <SubscribeLink
+            medium="footer"
+            className="data text-[var(--ink-2)] transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]"
+          >
+            <T k="pd.subscribe.cta" as="span" fade={false} />
+            <span aria-hidden> →</span>
+          </SubscribeLink>
           <Link
             href="/status"
             className="data text-[var(--ink-2)] transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]"

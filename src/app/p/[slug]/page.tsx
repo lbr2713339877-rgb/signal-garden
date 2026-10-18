@@ -27,6 +27,7 @@ import { projectPageMetadata, projectBodySummary } from '@/lib/page-meta';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { githubCodeRepository, projectJsonLd } from '@/lib/jsonld';
 import { siteOrigin } from '@/lib/edition';
+import { SubscribeLink } from '@/components/v3/SubscribeLink';
 
 export const revalidate = 0;
 
@@ -469,12 +470,12 @@ export default async function ProjectPageV3({
           <div className="mt-12 border-t border-[var(--glass-1-border)] pt-8">
             <T k="pd.subscribe.kicker" as="p" className="system" fade={false} />
             <T k="pd.subscribe.title" as="h2" className="editorial mt-4 max-w-[24ch] text-[var(--ink-1)]" />
-            <Link
-              href="/?utm_source=signalgarden&utm_medium=project_page&utm_campaign=subscribe#subscribe"
+            <SubscribeLink
+              medium="project_page"
               className="body mt-6 inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)]"
             >
               <T k="pd.subscribe.cta" as="span" fade={false} /> <span aria-hidden>→</span>
-            </Link>
+            </SubscribeLink>
           </div>
 
           <div className="mt-12 flex flex-wrap gap-8">
