@@ -41,5 +41,10 @@ next-env.d.ts
 # Vercel
 .vercel
 
-# Isolated local design review data and captures
-tmp/local-review/
+# Local workspace clutter (not part of the app)
+.claude/
+tmp/
+videos/
+codex-*.png
+Codex *.png
+._*
