@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { siteOrigin } from "@/lib/edition";
 import { firstSentence } from "@/lib/i18n";
+import { RANKING_ZH_SHORT } from "@/lib/site";
 
 /**
  * Root layout sets canonical and openGraph to "/". Next.js replaces those
@@ -89,7 +90,7 @@ export function projectPageMetadata(input: {
 }
 
 export const TODAY_DESCRIPTION =
-  "今日榜单是当天通过发布门槛的完整推荐：头条在前，其余按排名排列。公开增长是 7 天 fork 增量，不是 star 总数。";
+  `今日榜单是当天通过发布门槛的完整推荐：头条在前，其余按排名排列。${RANKING_ZH_SHORT}。`;
 
 export function todayPageMetadata(origin?: string): Metadata {
   return pageMetadata({

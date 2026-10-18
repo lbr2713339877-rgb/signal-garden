@@ -117,6 +117,23 @@ test("confirm, welcome and daily letters include an unsubscribe footer in both l
   assert.match(mails[5].html, /One sentence/);
   assert.match(mails[5].text, /4 new forks in 7 days/);
   assert.match(mails[5].html, /href="https:\/\/signalgarden\.site\/p\/example"/);
+  assert.match(mails[0].text, /按近期 star 增长等热度信号排序/);
+  assert.match(mails[1].text, /ranked by recent star growth and other momentum signals/);
+  assert.doesNotMatch(mails[1].text, /star\/fork growth/);
+});
+
+test("a missing 7-day fork count is omitted from the digest", async () => {
+  const mail = await renderDailyMail({
+    unsubscribeUrl: `${site}/unsubscribe?t=${token}`,
+    siteUrl: site,
+    locale: "en",
+    date: "2026-10-17",
+    items: [{ rank: 1, name: "Example", oneLiner: "One sentence.", forks7d: null, href: `${site}/p/example` }],
+  });
+  assert.match(mail.text, /One sentence/);
+  assert.doesNotMatch(mail.text, /new forks/);
+  assert.doesNotMatch(mail.text, /unavailable/i);
+  assert.doesNotMatch(mail.html, /暂无/);
 });
 
 test("newsletter is a manual job, not a step in the daily schedule", () => {

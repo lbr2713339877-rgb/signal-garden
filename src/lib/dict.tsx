@@ -23,6 +23,14 @@
  */
 
 import { LANG } from './i18n';
+import {
+  FORK_CARD_NOTE_EN,
+  FORK_CARD_NOTE_ZH,
+  RANKING_EN_LONG,
+  RANKING_EN_SHORT,
+  RANKING_ZH_LONG,
+  RANKING_ZH_SHORT,
+} from './site';
 
 /** [中文, English] */
 type Pair = readonly [string, string];
@@ -44,7 +52,10 @@ export const DICT = {
   'nav.logout': ['退出登录', 'Log out'],
 
   /* ── 页脚 ─────────────────────────────────────────────────────────── */
-  'footer.tagline': ['每天，从噪音里筛出值得关注的信号。', 'Daily discovery for what is next.'],
+  'footer.tagline': [
+    `每天，从噪音里筛出值得关注的信号。${RANKING_ZH_SHORT}。`,
+    `Daily discovery for what is next, ${RANKING_EN_SHORT}.`,
+  ],
   'footer.note': ['所有内容来自自动采集，不由用户提交', 'Everything here is collected automatically, never submitted'],
   'footer.status': ['系统状态', 'System status'],
   'footer.contact': ['联系我们', 'Contact'],
@@ -88,7 +99,10 @@ export const DICT = {
   'pg.today.latestTitle': ['最新推荐', 'Latest picks'],
   'home.allToday': ['看完整今日榜单', 'View today’s full edition'],
   'home.archive': ['看历史榜单', 'View the archive'],
-  'home.editionNote': ['每期首次推荐的项目。上榜代表首次在这里推荐，不代表项目刚发布。', 'First recommendations in each edition. A first feature here does not mean a newly launched project.'],
+  'home.editionNote': [
+    `每期首次推荐的项目。上榜代表首次在这里推荐，不代表项目刚发布。${RANKING_ZH_LONG}。`,
+    `First recommendations in each edition. A first feature here does not mean a newly launched project. ${RANKING_EN_LONG}`,
+  ],
   'home.browse': ['浏览已有项目', 'Browse the catalogue'],
   'pd.decision': ['上手前先看', 'Before you try it'],
   'pd.docOnly': ['根据公开文档整理，未运行实测；费用以项目官网为准。', 'Based on public documentation, without runtime testing. Check the project site for pricing.'],
@@ -357,8 +371,8 @@ export const DICT = {
   'pg.trend.title': ['增长最快', 'Fastest growing'],
   'pg.trend.method': ['口径', 'METHOD'],
   'pg.trend.methodBody': [
-    '按最近 7 天新增 fork 排序。GitHub 已不再提供 star 历史（REST 返回 404，GraphQL 返回空），所以增长用 fork 时间戳衡量，可以回溯 30 天。',
-    'Ranked by forks added in the last 7 days. GitHub no longer exposes star history (REST returns 404, GraphQL returns empty), so growth is measured from fork timestamps, which reach back 30 days.',
+    `${RANKING_ZH_LONG}。${FORK_CARD_NOTE_ZH}`,
+    `${RANKING_EN_LONG} ${FORK_CARD_NOTE_EN}`,
   ],
   'pg.trend.notCurve': ['不是随时间变化的曲线', 'not a curve over time'],
   'pg.trend.notCurveTail': [
@@ -372,7 +386,7 @@ export const DICT = {
     'These projects did not appear today — we had been tracking them, and their momentum has only just cleared the floor.',
   ],
   'pg.trend.growth': ['7 天增长榜', '7-DAY GROWTH'],
-  'pg.trend.growthTitle': ['按新增 fork 排名', 'Ranked by forks added'],
+  'pg.trend.growthTitle': ['7 日新增 fork', '7-day new forks'],
   'pg.trend.empty': ['暂无数据。', 'No data yet.'],
   'pg.trend.todayLink': ['今日榜单', 'Today’s list'],
 
@@ -587,13 +601,13 @@ export const DICT = {
   'sponsor.kicker': ['赞助', 'SPONSOR'],
   'sponsor.title': ['赞助', 'Sponsor'],
   'sponsor.intro': [
-    'Signal Garden 是每日 GitHub 雷达，按近 7 日新增 fork 排序，帮开发者发现正在被 fork 的项目，而不是只看累计 star。',
-    'Signal Garden is a daily GitHub radar ranked by 7-day new forks, so you find projects people are actually forking, not just starring.',
+    `Signal Garden 是每日 GitHub 雷达。${RANKING_ZH_LONG}。`,
+    `Signal Garden is a daily GitHub radar. ${RANKING_EN_LONG}`,
   ],
   'sponsor.audienceTitle': ['读者', 'Audience'],
   'sponsor.audienceBody': [
-    '读者是每天追踪 GitHub 趋势仓库的开发者。榜单按 7 日新增 fork 排序。他们关心开源、GitHub、独立开发和开发者工具。',
-    'The audience is developers who track trending GitHub repositories every day. The list is ranked by 7-day new forks. They follow open source, GitHub, indie building, and developer tools.',
+    `读者是每天追踪 GitHub 趋势仓库的开发者。${RANKING_ZH_LONG}。他们关心开源、GitHub、独立开发和开发者工具。`,
+    `The audience is developers who track trending GitHub repositories every day. ${RANKING_EN_LONG} They follow open source, GitHub, indie building, and developer tools.`,
   ],
   'sponsor.placementsTitle': ['可以放的位置', 'Placements'],
   'sponsor.placeTodayTitle': ['今日榜一条', 'A /today strip'],

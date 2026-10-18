@@ -14,6 +14,7 @@ import {
   pixelBasedPreset,
 } from "react-email";
 import type { EmailLocale } from "@/lib/email-locale";
+import { RANKING_EN_SHORT, RANKING_ZH_SHORT } from "@/lib/site";
 
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Noto Sans SC',Helvetica,Arial,sans-serif";
 
@@ -28,6 +29,9 @@ export function mailCopy(locale: EmailLocale) {
     unsubscribe: en ? "Unsubscribe from the Monday weekly digest" : "退订每周一周刊",
     entity: "Signal Garden",
     tagline: en ? "Less noise. More signal." : "Less noise. More signal.",
+    ranking: en
+      ? `The daily list is ${RANKING_EN_SHORT}.`
+      : `每日榜单${RANKING_ZH_SHORT}。`,
   };
 }
 
@@ -90,6 +94,7 @@ export function NewsletterFrame({
                 <br />
                 <Link href="mailto:hello@signalgarden.site" className="text-muted underline">hello@signalgarden.site</Link>
               </Text>
+              <Text className="text-dim m-0 mt-4 text-[12px] leading-5">{copy.ranking}</Text>
               <Text className="text-dim m-0 mt-4 text-[12px] leading-5">{copy.reason}</Text>
               <Text className="m-0 mt-3 text-[13px]">
                 <Link href={unsubscribeUrl} className="text-ink underline">{copy.unsubscribe}</Link>

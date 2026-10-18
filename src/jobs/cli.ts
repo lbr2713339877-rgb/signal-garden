@@ -5,6 +5,8 @@
  *   pnpm job enrich   [--limit 300] [--meta-only]
  *   pnpm job pipeline               # discover, then enrich
  *   pnpm job report
+ *   pnpm job growth [--limit 400] [--force]
+ *   pnpm job growth --edition today          # published projects for a day
  *   pnpm job newsletter          # Monday weekly digest; not part of `daily`
  */
 
@@ -20,7 +22,7 @@ import { enrichAi } from "@/ai/enrich";
 import { SCORING_SHORTLIST, TODAY_LIMIT } from "@/lib/edition";
 import { scoreDaily } from "@/scoring/daily";
 import { publish } from "./publish";
-import { measureGrowth } from "./growth";
+import { editionDate, measureGrowth, measurePublishedEdition } from "./growth";
 import { collectMentions } from "@/collectors/hn/mentions";
 import { retaxonomy } from "./retaxonomy";
 import { discoverWeb } from "./discover-web";
@@ -96,7 +98,12 @@ const jobs: Record<string, () => Promise<boolean>> = {
       }),
     ),
   retaxonomy: () => runJob("retaxonomy", () => retaxonomy()),
-  growth: () => runJob("growth", () => measureGrowth({ limit: Number(flag("limit") ?? 400), force: rest.includes("--force") })),
+  growth: () =>
+    runJob("growth", () => {
+      const edition = flag("edition");
+      if (edition) return measurePublishedEdition(editionDate(edition));
+      return measureGrowth({ limit: Number(flag("limit") ?? 400), force: rest.includes("--force") });
+    }),
   mentions: () => runJob("mentions", () => collectMentions({ limit: Number(flag("limit") ?? 200), force: rest.includes("--force") })),
   // Shortlist stays wider than the edition so gates can still fill TODAY_LIMIT.
   // Publish may produce fewer than TODAY_LIMIT items; history never fills empty slots.
@@ -126,6 +133,11 @@ const jobs: Record<string, () => Promise<boolean>> = {
         const ok = await jobs[step]();
         if (!ok) failed.push(step);
       }
+
+      // The earlier growth pass only reaches the top focus scores. Measure the
+      // projects that actually published today, including a lower focus score.
+      const published = await runJob("growth-published", () => measurePublishedEdition());
+      if (!published) failed.push("growth-published");
 
       if (failed.length) {
         throw new Error(`daily failed steps: ${failed.join(", ")}`);

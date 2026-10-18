@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, GITHUB_REPO_URL } from "@/lib/site";
+import { CONTACT_EMAIL, GITHUB_REPO_URL, RANKING_ZH_SHORT } from "@/lib/site";
 import { pageUrl, projectPath } from "@/lib/page-meta";
 import { siteOrigin } from "@/lib/edition";
 
@@ -37,6 +37,7 @@ export function websiteJsonLd(options?: {
     "@type": "WebSite",
     name: "Signal Garden",
     url: origin,
+    description: RANKING_ZH_SHORT,
   };
   if (search) {
     site.potentialAction = {
@@ -77,6 +78,7 @@ export function todayItemList(
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: todayListName(date),
+    description: RANKING_ZH_SHORT,
     url: pageUrl("/today", origin),
     itemListElement: items.map((item, index) => ({
       "@type": "ListItem",

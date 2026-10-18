@@ -24,6 +24,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
       name: project.name || slug,
       owner: ownerOf(project.owner, project.fullName),
       forks7d: project.forks7d,
+      stars24h: project.stars24h,
     });
   } catch (error) {
     console.error("[og] project image failed", slug, error);

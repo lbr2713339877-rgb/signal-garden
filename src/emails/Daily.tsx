@@ -25,10 +25,9 @@ export function dailySubject(locale: EmailLocale, date: string): string {
     : `Signal Garden 每周一周刊 · ${date}`;
 }
 
-function forkLine(locale: EmailLocale, forks7d: number | null): string {
-  if (forks7d === null) {
-    return locale === "en" ? "7-day fork change unavailable" : "暂无 7 日 fork 变化";
-  }
+/** Per-project fork count. Null means the line is omitted, not a placeholder. */
+export function forkLine(locale: EmailLocale, forks7d: number | null): string | null {
+  if (typeof forks7d !== "number" || !Number.isFinite(forks7d)) return null;
   return locale === "en"
     ? `${forks7d} new forks in 7 days`
     : `7 日新增 fork ${forks7d}`;
@@ -52,7 +51,9 @@ export function DailyEmail({ locale, date, items, unsubscribeUrl, siteUrl }: Dai
             <Link href={item.href} className="text-ink no-underline">{item.name}</Link>
           </Text>
           <Text className="text-muted m-0 mt-1 text-[14px] leading-6">{item.oneLiner}</Text>
-          <Text className="text-dim m-0 mt-1 text-[12px]">{forkLine(locale, item.forks7d)}</Text>
+          {forkLine(locale, item.forks7d) ? (
+            <Text className="text-dim m-0 mt-1 text-[12px]">{forkLine(locale, item.forks7d)}</Text>
+          ) : null}
         </Section>
       ))}
     </NewsletterFrame>

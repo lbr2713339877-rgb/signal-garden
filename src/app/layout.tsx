@@ -4,6 +4,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { LANG_BOOTSTRAP, THEME_BOOTSTRAP } from "@/components/ui/Lang";
 import { siteOrigin } from "@/lib/edition";
 import { SEARCH_ROUTE_EXISTS, siteJsonLd } from "@/lib/jsonld";
+import { RANKING_ZH_SHORT } from "@/lib/site";
 import "./globals.css";
 import "./v3/tokens.css";
 
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
     template: "%s · Signal Garden",
   },
   description:
-    "Signal Garden 是面向开发者的每日项目发现站：从 GitHub、Hacker News 和公开社区自动筛选新工具、AI Skill、MCP、Agent 与开发资源，帮助你快速判断哪些项目值得打开。",
+    `Signal Garden 是面向开发者的每日项目发现站：从 GitHub、Hacker News 和公开社区自动筛选新工具、AI Skill、MCP、Agent 与开发资源，帮助你快速判断哪些项目值得打开。${RANKING_ZH_SHORT}。`,
   alternates: {
     canonical: "/",
     languages: {
@@ -68,7 +69,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Signal Garden",
     description:
-      "每天 5 分钟，从全网噪音里筛出值得打开的开发者项目。",
+      `每天 5 分钟，从全网噪音里筛出值得打开的开发者项目。${RANKING_ZH_SHORT}。`,
   },
   openGraph: {
     type: "website",
@@ -78,7 +79,7 @@ export const metadata: Metadata = {
     siteName: "Signal Garden",
     title: "Signal Garden — 今日信号",
     description:
-      "每天 5 分钟，从全网噪音里筛出值得打开的开发者项目。",
+      `每天 5 分钟，从全网噪音里筛出值得打开的开发者项目。${RANKING_ZH_SHORT}。`,
   },
 };
 

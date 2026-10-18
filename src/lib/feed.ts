@@ -1,4 +1,5 @@
 import { TODAY_LIMIT } from "@/lib/edition";
+import { RANKING_ZH_SHORT } from "@/lib/site";
 
 export const FEED_CONTENT_TYPE = "application/rss+xml; charset=utf-8";
 
@@ -43,7 +44,7 @@ export function toFeedChannel(input: {
     title: "Signal Garden — 今日信号",
     link: `${origin}/?utm_source=rss`,
     self: `${origin}/feed.xml`,
-    description: "每天从公开信号里筛出值得打开的开发者项目。",
+    description: `每天从公开信号里筛出值得打开的开发者项目。${RANKING_ZH_SHORT}。`,
     language: "zh-CN",
     lastBuildDate: publishedAt,
     items: cards.map((card) => {

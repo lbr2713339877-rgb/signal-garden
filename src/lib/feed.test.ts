@@ -37,6 +37,7 @@ test("rss lists the edition lead first with absolute project links and the editi
   assert.match(xml, /href="https:\/\/signalgarden\.site\/feed\.xml"/);
   assert.match(xml, /Fri, 16 Oct 2026 00:00:00 GMT/);
   assert.match(xml, /hook line/);
+  assert.match(xml, /按近期 star 增长等热度信号排序/);
   assert.ok(xml.indexOf("/p/alpha") < xml.indexOf("/p/gamma"));
   assert.equal(FEED_CONTENT_TYPE, "application/rss+xml; charset=utf-8");
 });

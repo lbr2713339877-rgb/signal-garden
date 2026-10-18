@@ -342,9 +342,9 @@ export const project = pgTable(
     focusScore: integer("focus_score").notNull().default(0),
     focusEvidence: jsonb("focus_evidence"),
 
-    /* --- Growth (V2 gate). GitHub blocks star history (REST 404, GraphQL
-       empty), so growth is measured from fork timestamps, which are
-       backfillable, plus star deltas once snapshots accumulate. */
+    /* --- Growth metrics. Heat ranking uses stars24h/stars7d from our own
+       repo_snapshot rows. forks7d is a separate card metric and growth-gate
+       input, measured from fork timestamps. */
     forks24h: integer("forks_24h"),
     forks7d: integer("forks_7d"),
     forks30d: integer("forks_30d"),

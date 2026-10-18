@@ -1,12 +1,9 @@
 /**
  * 趋势（V3）—— /trends
  *
- * 增长是真的，但很新：数据来自 fork 时间戳（可以回溯 30 天），而不是 star
- * 历史 —— GitHub 已经不再提供 star 历史（REST 返回 404，GraphQL 返回空）。
- *
- * 所以这一页的做法是：说清楚门槛，给出当前的增长排名，并明确"这不是随时间
- * 变化的曲线"。等快照跨度到一周以上再换成真实趋势图 —— 事后拟合的曲线
- * 没有意义。
+ * The daily board is ordered by the heat score (our own star snapshots).
+ * This page lists a separate card metric: measured 7-day new forks.
+ * It is not a curve over time until snapshots span more than a week.
  */
 
 import type { Metadata } from 'next';
@@ -25,7 +22,7 @@ export default async function TrendsPage() {
   // Trend board, not the daily edition. See src/lib/edition.ts.
   const [rising, byGrowth] = await Promise.all([getRising(8), getFeatures(24)]);
 
-  // 按测得的 7 天 fork 增长排序
+  // Chart order uses the measured 7-day fork count. Not the daily heat ranking.
   const ranked = [...byGrowth]
     .sort((a, b) => (b.forks7d ?? 0) - (a.forks7d ?? 0))
     .slice(0, 20);

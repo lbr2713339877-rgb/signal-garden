@@ -1,16 +1,16 @@
 /**
- * Growth job: measure how fast each candidate is actually growing, then decide
+ * Growth job: record fork timestamps and our own star snapshots, then decide
  * who clears the editorial floor.
  *
- * Runs before scoring. Star history is unavailable from GitHub, so this reads
- * fork timestamps (backfillable) and our own star snapshots (forward-only), and
- * records which of the two the decision rested on.
+ * Heat ranking uses the snapshot star deltas. forks7d is a separate metric
+ * and one input to the gate, not the order of the daily board.
  */
 
 import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { project, repoSnapshot } from "@/db/schema";
+import { dailySignal, project, repoSnapshot } from "@/db/schema";
 import { evaluateGate, measureForkGrowth, GATE } from "@/collectors/github/growth";
+import { signalDate } from "@/lib/day";
 import { MIN_STARS_TO_RANK } from "@/scoring/daily";
 import { chunk, mapLimit } from "@/lib/concurrency";
 import { log, type JobResult } from "./run";
@@ -38,16 +38,40 @@ function starDelta(
   return best ? Math.max(0, currentStars - best.stars) : null;
 }
 
-export async function measureGrowth(opts: { limit?: number; force?: boolean } = {}): Promise<JobResult> {
+/** `today` or `YYYY-MM-DD`. */
+export function editionDate(value: string, now = new Date()): string {
+  if (value === "today") return signalDate(now);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  throw new Error(`growth --edition expects today or YYYY-MM-DD, got ${value}`);
+}
+
+export async function publishedProjectIds(date: string): Promise<string[]> {
+  const d = await db();
+  const rows = await d
+    .select({ id: dailySignal.projectId })
+    .from(dailySignal)
+    .where(and(eq(dailySignal.signalDate, date), eq(dailySignal.isPublished, true)));
+  return rows.map((row) => row.id);
+}
+
+const EMPTY_GROWTH: JobResult = {
+  itemsIn: 0,
+  itemsOut: 0,
+  meta: { qualified: 0, rising: 0, gate: GATE, failures: [] },
+};
+
+/**
+ * Candidates for a growth pass.
+ * Never-measured rows come first, then higher focus, then more stars.
+ * An explicit id list skips the 20-hour freshness cutoff and the focus cap.
+ */
+export async function selectGrowthCandidates(opts: { limit?: number; force?: boolean; ids?: string[] } = {}) {
+  if (opts.ids && opts.ids.length === 0) return [];
   const limit = opts.limit ?? MEASURE_LIMIT;
   const d = await db();
   const cutoff = new Date(Date.now() - 20 * 3_600_000);
-  const now = Date.now();
-
-  // Candidates: parsed, in scope, not junk, above the ranking floor. Repos with
-  // plenty of stars do not need measuring to stay visible, so they are skipped
-  // once measured — this keeps the request count near the useful set.
-  const rows = (await d
+  const targeted = Boolean(opts.ids);
+  const query = d
     .select({
       id: project.id,
       fullName: project.fullName,
@@ -66,12 +90,27 @@ export async function measureGrowth(opts: { limit?: number; force?: boolean } = 
         eq(project.isSkillCollection, false),
         isNull(project.duplicateOf),
         eq(project.linkStatus, "ok"),
-        gte(project.stars, MIN_STARS_TO_RANK),
-        opts.force ? sql`true` : or(isNull(project.growthMeasuredAt), lt(project.growthMeasuredAt, cutoff)),
+        targeted ? inArray(project.id, opts.ids!) : gte(project.stars, MIN_STARS_TO_RANK),
+        targeted || opts.force ? sql`true` : or(isNull(project.growthMeasuredAt), lt(project.growthMeasuredAt, cutoff)),
       ),
     )
-    .orderBy(desc(project.focusScore), desc(project.stars))
-    .limit(limit)) as any[];
+    .orderBy(sql`${project.growthMeasuredAt} IS NOT NULL`, desc(project.focusScore), desc(project.stars));
+  const rows = targeted ? await query : await query.limit(limit);
+  return rows;
+}
+
+export async function measurePublishedEdition(date = signalDate()): Promise<JobResult> {
+  return measureGrowth({ ids: await publishedProjectIds(date) });
+}
+
+export async function measureGrowth(opts: { limit?: number; force?: boolean; ids?: string[] } = {}): Promise<JobResult> {
+  if (opts.ids && opts.ids.length === 0) {
+    log("growth", "0 candidates to measure");
+    return EMPTY_GROWTH;
+  }
+  const d = await db();
+  const now = Date.now();
+  const rows = await selectGrowthCandidates(opts);
 
   log("growth", `${rows.length} candidates to measure`);
 
@@ -100,6 +139,10 @@ export async function measureGrowth(opts: { limit?: number; force?: boolean } = 
     const stars24h = starDelta(snaps, r.stars, 1, now);
     const stars7d = starDelta(snaps, r.stars, 7, now);
 
+    if (!r.fullName) {
+      failures.push(`${r.id}: no repository name`);
+      return;
+    }
     const fork = await measureForkGrowth(r.fullName);
     if (!fork) {
       // 404 or already gone; leave the row for the next run.
