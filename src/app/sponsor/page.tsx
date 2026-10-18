@@ -4,6 +4,7 @@ import { V3Shell } from "@/components/v3/V3Shell";
 import { T } from "@/lib/dict";
 import { pageMetadata } from "@/lib/page-meta";
 import { CONTACT_EMAIL, RANKING_ZH_SHORT } from "@/lib/site";
+import { SubscribeLink } from "@/components/v3/SubscribeLink";
 
 export const metadata: Metadata = pageMetadata({
   title: "赞助 · Sponsor",
@@ -43,6 +44,12 @@ export default function SponsorPage() {
             <li>
               <T k="sponsor.placeDigestTitle" as="h3" className="system text-[var(--ink-1)]" fade={false} />
               <T k="sponsor.placeDigestBody" as="p" className="body mt-3 text-[var(--ink-2)]" />
+              <SubscribeLink
+                medium="sponsor"
+                className="data mt-3 inline-flex text-[var(--ink-3)] transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]"
+              >
+                <T k="pd.subscribe.cta" as="span" fade={false} /> <span aria-hidden>→</span>
+              </SubscribeLink>
             </li>
             <li>
               <T k="sponsor.placeRssTitle" as="h3" className="system text-[var(--ink-1)]" fade={false} />

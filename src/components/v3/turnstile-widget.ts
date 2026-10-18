@@ -29,6 +29,40 @@ function existingScript(): HTMLScriptElement | null {
   return document.querySelector<HTMLScriptElement>(`script[src*="${SCRIPT_MATCH}"]`);
 }
 
+/**
+ * Call render once the host node exists. Client navigations mount the form
+ * after the effect, so a single synchronous read of the ref can miss it.
+ */
+export function scheduleTurnstileRender(input: {
+  getHost: () => HTMLElement | null;
+  render: (host: HTMLElement) => void;
+  now?: () => number;
+  later?: (fn: () => void, ms: number) => number;
+  budgetMs?: number;
+}): { cancel: () => void } {
+  const now = input.now ?? (() => Date.now());
+  const later = input.later ?? ((fn, ms) => window.setTimeout(fn, ms));
+  const budgetMs = input.budgetMs ?? 3000;
+  const started = now();
+  let cancelled = false;
+  const tick = () => {
+    if (cancelled) return;
+    const host = input.getHost();
+    if (host) {
+      input.render(host);
+      return;
+    }
+    if (now() - started >= budgetMs) return;
+    later(tick, 50);
+  };
+  tick();
+  return {
+    cancel: () => {
+      cancelled = true;
+    },
+  };
+}
+
 /** Load the explicit-render API once. Resolves immediately when the script is already on the page. */
 export function loadTurnstile(): Promise<TurnstileApi> {
   if (typeof window === "undefined") return Promise.reject(new Error("turnstile is browser-only"));

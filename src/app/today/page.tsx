@@ -20,6 +20,7 @@ import { T } from '@/lib/dict';
 import { TODAY_LIMIT, siteOrigin } from '@/lib/edition';
 import { Fallback } from '@/lib/i18n';
 import { NewsletterSignup } from '@/components/v3/NewsletterForm';
+import { SubscribeLink } from '@/components/v3/SubscribeLink';
 import { todayPageMetadata } from '@/lib/page-meta';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { todayItemList } from '@/lib/jsonld';
@@ -141,6 +142,12 @@ export default async function TodayPage() {
           />
         ) : null}
 
+        <SubscribeLink
+          medium="today"
+          className="body mt-10 inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)]"
+        >
+          <T k="pd.subscribe.cta" as="span" fade={false} /> <span aria-hidden>→</span>
+        </SubscribeLink>
         <NewsletterSignup source="today" />
         <div className="mt-10 border-t border-[var(--glass-1-border)] pt-8">
           <Link

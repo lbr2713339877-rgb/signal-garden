@@ -6,6 +6,7 @@ import { TaskDiscovery } from '@/components/v3/TaskDiscovery';
 import { DiscoveryTelemetry } from '@/components/v3/DiscoveryTelemetry';
 import { TODAY_LIMIT } from '@/lib/edition';
 import { NewsletterSignup } from '@/components/v3/NewsletterForm';
+import { SubscribeHash } from '@/components/v3/SubscribeHash';
 
 export const revalidate = 45;
 
@@ -13,6 +14,7 @@ export default async function HomePage() {
   return (
     <V3Shell>
       <main>
+        <SubscribeHash />
         <Section01Hero />
         <NoiseToSignal />
         <TodaySignals limit={TODAY_LIMIT} />
