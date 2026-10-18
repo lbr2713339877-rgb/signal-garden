@@ -1,0 +1,1 @@
+ALTER TABLE "ai_content" RENAME COLUMN "capabilities_zh" TO "capabilities";

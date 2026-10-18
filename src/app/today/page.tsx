@@ -1,0 +1,152 @@
+/**
+ * 今日榜单（V3）—— /today
+ *
+ * 首页展示的是层级（头条 + 精选），这一页是完整的一天：仍然是同一种形状
+ * ——头条在最前，其余按排名往下排。
+ *
+ * 这里所有内容都过了发布门槛，所以"没通过检查的项目"即使一直往下滚也不会
+ * 出现。这一页是服务端组件。
+ *
+ * 日期在这一层格式化（不依赖 locale），避免服务端和客户端渲染出不同字符串。
+ */
+
+import Link from 'next/link';
+import type { Metadata } from 'next';
+import { V3Shell } from '@/components/v3/V3Shell';
+import { SpaceRow } from '@/components/v3/category/CategorySpace';
+import { categoryColor, categoryLabelEn } from '@/components/v3/category-color';
+import { getFeedEdition } from '@/db/queries';
+import { T } from '@/lib/dict';
+import { TODAY_LIMIT } from '@/lib/edition';
+import { firstSentence, Fallback } from '@/lib/i18n';
+import { NewsletterSignup } from '@/components/v3/NewsletterForm';
+import { todayPageMetadata } from '@/lib/page-meta';
+
+export const metadata: Metadata = todayPageMetadata();
+export const revalidate = 0;
+
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+function displayDate(date: string): string {
+  const [year, month, day] = date.split('-');
+  return `${day} ${MONTHS[Number(month) - 1]} ${year}`;
+}
+
+export default async function TodayPage() {
+  const { date, cards, isPrevious } = await getFeedEdition(TODAY_LIMIT);
+  const headline = cards[0] ?? null;
+  const rows = cards.slice(1);
+  const total = cards.length;
+
+  const headlineAccent = categoryColor(headline?.primaryCategory);
+
+  return (
+    <V3Shell>
+      <div className="mx-auto max-w-[var(--container)] px-[var(--gutter)] pt-28 pb-[var(--section-gap)]">
+        {/* 页头 */}
+        <T k={isPrevious ? 'home.latestEdition' : 'pg.today.kicker'} as="p" className="system" fade={false} />
+        <T k={isPrevious ? 'pg.today.latestTitle' : 'pg.today.title'} as="h1" className="page-title mt-4 max-w-[10ch]" />
+        <div className="mt-8 flex flex-wrap items-baseline gap-x-8 gap-y-2">
+          <span className="data text-[var(--ink-2)]">{displayDate(date)}</span>
+          <T
+            k="pg.today.pastFloor"
+            as="span"
+            className="system"
+            fade={false}
+            vars={{ n: total }}
+          />
+        </div>
+
+        {isPrevious ? <T k="edition.previousNote" as="p" className="body mt-5 text-[var(--ink-2)]" fade={false} /> : null}
+        <T k="home.editionNote" as="p" className="body mt-4 max-w-[68ch] text-[var(--ink-2)]" />
+
+        {/* 头条 —— 整页唯一一个占满宽度的项目 */}
+        {headline ? (
+          <section className="mt-10 border-t border-[var(--glass-1-border)] pt-10">
+            <p className="system" style={{ color: headlineAccent }}>
+              <T k="pg.today.headline" as="span" fade={false} />
+            </p>
+
+            <Link href={`/p/${headline.slug}`} className="group mt-6 block">
+              <h2 className="page-title max-w-[28ch] transition-colors duration-[var(--d-micro)] group-hover:text-[var(--ink-2)]">
+                {headline.name}
+              </h2>
+
+              <Fallback
+                as="p"
+                zh={headline.oneLiner}
+                en={headline.oneLinerEn ?? headline.description}
+                className="body mt-5 max-w-[54ch] text-[var(--ink-2)]"
+              />
+
+              <div className="mt-8 flex flex-wrap items-baseline gap-x-8 gap-y-3">
+                {headline.forks7d ? (
+                  <span className="data" style={{ color: headlineAccent }}>
+                    +{headline.forks7d.toLocaleString('en-US')} FORKS / 7D
+                  </span>
+                ) : headline.stars24h ? (
+                  <span className="data" style={{ color: headlineAccent }}>
+                    +{headline.stars24h.toLocaleString('en-US')} STARS / 24H
+                  </span>
+                ) : null}
+                <span className="system">
+                  {categoryLabelEn(headline.primaryCategory)}
+                  {headline.secondaryCategory ? ` / ${headline.secondaryCategory.toUpperCase()}` : ''}
+                </span>
+                <span className="system text-[var(--ink-4)]">
+                  <T k="ts.open" as="span" fade={false} /> <span aria-hidden>→</span>
+                </span>
+              </div>
+            </Link>
+          </section>
+        ) : null}
+
+        {/* 其余按排名 */}
+        {rows.length ? (
+          <section className="mt-10">
+            <T
+              k="pg.today.rest"
+              as="p"
+              className="system"
+              fade={false}
+              vars={{ n: rows.length }}
+            />
+            <div className="mt-6 flex flex-col">
+              {rows.map((c, i) => (
+                <SpaceRow
+                  key={c.id}
+                  index={i + (headline ? 1 : 0)}
+                  slug={c.slug}
+                  name={c.name}
+                  hook={{ zh: c.hook, en: c.hookEn }}
+                  oneLiner={{ zh: c.oneLiner, en: c.oneLinerEn ?? c.description }}
+                  metric={c.forks7d ?? c.stars24h ?? 0}
+                  metricUnit={c.forks7d ? 'FORKS / 7D' : 'STARS / 24H'}
+                  category={categoryLabelEn(c.primaryCategory)}
+                  accent={categoryColor(c.primaryCategory)}
+                  isVerified={c.isVerifiedSkill}
+                />
+              ))}
+            </div>
+          </section>
+        ) : !headline ? (
+          <T
+            k="pg.today.empty"
+            as="p"
+            className="body mt-10 max-w-[52ch] text-[var(--ink-3)]"
+          />
+        ) : null}
+
+        <NewsletterSignup source="today" />
+        <div className="mt-10 border-t border-[var(--glass-1-border)] pt-8">
+          <Link
+            href="/archive"
+            className="system text-[var(--ink-3)] transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]"
+          >
+            <T k="pg.today.archiveLink" as="span" fade={false} /> <span aria-hidden>→</span>
+          </Link>
+        </div>
+      </div>
+    </V3Shell>
+  );
+}

@@ -1,0 +1,609 @@
+/**
+ * V3 Token System — A LIVING SIGNAL FIELD / 正在生长的信号场
+ *
+ * 方向 B — THE LIGHT FIELD：黑色展场，彩色只作为穿过玻璃的光。
+ *
+ * 关键约束：
+ * - 六个环境色永远不作为填充色
+ * - 圆角上限 4px
+ * - 玻璃只有三层
+ * - 主文字用暖白 #F2F0EA，不用纯白
+ *
+ * ── 作用域 ────────────────────────────────────────────────────────────────
+ * 这份文件是路由级 CSS，Next 会把它注入到全局。V2 的 tokens.css 同样在
+ * :root 上定义了 --container / --gutter / --r-md / --bg-void / --ink-* 等
+ * 同名变量，两边都写 :root 就会变成"谁后加载谁赢"的竞态。
+ *
+ * 所以这里所有声明都挂在 `.v3-root.v3-root` 上。类名重复一次是为了把
+ * 优先级提到 (0,2,0)，稳定压过 :root 的 (0,1,0)，不依赖 CSS 注入顺序。
+ * 同时移除了 * / html / body 这些全局重置 —— 它们曾经泄漏到 V2 页面。
+ *
+ * 字体不在这里 @import：@import 会阻塞 CSS 解析，直接伤害 LCP 预算
+ * （桌面 1.8s）。字体改由根 layout 的 <link> 加载，见 app/layout.tsx。
+ */
+
+.v3-root.v3-root {
+  /* ---------------------------------------------------------------------
+     Typography
+     --------------------------------------------------------------------- */
+
+  /* Display: Instrument Serif (Latin) + Noto Serif SC (CJK) */
+  --font-display: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
+
+  /* Sans: Inter Tight 由 next/font 自托管（见 app/layout.tsx），
+     所以这里不依赖任何外部字体请求。 */
+  --font-sans: 'Inter Tight', 'Noto Sans SC', 'PingFang SC',
+    -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Mono: IBM Plex Mono — 档案感 */
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace,
+    'SF Mono', Menlo, monospace;
+
+  /* Accent: LXGW WenKai — 仅编辑性引用 */
+  --font-accent: 'LXGW WenKai', 'Noto Serif SC', serif;
+
+  /* Size Scale: 极端差异 21:1 */
+  --fs-display-xl: clamp(3.5rem, 13vw, 15rem); /* 56px → 240px */
+  --fs-display-l: clamp(2rem, 5.5vw, 5rem); /* 32px → 80px */
+  --fs-editorial: clamp(1.25rem, 2.2vw, 1.875rem); /* 20px → 30px */
+  --fs-body: 0.9375rem; /* 15px */
+  --fs-system: 0.75rem; /* 11px */
+  --fs-data: 0.75rem; /* 12px */
+
+  /* Letter-spacing */
+  --ls-display: -0.045em;
+  --ls-display-l: -0.03em;
+  --ls-editorial: -0.015em;
+  --ls-body: 0;
+  --ls-system: 0.14em; /* 大写系统层 */
+  --ls-data: 0.02em;
+
+  /* Line-height */
+  --lh-display: 0.9;
+  --lh-display-l: 0.95;
+  --lh-editorial: 1.35;
+  --lh-body: 1.75;
+  --lh-system: 1.5;
+  --lh-data: 1.4;
+
+  /* ---------------------------------------------------------------------
+     Color
+     --------------------------------------------------------------------- */
+
+  /* 背景三层 */
+  --bg-void: #030303;
+  --bg-deep: #070709;
+  --bg-raised: #0c0c0f;
+
+  /* 文字（暖白，不是纯白） */
+  --ink-1: #f2f0ea;
+  --ink-2: rgba(242, 240, 234, 0.76);
+  --ink-3: rgba(242, 240, 234, 0.62);
+  --ink-4: rgba(242, 240, 234, 0.49);
+
+  /* 环境光六色 — 永远不作为填充色
+     第二版：饱和度整体降约 35%，明度收进同一区间。第一版的 #9C7CFF（紫）
+     和 #9BC9A7（薄荷绿）在大面积铺开时偏糖果色，作为"穿过玻璃的光"太吵。
+     现在六个色相仍然是六个方向，但亮度接近，互不抢戏。 */
+  --light-purple: #8e7bd0; /* periwinkle — ai-tools */
+  --light-cyan: #6ba8b8; /* teal — indie-web */
+  --light-fog: #7e8ab0; /* slate — dev-tools */
+  --light-coral: #c8889a; /* dusty rose — design */
+  --light-mint: #7fa88e; /* sage — skill-agent */
+  --light-amber: #c29a72; /* bronze — productivity */
+
+  /* 六个分类空间的环境色映射 */
+  --space-ai-tools: var(--light-purple);
+  --space-indie-web: var(--light-cyan);
+  --space-dev-tools: var(--light-fog);
+  --space-design: var(--light-coral);
+  --space-skill-agent: var(--light-mint);
+  --space-productivity: var(--light-amber);
+
+  /* ---------------------------------------------------------------------
+     Material: Glass (三层，圆角 ≤ 4px)
+     --------------------------------------------------------------------- */
+
+  --glass-1-fill: rgba(255, 255, 255, 0.04);
+  --glass-1-border: rgba(255, 255, 255, 0.06);
+  --glass-1-blur: 24px;
+
+  --glass-2-fill: rgba(255, 255, 255, 0.07);
+  --glass-2-border: rgba(255, 255, 255, 0.12);
+  --glass-2-blur: 24px;
+
+  --glass-3-fill: rgba(255, 255, 255, 0.11);
+  --glass-3-border: rgba(255, 255, 255, 0.18);
+  --glass-3-blur: 40px;
+
+  --glass-saturate: 1.2;
+
+  /* 圆角上限 4px */
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-pill: 999px; /* 仅用于标签和按钮 */
+
+  /* ---------------------------------------------------------------------
+     Motion
+     --------------------------------------------------------------------- */
+
+  /* 微动效 180-260ms */
+  --d-micro: 220ms;
+
+  /* 叙事动效 500-1000ms */
+  --d-narrative: 780ms;
+
+  /* 场景动效 2-8s */
+  --d-scene: 6s;
+
+  /* Three easing tiers, by purpose:
+       --e-ui        micro-interactions — hover/focus/press, "tracks the hand"
+       --e-narrative narrative + scroll-driven — pronounced deceleration
+       --e-entrance  first appearance — expo-out, arrives fast then settles
+     --e-v3 stays as an alias of the narrative curve so existing rules keep
+     working and nothing has to be migrated in one pass. */
+  --e-ui: cubic-bezier(0.32, 0.72, 0, 1);
+  --e-narrative: cubic-bezier(0.22, 1, 0.36, 1);
+  --e-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --e-v3: cubic-bezier(0.22, 1, 0.36, 1);
+  --e-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --e-inout: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ---------------------------------------------------------------------
+     Layout
+     --------------------------------------------------------------------- */
+
+  --container: 1440px;
+  --gutter: clamp(20px, 5vw, 80px);
+  --section-gap: clamp(96px, 18vh, 280px);
+  --nav-h: 64px;
+
+  /* Z-index layers */
+  --z-base: 1;
+  --z-raised: 10;
+  --z-sticky: 100;
+  --z-nav: 90;
+  --z-transition: 900;
+  --z-modal: 1000;
+}
+
+/* -----------------------------------------------------------------------------
+   Base — 只作用于 V3 子树，不再写 html / body / *
+   -------------------------------------------------------------------------- */
+
+.v3-root {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  overflow-x: clip;
+  background: var(--bg-void);
+  color: var(--ink-1);
+  font-family: var(--font-sans);
+}
+
+.v3-root *,
+.v3-root *::before,
+.v3-root *::after {
+  box-sizing: border-box;
+}
+
+/* -----------------------------------------------------------------------------
+   Typography utilities
+   -------------------------------------------------------------------------- */
+
+.v3-root .display-xl {
+  font-family: var(--font-display);
+  font-size: var(--fs-display-xl);
+  font-weight: 400;
+  line-height: var(--lh-display);
+  letter-spacing: var(--ls-display);
+}
+
+.v3-root .display-l {
+  font-family: var(--font-display);
+  font-size: var(--fs-display-l);
+  font-weight: 400;
+  line-height: var(--lh-display-l);
+  letter-spacing: var(--ls-display-l);
+}
+
+.v3-root .editorial {
+  font-family: var(--font-display);
+  font-size: var(--fs-editorial);
+  font-weight: 400;
+  line-height: var(--lh-editorial);
+  letter-spacing: var(--ls-editorial);
+}
+
+.v3-root .body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
+}
+
+.v3-root .system {
+  font-family: var(--font-sans);
+  font-size: var(--fs-system);
+  font-weight: 500;
+  line-height: var(--lh-system);
+  letter-spacing: var(--ls-system);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.v3-root .data {
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+  line-height: var(--lh-data);
+  letter-spacing: var(--ls-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -----------------------------------------------------------------------------
+   Glass material
+   -------------------------------------------------------------------------- */
+
+.v3-root .glass-1 {
+  background: var(--glass-1-fill);
+  border: 1px solid var(--glass-1-border);
+  backdrop-filter: blur(var(--glass-1-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-1-blur))
+    saturate(var(--glass-saturate));
+  border-radius: var(--r-md);
+}
+
+.v3-root .glass-2 {
+  background: var(--glass-2-fill);
+  border: 1px solid var(--glass-2-border);
+  backdrop-filter: blur(var(--glass-2-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-2-blur))
+    saturate(var(--glass-saturate));
+  border-radius: var(--r-md);
+}
+
+.v3-root .glass-3 {
+  background: var(--glass-3-fill);
+  border: 1px solid var(--glass-3-border);
+  backdrop-filter: blur(var(--glass-3-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-3-blur))
+    saturate(var(--glass-saturate));
+  border-radius: var(--r-md);
+}
+
+/* -----------------------------------------------------------------------------
+   Ambient light（只作为环境光斑，不是填充色）
+   -------------------------------------------------------------------------- */
+
+.v3-root .ambient-light {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.14;
+  filter: blur(120px);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* -----------------------------------------------------------------------------
+   Hover 规格（§ hover：抬升 6-10px、边框透明度提高、图片 1.02-1.04）
+   只在真有指针的设备上生效，触摸设备不出现"粘住的 hover"
+   -------------------------------------------------------------------------- */
+
+@media (hover: hover) and (pointer: fine) {
+  .v3-root .lift {
+    transition:
+      transform var(--d-micro) var(--e-ui),
+      border-color var(--d-micro) var(--e-ui),
+      background-color var(--d-micro) var(--e-ui);
+  }
+
+  .v3-root .lift:hover {
+    transform: translateY(-8px);
+    border-color: var(--glass-2-border);
+    background: var(--glass-2-fill);
+  }
+
+  .v3-root .lift:hover .lift-media {
+    transform: scale(1.03);
+  }
+
+  .v3-root .lift-media {
+    transition: transform var(--d-narrative) var(--e-v3);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .v3-root *,
+  .v3-root *::before,
+  .v3-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .v3-root .ambient-light {
+    display: none;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Mobile adjustments
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .v3-root.v3-root {
+    /* 字号差收窄到 12:1 */
+    --fs-display-xl: clamp(2rem, 9vw, 6rem);
+    --fs-display-l: clamp(1.5rem, 6vw, 3rem);
+    --section-gap: clamp(64px, 12vh, 140px);
+    --nav-h: 56px;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   列表行（今日 / 归档 / 趋势 / 搜索 共用）
+   --------------------------------------------------------------------------
+   第 3 段进场：新对象从背景深度进入，前 40% 更亮（§7）。定义在这里而不是
+   每个页面的 <style> 里，否则一页 30 行就会渲染 30 份同样的 CSS。
+   行内 --i 提供错落。
+   -------------------------------------------------------------------------- */
+
+.v3-root .v3-row {
+  animation: v3-row-in 800ms var(--e-v3) both;
+  animation-delay: calc(var(--i) * 45ms);
+}
+
+@keyframes v3-row-in {
+  0%   { opacity: 0; filter: brightness(1.9); transform: translateY(14px); }
+  40%  { opacity: 1; filter: brightness(1.55); }
+  100% { opacity: 1; filter: brightness(1); transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v3-root .v3-row {
+    animation: none;
+  }
+}
+
+/* =============================================================================
+   页面转场（§7）—— 原生 View Transitions
+   =============================================================================
+   规格：共享元素 780ms；背景不是切换而是相机推进，scale 1 → 1.06 同时
+   opacity 降到 0.3；新页面从 0.94 放大到 1、opacity 0 → 1；中间有 120ms
+   黑场闪烁。返回用 420ms（比进入快 46%）。
+
+   共享元素靠两边同名的 view-transition-name 配对（首页卡片的 h2 与详情页的
+   h1，名字是 project-title-<slug>），浏览器负责名称的放大与位移。
+
+   ── 黑闪怎么来的 ──────────────────────────────────────────────────────
+   旧快照淡出到 0.3、新快照从 0 淡入，两者交叠处本来就会变暗；下面给
+   ::view-transition-image-pair(root) 铺一层 --bg-void，保证中点经过的是
+   纯 #030303，而不是两页半透明叠加出的灰。这就是那 120ms。
+
+   ── 作用域说明 ────────────────────────────────────────────────────────
+   这一节是本文件里唯一没有挂在 .v3-root 下的规则 —— view-transition 伪元素
+   属于文档而不是任何元素。V3 现在是整个产品，剩下的 /classic 是刻意保留的
+   归档，共用同一套转场不会造成不一致。
+   ========================================================================== */
+
+:root {
+  --vt-enter: 780ms;
+  --vt-exit: 420ms;
+}
+
+/* 共享元素：时长与曲线 */
+::view-transition-group(*) {
+  animation-duration: var(--vt-enter);
+  animation-timing-function: var(--e-v3);
+  /* 名称从卡片放大到标题时不要被裁切 */
+  border-radius: 0;
+  overflow: visible;
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: var(--vt-enter);
+  animation-timing-function: var(--e-v3);
+  mix-blend-mode: normal;
+}
+
+/* 背景：相机推进 */
+::view-transition-old(root) {
+  animation: vt-camera-out var(--vt-enter) var(--e-v3) both;
+}
+::view-transition-new(root) {
+  animation: vt-camera-in var(--vt-enter) var(--e-v3) both;
+}
+
+@keyframes vt-camera-out {
+  from { transform: scale(1);    opacity: 1;   }
+  to   { transform: scale(1.06); opacity: 0.3; }
+}
+
+@keyframes vt-camera-in {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* 保证交叉淡入的中点经过纯黑，而不是半透明叠加出的灰 */
+::view-transition-image-pair(root) {
+  background: var(--bg-void);
+  isolation: auto;
+}
+
+/* 返回：逆向但更快（420ms）。方向由 <html data-nav="back"> 标记，
+   见 components/v3/NavDirection.tsx。 */
+html[data-nav="back"]::view-transition-group(*) {
+  animation-duration: var(--vt-exit);
+}
+html[data-nav="back"]::view-transition-old(root),
+html[data-nav="back"]::view-transition-new(root),
+html[data-nav="back"]::view-transition-old(*),
+html[data-nav="back"]::view-transition-new(*) {
+  animation-duration: var(--vt-exit);
+}
+html[data-nav="back"]::view-transition-old(root) {
+  animation: vt-camera-in var(--vt-exit) var(--e-v3) both reverse;
+}
+html[data-nav="back"]::view-transition-new(root) {
+  animation: vt-camera-out var(--vt-exit) var(--e-v3) both reverse;
+}
+
+/* 不支持 View Transitions 的浏览器：什么都不发生，直接切换。
+   这是规格要求的降级方式 —— 承认浏览器差异，而不是做一个假转场。 */
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Lenis smooth scroll — required base styles.
+   Without these the library cannot size the page correctly and native
+   scroll-behavior fights its rAF loop.
+   -------------------------------------------------------------------------- */
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* -----------------------------------------------------------------------------
+   Film grain — an extremely light full-viewport noise layer so pure black does
+   not read as flat on large displays. Not animated (that is noisy and keeps the
+   GPU busy); it is a static texture and therefore stays under
+   prefers-reduced-motion as well.
+   -------------------------------------------------------------------------- */
+
+.v3-grain {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-base);
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* -----------------------------------------------------------------------------
+   Interaction polish — every link and button gains a 1px lift in addition to
+   its colour change, so hover feels like contact rather than a repaint. Cards
+   lean at most one degree; no 3D flips. Pointer devices only.
+   -------------------------------------------------------------------------- */
+
+@media (hover: hover) and (pointer: fine) {
+  .v3-root a,
+  .v3-root button {
+    transition:
+      color var(--d-micro) var(--e-ui),
+      border-color var(--d-micro) var(--e-ui),
+      background-color var(--d-micro) var(--e-ui),
+      transform var(--d-micro) var(--e-ui);
+  }
+  .v3-root a:hover,
+  .v3-root button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .v3-root .glass-1,
+  .v3-root .glass-2,
+  .v3-root .glass-3 {
+    transition:
+      transform var(--d-micro) var(--e-ui),
+      border-color var(--d-micro) var(--e-ui);
+  }
+  .v3-root .glass-1:hover,
+  .v3-root .glass-2:hover,
+  .v3-root .glass-3:hover {
+    transform: rotate(-0.6deg);
+    border-color: var(--glass-2-border);
+  }
+}
+
+/* Product surfaces keep the serif identity without hiding the task below a poster. */
+.v3-root .page-title { font-family: var(--font-display); font-size: clamp(2.75rem, 5vw, 4.75rem); line-height: 1.06; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.v3-root .hero-title { font-family: var(--font-display); font-size: clamp(2.6rem, 7vw, 6.75rem); line-height: .98; letter-spacing: -.045em; }
+.v3-root .site-header-backdrop { position: fixed; inset: 0 0 auto; height: 84px; z-index: 80; pointer-events: none; background: rgba(3,3,3,.92); border-bottom: 1px solid var(--glass-1-border); backdrop-filter: blur(16px); }
+.v3-root .action-primary, .v3-root .action-secondary { display: inline-flex; align-items: center; gap: 16px; padding: 12px 22px; font-size: 14px; border: 1px solid var(--glass-3-border); border-radius: 3px; transition: border-color 180ms, background 180ms; }
+.v3-root .action-primary { background: var(--ink-1); color: var(--bg-void); }
+.v3-root .action-secondary { color: var(--ink-1); }
+.v3-root .action-primary:hover { background: #fff; }
+.v3-root .action-secondary:hover { border-color: var(--ink-2); }
+.v3-root :is(a,button,input,summary):focus-visible { outline: 2px solid var(--light-cyan); outline-offset: 5px; }
+.v3-root .discovery-card:hover h3 { color: var(--light-cyan); }
+.v3-root .hero-promise { font-size: clamp(1rem, 1.8vw, 1.35rem); line-height: 1.55; color: var(--ink-1); }
+.v3-root .selection-title { font-family: var(--font-display); font-size: clamp(1.75rem, 3.8vw, 3rem); line-height: 1.2; letter-spacing: -.03em; }
+.v3-root .discovery-title { font-family: var(--font-sans); font-size: clamp(1.1rem, 1.7vw, 1.45rem); font-weight: 500; line-height: 1.5; text-wrap: pretty; }
+.v3-root .featured-discovery { border-color: color-mix(in srgb, var(--feature-accent) 30%, transparent); background: radial-gradient(ellipse at top left, color-mix(in srgb, var(--feature-accent) 10%, transparent), transparent 75%), rgba(255,255,255,.015); transition: border-color 180ms, background-color 180ms; }
+.v3-root .featured-discovery:hover { border-color: color-mix(in srgb, var(--feature-accent) 65%, transparent); background-color: rgba(255,255,255,.03); }
+.v3-root .feature-title { font-family: var(--font-sans); font-size: clamp(1.6rem, 3vw, 2.6rem); font-weight: 500; line-height: 1.4; text-wrap: pretty; }
+.v3-root .feature-badge { padding: 5px 9px; background: color-mix(in srgb, var(--feature-accent) 12%, transparent); color: var(--feature-accent); border: 1px solid color-mix(in srgb, var(--feature-accent) 28%, transparent); }
+.v3-root .feature-dot { background: var(--feature-accent); }
+.v3-root .feature-cta { color: var(--ink-1); border-bottom: 1px solid var(--feature-accent); padding-bottom: 5px; }
+.v3-root .feature-command { background: rgba(0,0,0,.25); color: var(--ink-2); }
+.v3-root .task-discovery { border-color: var(--glass-2-border); background: rgba(255,255,255,.015); transition: border-color 180ms, background-color 180ms; }
+.v3-root .task-discovery:hover { border-color: var(--ink-3); background: rgba(255,255,255,.035); }
+.v3-root [id] { scroll-margin-top: 110px; }
+@media (max-width: 767px) { .v3-root .hero-title { font-size: clamp(2.5rem, 14.5vw, 4.5rem); } .v3-root .site-header-backdrop { height: 80px; } }
+
+.v3-root :is(.hero-title,.page-title,.display-xl,.display-l,.editorial,.system,.data,.body) span { line-height: inherit; }
+.v3-root :is(.feature-title,.selection-title,.discovery-title,.hero-promise) span { line-height: inherit; }
+
+@media (max-width: 767px) { .v3-root .v3-nav { top: 20px; } .v3-root .v3-nav-mobile summary { min-height: 44px; display: flex; align-items: center; } .v3-root .v3-nav [role="group"] button { min-height: 36px; min-width: 36px; } }
+/* Compact directories keep the existing dark, typographic design language. */
+.v3-root .directory-layout { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:clamp(36px,5vw,88px); align-items:start; }
+.v3-root .directory-group { margin-bottom:36px; }
+.v3-root .directory-group-heading { display:flex; justify-content:space-between; gap:16px; align-items:baseline; padding:0 10px 12px; border-bottom:1px solid var(--glass-1-border); }
+.v3-root .directory-group-heading .data { color:var(--ink-4); }
+.v3-root .directory-row { position:relative; display:flex; align-items:center; min-height:78px; padding:13px 10px; gap:14px; isolation:isolate; transition:opacity 140ms ease; }
+.v3-root .directory-row-link { display:block; min-width:0; flex:1; }
+.v3-root .directory-row-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; font-family:var(--font-display); font-size:21px; color:var(--ink-1); line-height:1.3; }
+.v3-root .directory-row-description { display:block; color:var(--ink-3); font-size:13px; line-height:1.6; margin-top:5px; }
+.v3-root .directory-row-description [data-lang] { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+.v3-root .directory-highlight { position:absolute; inset:1px 0; z-index:-1; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.055); pointer-events:none; }
+.v3-root .directory-new { color:var(--directory-accent); font-size:9px; letter-spacing:.04em; }
+.v3-root .directory-peek { width:40px; height:40px; flex-shrink:0; border:1px solid var(--glass-1-border); border-radius:50%; color:var(--ink-3); cursor:pointer; transition:color 140ms ease,background 140ms ease,transform 140ms ease; }
+.v3-root .directory-peek:hover { color:var(--ink-1); background:rgba(255,255,255,.07); transform:scale(1.04); }
+.v3-root .directory-more { min-height:44px; display:inline-flex; align-items:center; gap:9px; padding:6px 10px; color:var(--ink-3); cursor:pointer; }
+.v3-root .directory-more:hover { color:var(--ink-1); }
+.v3-root .directory-preview { position:sticky; top:132px; }
+.v3-root .directory-preview-card { display:block; width:100%; overflow:hidden; text-align:left; border:1px solid var(--glass-2-border); background:#131414; cursor:pointer; box-shadow:0 14px 48px rgba(0,0,0,.2); }
+.v3-root .directory-preview-copy { padding:20px; }
+.v3-root .directory-image { position:relative; aspect-ratio:16/10; background:#1c1e1e; overflow:hidden; }
+.v3-root .directory-image img { width:100%; height:100%; object-fit:cover; object-position:top; }
+.v3-root .directory-image-large { aspect-ratio:16/9; }
+.v3-root .directory-image-large img { object-fit:contain; }
+.v3-root .directory-image-caption { position:absolute; bottom:10px; left:12px; font-size:9px; letter-spacing:.06em; color:#e4e5e0; background:rgba(0,0,0,.65); padding:5px 7px; border-radius:3px; }
+.v3-root .directory-cover { display:flex; flex-direction:column; justify-content:space-between; height:100%; padding:24px; background:radial-gradient(ellipse at 100% 0,color-mix(in srgb,var(--directory-accent) 12%,transparent),transparent 70%); }
+.v3-root .directory-cover-name { font-family:var(--font-display); font-size:clamp(30px,4vw,48px); line-height:1.05; overflow-wrap:anywhere; color:var(--ink-1); }
+.v3-root .directory-dialog { position:fixed; inset:0; margin:auto; width:min(880px,calc(100% - 32px)); max-height:calc(100dvh - 40px); padding:0; border:0; background:transparent; color:var(--ink-1); overflow:visible; }
+.v3-root .directory-dialog::backdrop { background:rgba(0,0,0,.76); backdrop-filter:blur(8px); }
+.v3-root .directory-dialog-card { position:relative; max-height:calc(100dvh - 40px); overflow:auto; background:#131414; border:1px solid var(--glass-2-border); box-shadow:0 24px 120px rgba(0,0,0,.5); }
+.v3-root .directory-close { position:absolute; top:12px; right:12px; z-index:5; display:grid; place-items:center; width:40px; height:40px; border-radius:50%; background:rgba(0,0,0,.8); color:#fff; font-size:26px; cursor:pointer; }
+.v3-root .directory-dialog-copy { padding:24px 30px 30px; }
+.v3-root .directory-capabilities { display:flex; flex-wrap:wrap; gap:10px 24px; color:var(--ink-3); font-size:13px; padding:20px 0; list-style:inside; }
+.v3-root .directory-dialog-links { display:flex; flex-wrap:wrap; gap:16px 32px; border-top:1px solid var(--glass-2-border); padding-top:20px; }
+.v3-root .directory-dialog-links a:hover { color:var(--directory-accent); }
+@media(hover:hover) and (pointer:fine) { .v3-root .directory-rows[data-engaged=true] .directory-row:not([data-active=true]) { opacity:.65; } }
+@media(max-width:1023px) { .v3-root .directory-layout { grid-template-columns:1fr; } .v3-root .directory-preview { display:none; } }
+@media(max-width:600px) { .v3-root .directory-row-title { font-size:19px; } .v3-root .directory-peek { width:44px; height:44px; } .v3-root .directory-row { min-height:84px; } .v3-root .directory-row-description [data-lang] { white-space:normal; } .v3-root .directory-dialog-copy { padding:22px; } }
+@media(prefers-reduced-motion:reduce) { .v3-root .directory-row,.v3-root .directory-peek { transition:none; } }

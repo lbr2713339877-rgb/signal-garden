@@ -1,0 +1,7 @@
+packages:
+  - "."
+allowBuilds:
+  esbuild: set this to true or false
+overrides:
+  "@react-email/render": "2.1.0"
+  "react-email": "6.11.2"

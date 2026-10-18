@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28">
+  <!-- Signal Garden mark: two 130° arcs, 50° gaps at upper-right and
+       lower-left, round caps. Same geometry as components/brand/BrandLogo.tsx
+       so the favicon and the in-page mark are the same drawing. -->
+  <rect width="28" height="28" fill="#030303"/>
+  <g fill="none" stroke="#F2F0EA" stroke-width="2.6" stroke-linecap="round">
+    <path d="M23.397 10.58A10 10 0 0 1 10.58 23.397"/>
+    <path d="M4.603 17.42A10 10 0 0 1 17.42 4.603"/>
+  </g>
+</svg>

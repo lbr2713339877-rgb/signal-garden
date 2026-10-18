@@ -1,0 +1,78 @@
+[span] Signal Garden
+[span] Categories
+[span] Categories
+[span] Daily discovery system
+[span] Something new
+[span] is taking shape.
+[span] Every day, we sift the whole web of new projects down to the few worth opening.
+[span] 01 / 08
+[span] Scroll to explore
+[span] 02 / Signal field
+[span] 01 / Signal detected
+[span] 14 objects are being scanned
+[span] Each object is a project we just found. They differ in speed, depth and shape — some are noise, some stay. Four of them have drawn together into something recognisable.
+[span] 14 OBJECTS · 4 CONVERGING
+[span] 03 / Convergence
+[span] Four sources, one signal
+[span] GitHub, Hacker News, product launches and public communities. A project has to show up in more than one before we call it a signal.
+[span] GITHUB
+[span] HACKER NEWS
+[span] PRODUCT HUNT
+[span] COMMUNITY
+[span] We only keep the part actually worth your time.
+[span] 04 / 08
+[span] 05 / Today’s signals
+[span] Today’s signals are still being generated
+[span] Projects that clear the floor will appear here once collection and scoring finish.
+[span] 06 / Category spaces
+[span] Six spaces
+[span] AI 工具
+[span] AI Tools
+[span] 独立站与出海
+[span] Indie Web
+[span] 开发者工具
+[span] Developer Tools
+[span] 设计资源
+[span] Design
+[span] Skill 与 Agent
+[span] Skills & Agents
+[span] 效率应用
+[span] Productivity
+[span] Nothing in this space has cleared the floor yet
+[span] AI TOOLS
+[h3] AI 工具
+[span] Models, inference, image and video tools
+[span] Enter this space
+[p] 今天有人在用的 AI 产品。
+[span] Readers
+[span] / READERS
+[span] What people do with Signal Garden
+[span] What happens after those five minutes
+[span] Sample content
+[span] There is no channel collecting reader messages yet. The text below is illustrative, not real user reviews.
+[span] I read it like a morning digest. It used to be GitHub trending and X for ten minutes, and all I remembered was noise. Now it is five projects in five minutes, and each one tells me which sources it came from.
+[span] Indie developer
+[span] Building SaaS solo
+[p] GitHub
+[p] 24 SEP 2026
+[span] The most valuable part is the "not for" column. Other lists only tell you how good a project is; this one says plainly that it needs a local runtime or an API key, so I know instantly whether to click through.
+[span] Frontend engineer
+[span] Owns the team’s tech choices
+[p] Hacker News
+[p] 21 SEP 2026
+[span] The missing submission form felt odd at first, then I realised it is the point — nobody can promote their own project here, so what you see really has been filtered.
+[span] Product manager
+[span] Working on AI apps
+[p] Email
+[p] 17 SEP 2026
+[span] You can see the MCP coverage growing week over week, and one pass beats my own searching. The time saved is worth two more prototypes.
+[span] Founder
+[span] Taking AI tools global
+[p] Product Hunt
+[p] 12 SEP 2026
+[p] 08 / 08
+[span] Five minutes a day, filtered down to the few worth opening.
+[span] Signal Garden
+[span] Daily discovery for what is next.
+[span] Everything here is collected automatically, never submitted
+[span] System status

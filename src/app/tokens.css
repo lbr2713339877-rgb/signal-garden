@@ -1,0 +1,346 @@
+/* =============================================================================
+   SIGNAL GARDEN — Design Tokens
+   "Black Glass Intelligence" / 黑曜玻璃情报空间
+
+   Rules enforced by this file:
+   - Three glass layers only. No fourth opacity.
+   - Category colour may appear as text, 1px edge, ambient glow, line and node.
+     It may NEVER be a fill on a button or a large surface.
+   - Glow is permitted in exactly three places: section ambient wash, card
+     hover edge, and the hero light field. Buttons and icons never glow.
+   - Radii stay small. 14px is the ceiling for a card.
+   ========================================================================== */
+
+:root {
+  /* --- Space -------------------------------------------------------------- */
+  --bg-void: #050505; /* hero, page switch overlay, true black */
+  --bg-deep: #0b0b0d; /* default page background */
+  --bg-raised: #111114; /* cards, panels, nav */
+
+  /* --- Ink (text) -------------------------------------------------------- */
+  --ink-1: #f5f5f2; /* titles, primary reading text */
+  --ink-2: #b8b8bd; /* body copy */
+  --ink-3: #77777e; /* secondary, captions, metadata */
+  --ink-4: #44444b; /* disabled, hairline baselines, rank numerals */
+
+  /* --- Glass (exactly three) --------------------------------------------- */
+  --glass-1: rgba(255, 255, 255, 0.045); /* resting card on dark */
+  --glass-2: rgba(255, 255, 255, 0.08); /* raised, hover, popover */
+  --glass-3: rgba(255, 255, 255, 0.14); /* active, selected, focus ring */
+
+  --glass-blur: 20px;
+  --glass-saturate: 140%;
+
+  /* --- Hairlines --------------------------------------------------------- */
+  --hairline: rgba(255, 255, 255, 0.06);
+  --hairline-strong: rgba(255, 255, 255, 0.12);
+  --hairline-faint: rgba(255, 255, 255, 0.035);
+
+  /* --- Accents (ambient light and graph strokes only) -------------------- */
+  --a-violet: #a78bfa;
+  --a-cyan: #67e8f9;
+  --a-coral: #fb7185;
+  --a-lime: #bef264;
+  --a-orange: #fdba74;
+  --a-blue-violet: #8b9cff;
+
+  /* --- Category colours ---------------------------------------------------
+     Each category also exposes an RGB triplet so ambient washes can set
+     alpha without colour-mixing in JS. */
+  --c-skill: #67e8f9; /* Skill / MCP        — Cyan       */
+  --c-agent: #a78bfa; /* Agent              — Violet     */
+  --c-devtool: #8b9cff; /* 开发工具            — Blue Violet */
+  --c-design: #fb7185; /* 设计与 UI          — Coral      */
+  --c-browser: #bef264; /* 浏览器自动化        — Mint/Lime  */
+  --c-media: #fdba74; /* 内容与媒体          — Orange     */
+  --c-data: #93c5fd; /* 数据与研究          — Soft Blue  */
+  --c-security: #e8ecef; /* 安全与隐私         — Cold White */
+  --c-productivity: #5eead4; /* 办公与生产力     — Teal       */
+  --c-marketing: #f0abfc; /* 营销与商业         — Fuchsia    */
+
+
+  --c-skill-rgb: 103, 232, 249;
+  --c-agent-rgb: 167, 139, 250;
+  --c-devtool-rgb: 139, 156, 255;
+  --c-design-rgb: 251, 113, 133;
+  --c-browser-rgb: 190, 242, 100;
+  --c-media-rgb: 253, 186, 116;
+  --c-data-rgb: 147, 197, 253;
+  --c-security-rgb: 232, 236, 239;
+  --c-productivity-rgb: 94, 234, 212;
+  --c-marketing-rgb: 240, 171, 252;
+
+
+  /* --- Risk / status ------------------------------------------------------ */
+  --risk-safe: #bef264;
+  --risk-review: #fdba74;
+  --risk-high: #fb7185;
+  --risk-unknown: #77777e;
+
+  /* --- Radii (deliberately small) ---------------------------------------- */
+  --r-xs: 4px;
+  --r-sm: 6px; /* buttons, inputs, chips */
+  --r-md: 10px; /* cards — the default */
+  --r-lg: 14px; /* modals, the ceiling */
+  --r-pill: 999px; /* tags only */
+
+  /* --- Spacing (8px base) ------------------------------------------------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+  --s-11: 160px; /* desktop section rhythm */
+  --s-12: 240px;
+
+  /* --- Layout ------------------------------------------------------------- */
+  --container: 1280px;
+  --container-narrow: 880px;
+  --gutter: 24px;
+  --gutter-mobile: 20px;
+  --nav-h: 56px;
+
+  /* --- Type ---------------------------------------------------------------
+     Latin display: Inter Tight (set by next/font, fallback below).
+     CJK: PingFang SC on Apple, Noto Sans SC elsewhere.
+     Mono: JetBrains Mono for every number, rank and command. */
+  --font-sans: "Inter Tight", "PingFang SC", "Noto Sans SC",
+    system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo,
+    monospace;
+
+  --fs-display: clamp(2.5rem, 7vw, 5.75rem); /* hero 40 -> 92 */
+  --fs-h1: clamp(2rem, 4vw, 3.25rem);
+  --fs-h2: clamp(1.5rem, 2.6vw, 2.25rem);
+  --fs-h3: clamp(1.125rem, 1.6vw, 1.5rem);
+  --fs-body: 1rem;
+  --fs-sm: 0.875rem;
+  --fs-xs: 0.8125rem;
+  --fs-tag: 0.6875rem;
+  --fs-micro: 0.625rem;
+
+  --lh-display: 0.98;
+  --lh-tight: 1.25;
+  --lh-body: 1.65; /* CJK/Latin mixed body */
+  --lh-cjk: 1.75;
+
+  --ls-display: -0.03em;
+  --ls-title: -0.02em;
+  --ls-brand: 0.18em; /* wordmark only */
+  --ls-tag: 0.08em; /* uppercase labels */
+
+  /* --- Motion -------------------------------------------------------------
+     One primary curve. Everything that enters uses --e-out. */
+  --e-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --e-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  --e-in: cubic-bezier(0.4, 0, 1, 1);
+  /* V2 §7.2: the house curve. Slight overshoot so movement settles rather
+     than stopping dead. Used for every transition that has a direction. */
+  --e-v2: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* V2 §7 durations: 200-400ms, never slower. */
+  --d-hover: 220ms;
+  --d-enter: 600ms; /* headline entrance */
+  --stagger-v2: 80ms; /* between feature cards */
+
+  --d-instant: 90ms;
+  --d-fast: 180ms; /* hover out — always quicker than hover in */
+  --d-base: 300ms;
+  --d-slow: 600ms;
+  --d-narr: 900ms; /* narrative text entrance */
+  --d-page-out: 220ms;
+  --d-page-in: 480ms;
+
+  --stagger-card: 100ms;
+  --stagger-text: 160ms;
+
+  /* --- Elevation (no colour, just depth) --------------------------------- */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6);
+
+  /* --- Z-index scale ------------------------------------------------------ */
+  --z-base: 0;
+  --z-ambient: 1; /* colour washes sit behind content */
+  --z-content: 10;
+  --z-sticky: 40;
+  --z-nav: 50;
+  --z-overlay: 60;
+  --z-transition: 90; /* page-switch black field, above everything */
+}
+
+/* -----------------------------------------------------------------------------
+   Category theming.
+   Put data-category on any subtree and it resolves --cat and --cat-rgb.
+   Components use var(--cat) instead of hardcoding a colour.
+   -------------------------------------------------------------------------- */
+[data-category="skill"] {
+  --cat: var(--c-skill);
+  --cat-rgb: var(--c-skill-rgb);
+}
+[data-category="agent"] {
+  --cat: var(--c-agent);
+  --cat-rgb: var(--c-agent-rgb);
+}
+[data-category="devtool"] {
+  --cat: var(--c-devtool);
+  --cat-rgb: var(--c-devtool-rgb);
+}
+[data-category="design"] {
+  --cat: var(--c-design);
+  --cat-rgb: var(--c-design-rgb);
+}
+[data-category="browser"] {
+  --cat: var(--c-browser);
+  --cat-rgb: var(--c-browser-rgb);
+}
+[data-category="media"] {
+  --cat: var(--c-media);
+  --cat-rgb: var(--c-media-rgb);
+}
+[data-category="data"] {
+  --cat: var(--c-data);
+  --cat-rgb: var(--c-data-rgb);
+}
+[data-category="security"] {
+  --cat: var(--c-security);
+  --cat-rgb: var(--c-security-rgb);
+}
+[data-category="productivity"] {
+  --cat: var(--c-productivity);
+  --cat-rgb: var(--c-productivity-rgb);
+}
+[data-category="marketing"] {
+  --cat: var(--c-marketing);
+  --cat-rgb: var(--c-marketing-rgb);
+}
+
+/* Fallback so a component never renders with an undefined --cat */
+[data-category] {
+  --cat: var(--ink-3);
+  --cat-rgb: 119, 119, 126;
+}
+
+/* -----------------------------------------------------------------------------
+   Reduced motion.
+   Parallax and continuous drift are removed. Opacity fades are kept, because
+   they carry state change rather than decoration. No information is lost.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --d-instant: 0ms;
+    --d-fast: 120ms;
+    --d-base: 140ms;
+    --d-slow: 160ms;
+    --d-narr: 200ms;
+    --d-page-out: 0ms;
+    --d-page-in: 140ms;
+    --stagger-card: 0ms;
+    --stagger-text: 0ms;
+  }
+
+  /* Kill drift, parallax and looping ornament everywhere. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Fades express state, so they survive — but only as opacity. */
+  .motion-drift,
+  .motion-parallax,
+  .motion-loop {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Light mode (V2 §7.8) — dark is the default, light is the alternative.
+   Only tokens are redefined: every component reads these variables, so the
+   whole product flips without a component knowing about it. The glass values
+   invert to black-on-white, and the accent colours darken just enough to keep
+   contrast on a bright surface.
+   -------------------------------------------------------------------------- */
+html[data-theme="light"] {
+  --bg-void: #ffffff;
+  --bg-deep: #f7f7f8;
+  --bg-raised: #ffffff;
+
+  --ink-1: #111114;
+  --ink-2: #3f3f46;
+  --ink-3: #6b6b75;
+  --ink-4: #a1a1aa;
+
+  --glass-1: rgba(0, 0, 0, 0.028);
+  --glass-2: rgba(0, 0, 0, 0.05);
+  --glass-3: rgba(0, 0, 0, 0.09);
+
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hairline-strong: rgba(0, 0, 0, 0.16);
+  --hairline-faint: rgba(0, 0, 0, 0.05);
+
+  /* Accents darkened for contrast on white; the hues stay the same so a
+     category keeps its identity across both themes. */
+  --c-skill: #0e7490;
+  --c-agent: #6d28d9;
+  --c-devtool: #4f46e5;
+  --c-design: #be123c;
+  --c-browser: #4d7c0f;
+  --c-media: #c2410c;
+  --c-data: #1d4ed8;
+  --c-security: #334155;
+  --c-productivity: #0f766e;
+  --c-marketing: #a21caf;
+
+  --c-skill-rgb: 14, 116, 144;
+  --c-agent-rgb: 109, 40, 217;
+  --c-devtool-rgb: 79, 70, 229;
+  --c-design-rgb: 190, 18, 60;
+  --c-browser-rgb: 77, 124, 15;
+  --c-media-rgb: 194, 65, 12;
+  --c-data-rgb: 29, 78, 216;
+  --c-security-rgb: 51, 65, 85;
+  --c-productivity-rgb: 15, 118, 110;
+  --c-marketing-rgb: 162, 28, 175;
+
+  --risk-safe: #4d7c0f;
+  --risk-review: #b45309;
+  --risk-high: #be123c;
+  --risk-unknown: #71717a;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.12);
+}
+
+/* The ambient washes are light on dark; on white they need to be stronger to
+   register at all, and are kept within the same opacity ceiling. */
+html[data-theme="light"] .ambient {
+  filter: blur(120px);
+  opacity: 0.2;
+}
+
+/* The nav bar is translucent dark by default; on white it inverts. */
+html[data-theme="light"] header {
+  background: rgba(255, 255, 255, 0.78) !important;
+}
+
+/* Snippet blocks and sparklines sit on the void colour, which is now white. */
+html[data-theme="light"] pre {
+  background: var(--bg-deep) !important;
+}
+
+html[data-theme="light"] ::selection {
+  background: rgba(var(--c-skill-rgb), 0.18);
+}
+
+:root { --theme-bootstrap: 0; }

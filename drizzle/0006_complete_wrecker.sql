@@ -1,0 +1,1 @@
+ALTER TABLE "ai_content" ADD COLUMN "personas" jsonb DEFAULT '[]'::jsonb NOT NULL;

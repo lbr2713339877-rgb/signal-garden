@@ -1,0 +1,15 @@
+src/lib/email.ts
+src/lib/email-code.ts
+src/lib/email-locale.ts
+src/lib/email-template.ts
+src/lib/email.test.ts
+src/lib/site.ts
+src/app/login/LoginPanel.tsx
+src/app/onboarding/OnboardingForm.tsx
+src/app/api/auth/send-code/route.ts
+src/app/api/auth/complete-signup/route.ts
+src/app/api/preferences/route.ts
+public/email/logo.png
+public/email/x.png
+public/email/xiaohongshu.png
+public/email/README.md

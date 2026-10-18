@@ -1,0 +1,45 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Local database (PGlite writes a directory)
+data/
+!data/.gitkeep
+
+# Env
+.env
+.env.local
+.env*.local
+
+# Extra env variants (do not commit)
+.env.production
+.env.development
+.env.staging
+.env.bak
+
+# Local operator secrets directory (never commit)
+secrets/
+
+# Drizzle generated migrations are committed; local journal state is not
+drizzle/meta/_journal.json.bak
+
+# OS
+.DS_Store
+*.pem
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# TS
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Isolated local design review data and captures
+tmp/local-review/

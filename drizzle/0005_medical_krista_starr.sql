@@ -1,0 +1,1 @@
+ALTER TABLE "project" ADD COLUMN "forks_30d" integer;

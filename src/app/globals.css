@@ -1,0 +1,433 @@
+/* source() anchors Tailwind's class scan to the project root, relative to
+   this file. Without it the scan starts at process.cwd(), and a server
+   launched from a parent directory emits no utilities at all. */
+@import "tailwindcss" source("../../");
+@import "./tokens.css";
+
+/* Tailwind v4 reads these so utilities like text-ink-2 / bg-glass-1 exist. */
+@theme inline {
+  --color-void: var(--bg-void);
+  --color-deep: var(--bg-deep);
+  --color-raised: var(--bg-raised);
+
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+
+  --color-c-skill: var(--c-skill);
+  --color-c-agent: var(--c-agent);
+  --color-c-devtool: var(--c-devtool);
+  --color-c-design: var(--c-design);
+  --color-c-browser: var(--c-browser);
+  --color-c-media: var(--c-media);
+  --color-c-data: var(--c-data);
+  --color-c-security: var(--c-security);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+}
+
+/* -----------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+/* Base rules live in @layer base so Tailwind utilities can override them.
+   Unlayered CSS beats every layer regardless of specificity: an unlayered
+   :lang(zh) line-height silently overrode every leading-* utility. */
+@layer base {
+* {
+  border-color: var(--hairline);
+}
+
+html {
+  background: var(--bg-void);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--ink-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Mixed CJK/Latin needs a slightly looser line height.
+   Not word-break: keep-all — the document is lang="zh-CN", so that would make
+   every Chinese line breakable only at spaces and punctuation ("每天，" alone on
+   a line, "10" split from "个"). Strict line-break keeps closing punctuation off
+   the start of a line; text-wrap: pretty avoids single-character orphans. */
+:lang(zh),
+.cjk {
+  line-height: var(--lh-cjk);
+  line-break: strict;
+  overflow-wrap: anywhere;
+}
+
+p,
+h1,
+h2,
+h3 {
+  text-wrap: pretty;
+}
+
+/* Every number in this product is mono and tabular, so digits never shift
+   width while a value animates or updates. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* --- Focus: visible, but in the product's own language ------------------- */
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg-deep),
+    0 0 0 4px var(--glass-3);
+  border-radius: var(--r-sm);
+}
+
+/* --- Selection ----------------------------------------------------------- */
+::selection {
+  background: rgba(var(--c-skill-rgb), 0.24);
+  color: var(--ink-1);
+}
+
+/* --- Scrollbar: thin, near-invisible until hover ------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-pill);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+}
+
+/* -----------------------------------------------------------------------------
+   Bilingual visibility.
+   The server renders both languages; one attribute on <html> picks which is
+   shown. Switching is therefore instantaneous and cannot half-apply.
+   -------------------------------------------------------------------------- */
+
+/* 默认：硬切。这是 V2 页面在用的方式 —— 那里大量 LANG 出现在句子中间，
+   改成叠放会把 inline 流打乱。保持不变，零风险。
+   注意 `:not([data-fade])`：只有显式声明要走交叉淡入的节点才豁免。 */
+html[data-lang="zh"] [data-lang="en"]:not([data-fade]),
+html[data-lang="en"] [data-lang="zh"]:not([data-fade]) {
+  display: none !important;
+}
+
+/* 交叉淡入：opt-in，用于 V3 的块级文案（components 里走 <T>）。
+   两种语言同时存在于同一个 grid 单元，容器高度取两者较高者 —— 所以
+   来回切换时高度不变，不会有布局跳动。透明度 220ms 过渡，不是硬切。 */
+.lang-pair {
+  display: grid;
+}
+.lang-pair > [data-lang] {
+  grid-area: 1 / 1;
+  transition:
+    opacity 220ms var(--e-v3, cubic-bezier(0.22, 1, 0.36, 1)),
+    visibility 0s;
+}
+/* 退出的一方先淡出，再移出无障碍树（visibility 延迟到淡出结束） */
+html[data-lang="zh"] .lang-pair > [data-lang="en"],
+html[data-lang="en"] .lang-pair > [data-lang="zh"] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 220ms var(--e-v3, cubic-bezier(0.22, 1, 0.36, 1)),
+    visibility 0s linear 220ms;
+}
+/* 淡入的一方：稍微晚 60ms 起，避免两段文字重叠时糊在一起 */
+html[data-lang="zh"] .lang-pair > [data-lang="zh"],
+html[data-lang="en"] .lang-pair > [data-lang="en"] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 220ms var(--e-v3, cubic-bezier(0.22, 1, 0.36, 1)) 60ms,
+    visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-pair > [data-lang] {
+    transition: none !important;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Composed primitives.
+   These are the only sanctioned ways to render glass, glow and edges.
+   Anything not in this list should be built from these.
+   -------------------------------------------------------------------------- */
+@layer components {
+
+/* The three legal glass surfaces. */
+.glass {
+  background: var(--glass-1);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--hairline);
+}
+.glass-2 {
+  background: var(--glass-2);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--hairline-strong);
+}
+.glass-3 {
+  background: var(--glass-3);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--hairline-strong);
+}
+
+/* Ambient wash — the only large-area colour in the product.
+   Always sits behind content, always blurred past recognition. */
+.ambient {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.16;
+  z-index: var(--z-ambient);
+}
+
+/* Card hover: lift, brighten the edge toward the category colour, widen glow.
+   Hover-in is 220ms (--d-base); hover-out is 180ms (--d-fast). */
+.card-lift {
+  transition:
+    transform var(--d-hover) var(--e-v2),
+    border-color var(--d-hover) var(--e-v2),
+    background-color var(--d-hover) var(--e-v2);
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-8px);
+  border-color: rgba(var(--cat-rgb, 255 255 255), 0.28);
+  background: var(--glass-2);
+}
+/* Reduced motion keeps the colour feedback but drops the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .card-lift:hover {
+    transform: none;
+  }
+}
+
+/* Uppercase micro-label used for section kickers and metadata keys. */
+.kicker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--ls-tag);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Brand wordmark. The only place --ls-brand is used. */
+.wordmark {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  letter-spacing: var(--ls-brand);
+  text-transform: uppercase;
+  color: var(--ink-1);
+}
+
+/* Hairline divider that fades at both ends — avoids the hard full-bleed rule. */
+.rule {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--hairline-strong) 15%,
+    var(--hairline-strong) 85%,
+    transparent
+  );
+}
+
+/* Utility: hide content from sight but not from screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+}
+
+/* -----------------------------------------------------------------------------
+   V2 motion (brief §7).
+
+   The house curve --e-v2 has a slight overshoot: things settle rather than
+   stop dead. Durations stay in the 200-400ms band the brief specifies, except
+   the headline entrance, which is deliberately slower to read as "today's
+   edition going live".
+   -------------------------------------------------------------------------- */
+
+/* Headline entrance: 600ms fade + 20px rise (§7.1). */
+@keyframes v2-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Feature cards: same shape, 80ms apart, driven by animation-delay per card. */
+.v2-enter {
+  animation: v2-rise var(--d-enter) var(--e-v2) both;
+}
+
+/* The hook is the card's loudest element, so it carries the emphasis: the
+   underline draws in on hover rather than the whole card shouting. */
+.v2-hook-link {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size var(--d-hover) var(--e-v2);
+}
+.group:hover .v2-hook-link,
+.v2-hook-link:hover {
+  background-size: 100% 1px;
+}
+
+/* Icons scale slightly on hover (§7.3). The card itself lifts via .card-lift. */
+.v2-icon-pop {
+  transition: transform var(--d-hover) var(--e-v2);
+}
+.group:hover .v2-icon-pop {
+  transform: scale(1.05);
+}
+
+/* Section rhythm for the new homepage. */
+.v2-section {
+  padding-block: clamp(48px, 8vh, 112px);
+}
+
+/* Reduced motion (§7.9): entrance collapses to a plain fade, the lift is
+   dropped, and the hook underline appears immediately. Nothing is removed
+   from the page. */
+@media (prefers-reduced-motion: reduce) {
+  .v2-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .v2-hook-link {
+    background-size: 100% 1px;
+    transition: none;
+  }
+  .v2-icon-pop,
+  .group:hover .v2-icon-pop {
+    transform: none;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   V2 §7.7 skeleton shimmer, and §7.6 shared-element page transition.
+
+   The shimmer animates background-position rather than width, so it never
+   causes layout. The transition names below are matched between the card and
+   the detail page: the browser morphs one into the other instead of cutting.
+   -------------------------------------------------------------------------- */
+
+.sk-bar,
+.sk-block {
+  background: var(--glass-1);
+}
+
+.sk-bar {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--glass-2) 45%,
+    var(--glass-3) 50%,
+    var(--glass-2) 55%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  animation: sk-shimmer 1.6s var(--e-inout) infinite;
+}
+
+@keyframes sk-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* Shared element: the card's art and the detail hero carry the same name, so
+   supporting browsers morph between them. Unsupported browsers simply
+   navigate — nothing is required for the page to work. */
+.vt-card-art {
+  view-transition-name: vt-art;
+}
+.vt-hero-art {
+  view-transition-name: vt-art;
+}
+
+::view-transition-old(vt-art),
+::view-transition-new(vt-art) {
+  animation-duration: var(--d-page-in);
+  animation-timing-function: var(--e-v2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-bar {
+    animation: none;
+    background-image: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* Sticky date bar (§7.5): the date stays visible while the list scrolls, so
+   the reader never loses track of which day they are looking at. */
+.v2-sticky-date {
+  position: sticky;
+  top: var(--nav-h);
+  z-index: var(--z-sticky);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  background: color-mix(in srgb, var(--bg-deep) 82%, transparent);
+  border-bottom: 1px solid var(--hairline);
+}

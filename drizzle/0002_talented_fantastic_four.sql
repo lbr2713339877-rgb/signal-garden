@@ -1,0 +1,1 @@
+ALTER TABLE "project" ADD COLUMN "is_skill_collection" boolean DEFAULT false NOT NULL;
