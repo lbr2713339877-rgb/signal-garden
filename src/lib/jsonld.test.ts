@@ -16,6 +16,7 @@ test("site graph is WebSite + Organization, with SearchAction only when search e
   assert.equal(graph[0]["@type"], "WebSite");
   assert.equal(graph[0].name, "Signal Garden");
   assert.equal(graph[0].url, ORIGIN);
+  assert.equal(graph[0].description, "按近期 star 增长等热度信号排序");
   const action = graph[0].potentialAction as Record<string, unknown>;
   assert.equal(action["@type"], "SearchAction");
   const target = action.target as { urlTemplate: string };
@@ -48,6 +49,7 @@ test("today ItemList ranks repos with position, project url, and name", () => {
   const items = data.itemListElement as Record<string, unknown>[];
   assert.equal(data["@type"], "ItemList");
   assert.equal(data.name, "Signal Garden — Today 2026-10-18");
+  assert.equal(data.description, "按近期 star 增长等热度信号排序");
   assert.equal(data.url, "https://signalgarden.site/today");
   assert.equal(items[0]["@type"], "ListItem");
   assert.equal(items[0].position, 1);

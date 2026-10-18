@@ -1,6 +1,7 @@
 import React, { type ReactElement } from "react";
 import { ImageResponse } from "next/og";
 import { ogFont } from "./font";
+import { projectOgStat, todayOgForkCell } from "./metric";
 
 export const OG_SIZE = { width: 1200, height: 630 } as const;
 export const OG_CONTENT_TYPE = "image/png";
@@ -14,11 +15,6 @@ function clip(value: string, max: number): string {
   const chars = Array.from(value.replace(/\s+/g, " ").trim());
   if (chars.length <= max) return chars.join("");
   return `${chars.slice(0, Math.max(0, max - 1)).join("")}…`;
-}
-
-function forkCount(forks7d: number | null): string | null {
-  if (typeof forks7d !== "number" || !Number.isFinite(forks7d)) return null;
-  return String(Math.trunc(forks7d));
 }
 
 function frame(children: ReactElement, footer: string) {
@@ -79,11 +75,12 @@ export function renderProjectOg(input: {
   name: string;
   owner: string | null;
   forks7d: number | null;
+  stars24h?: number | null;
   missing?: boolean;
 }) {
   const name = clip(input.name || "Signal Garden", 42) || "Signal Garden";
   const owner = input.owner ? clip(input.owner, 48) : "";
-  const forks = input.missing ? null : forkCount(input.forks7d);
+  const stat = projectOgStat(input);
   const titleSize = Array.from(name).length > 22 ? 52 : 68;
   return respond(
     frame(
@@ -105,16 +102,14 @@ export function renderProjectOg(input: {
         ) : null}
         {input.missing ? (
           <div style={{ display: "flex", marginTop: 28, fontSize: 28, color: MUTED }}>未收录</div>
-        ) : (
+        ) : stat ? (
           <div style={{ display: "flex", marginTop: 32, alignItems: "baseline" }}>
-            <div style={{ display: "flex", fontSize: 54 }}>{forks ?? "—"}</div>
-            <div style={{ display: "flex", marginLeft: 18, fontSize: 26, color: MUTED }}>
-              7-day new forks · 7 日新增 fork
-            </div>
+            <div style={{ display: "flex", fontSize: 54 }}>{stat.value}</div>
+            <div style={{ display: "flex", marginLeft: 18, fontSize: 26, color: MUTED }}>{stat.label}</div>
           </div>
-        )}
+        ) : null}
       </div>,
-      input.missing ? "project" : "7-day new forks",
+      input.missing ? "project" : stat?.label ?? "Signal Garden",
     ),
   );
 }
@@ -144,10 +139,8 @@ export function renderTodayOg(input: {
                   fontSize: 30,
                 }}
               >
-                <div style={{ display: "flex" }}>{clip(row.name, 32) || "—"}</div>
-                <div style={{ display: "flex", marginLeft: 24, color: MUTED }}>
-                  {forkCount(row.forks7d) ?? "—"}
-                </div>
+                <div style={{ display: "flex" }}>{clip(row.name, 32)}</div>
+                <div style={{ display: "flex", marginLeft: 24, color: MUTED }}>{todayOgForkCell(row.forks7d)}</div>
               </div>
             ))
           )}

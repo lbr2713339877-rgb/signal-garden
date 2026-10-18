@@ -3,12 +3,12 @@ import type { Metadata } from "next";
 import { V3Shell } from "@/components/v3/V3Shell";
 import { T } from "@/lib/dict";
 import { pageMetadata } from "@/lib/page-meta";
-import { CONTACT_EMAIL } from "@/lib/site";
+import { CONTACT_EMAIL, RANKING_ZH_SHORT } from "@/lib/site";
 
 export const metadata: Metadata = pageMetadata({
   title: "赞助 · Sponsor",
   description:
-    "Signal Garden 面向每天追踪 GitHub 趋势仓库的开发者，榜单按 7 日新增 fork 排序。早期赞助位是今日榜一条和周一邮件周刊，RSS 一行可选。来信 hello@signalgarden.site。",
+    `Signal Garden 面向每天追踪 GitHub 趋势仓库的开发者，${RANKING_ZH_SHORT}。早期赞助位是今日榜一条和周一邮件周刊，RSS 一行可选。来信 hello@signalgarden.site。`,
   path: "/sponsor",
 });
 

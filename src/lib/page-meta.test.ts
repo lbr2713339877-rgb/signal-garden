@@ -49,7 +49,8 @@ test("today has its own description, canonical, and og:url", () => {
   assert.equal(meta.description, TODAY_DESCRIPTION);
   assert.equal(meta.alternates?.canonical, "https://signalgarden.site/today");
   assert.equal(meta.openGraph?.url, "https://signalgarden.site/today");
-  assert.equal(String(meta.description).includes("7 天 fork"), true);
+  assert.equal(String(meta.description).includes("按近期 star 增长等热度信号排序"), true);
+  assert.equal(String(meta.description).includes("7 天 fork"), false);
   assert.equal(String(meta.description).includes(SITE_BLURB), false);
   assert.equal(String(meta.description).includes("面向开发者的每日项目发现站"), false);
 });
