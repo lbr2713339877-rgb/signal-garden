@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { featuredRepo } from "@/db/queries/featured";
 import { badgeTheme, featuredBadgeSvg, isRepoSegment, repoSvgName } from "@/lib/badge";
+import { badgeAliasPath } from "@/lib/slug-alias";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,23 @@ export async function GET(
   const { owner, repo: repoFile } = await context.params;
   const repo = repoSvgName(repoFile);
   const theme = badgeTheme(new URL(request.url).searchParams.get("theme"));
-  if (!repo || !isRepoSegment(owner) || !(await featuredRepo(owner, repo))) {
+  if (!repo || !isRepoSegment(owner)) {
+    return new NextResponse("Not found", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8", "cache-control": MISS },
+    });
+  }
+  const renamed = await badgeAliasPath(owner, repo);
+  if (renamed) {
+    return new NextResponse(null, {
+      status: 308,
+      headers: {
+        location: theme === "dark" ? `${renamed}?theme=dark` : renamed,
+        "cache-control": MISS,
+      },
+    });
+  }
+  if (!(await featuredRepo(owner, repo))) {
     return new NextResponse("Not found", {
       status: 404,
       headers: { "content-type": "text/plain; charset=utf-8", "cache-control": MISS },
