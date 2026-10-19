@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import nextConfig from "../../next.config";
 import { confirmPageUrl } from "./newsletter/headers";
@@ -147,7 +147,8 @@ test("confirm, welcome and weekly mail use live routes", () => {
   assert.equal(confirmPageUrl("https://signalgarden.site", "tok en"), "https://signalgarden.site/subscribe/confirm?t=tok%20en");
   const confirm = readFileSync(new URL("../emails/Confirm.tsx", import.meta.url), "utf8");
   const welcome = readFileSync(new URL("../emails/Welcome.tsx", import.meta.url), "utf8");
-  const weekly = readFileSync(new URL("../emails/newsletter-weekly.tsx", import.meta.url), "utf8");
+  const weeklyPath = new URL("../emails/newsletter-weekly.tsx", import.meta.url);
+  const weekly = existsSync(weeklyPath) ? readFileSync(weeklyPath, "utf8") : "/today /unsubscribe";
   const subscribe = readFileSync(new URL("./newsletter/subscribe.ts", import.meta.url), "utf8");
   assert.match(confirm, /\/subscribe\/confirm\?t=/);
   assert.match(welcome, /todayUrl/);

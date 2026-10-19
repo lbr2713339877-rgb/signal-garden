@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { newsletterSubscriber } from "@/db/schema";
 import { emailSiteUrl } from "@/lib/email-template";
@@ -9,6 +9,7 @@ import { confirmPageUrl, listUnsubscribeHeaders, unsubscribePageUrl } from "./he
 import { allowRate } from "./rate-limit";
 import { confirmOutcome, subscribeAction, unsubscribeOutcome } from "./state";
 import {
+  CONFIRM_RESEND_AFTER_MS,
   CONFIRM_TTL_MS,
   EMAIL_LIMIT,
   EMAIL_WINDOW_MS,
@@ -82,6 +83,19 @@ async function sendConfirm(input: {
   });
 }
 
+/** A pending confirm mailed inside the quiet window must keep its token. */
+export function confirmRecentlySent(
+  row: { status: string; confirmExpiresAt: Date | null } | undefined,
+  now: Date,
+): boolean {
+  return Boolean(
+    row &&
+      row.status === "pending" &&
+      row.confirmExpiresAt &&
+      now.getTime() - (row.confirmExpiresAt.getTime() - CONFIRM_TTL_MS) < CONFIRM_RESEND_AFTER_MS,
+  );
+}
+
 export async function requestSubscribe(input: SubscribeInput): Promise<SubscribeResult> {
   const now = input.now ?? new Date();
   const email = normalizeEmail(input.email);
@@ -111,6 +125,7 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
   const [existing] = await d.select().from(newsletterSubscriber).where(eq(newsletterSubscriber.emailHash, emailHash)).limit(1);
   const action = subscribeAction(existing?.status ?? null);
   if (action === "ignore" || action === "blocked") return { ok: true, sent: false };
+  if (confirmRecentlySent(existing, now)) return { ok: true, sent: false };
 
   const emailAllowed = await allowRate({
     bucket: "email",
@@ -142,9 +157,26 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
   };
 
   if (!existing) {
-    await d.insert(newsletterSubscriber).values({ id, ...patch });
+    const inserted = await d
+      .insert(newsletterSubscriber)
+      .values({ id, ...patch })
+      .onConflictDoNothing()
+      .returning({ id: newsletterSubscriber.id });
+    if (inserted.length === 0) return { ok: true, sent: false };
   } else {
-    await d.update(newsletterSubscriber).set(patch).where(eq(newsletterSubscriber.id, existing.id));
+    const tokenSame = existing.confirmTokenHash
+      ? eq(newsletterSubscriber.confirmTokenHash, existing.confirmTokenHash)
+      : isNull(newsletterSubscriber.confirmTokenHash);
+    const updated = await d
+      .update(newsletterSubscriber)
+      .set(patch)
+      .where(and(
+        eq(newsletterSubscriber.id, existing.id),
+        tokenSame,
+        eq(newsletterSubscriber.status, existing.status),
+      ))
+      .returning({ id: newsletterSubscriber.id });
+    if (updated.length === 0) return { ok: true, sent: false };
   }
 
   const transport = input.transport ?? newsletterTransport();

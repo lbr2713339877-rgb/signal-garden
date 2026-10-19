@@ -648,6 +648,7 @@ export const DICT = {
   ],
   'newsletter.placeholder': ['you@example.com', 'you@example.com'],
   'newsletter.submit': ['订阅', 'Subscribe'],
+  'newsletter.sent': ['已发送', 'Sent'],
   'newsletter.company': ['公司', 'Company'],
   'newsletter.success': [
     '请到收件箱确认订阅 Signal Garden 每周一周刊。',
