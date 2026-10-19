@@ -1,21 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { aliasRedirectPath, isSlug } from '@/lib/slug-redirect-path';
+import { aliasLookupUrl, aliasRedirectPath, isSlug } from '@/lib/slug-redirect-path';
 
 /**
  * Page redirects run after the root loading skeleton has started streaming, so
- * they cannot set an HTTP status. This lookup returns 308 first. The location
- * stays relative so a proxy does not rewrite it to the internal host.
+ * they cannot set an HTTP status. This lookup returns 308 first. The fetch
+ * uses the loopback listener; the Location header stays on the public origin.
  */
 async function aliasRedirect(request: NextRequest): Promise<NextResponse | null> {
   const target = aliasRedirectPath(request.nextUrl.pathname);
   if (!target || !isSlug(target.slug)) return null;
-  const lookup = request.nextUrl.clone();
-  lookup.pathname = "/api/slug-alias";
-  lookup.search = "";
-  lookup.searchParams.set("slug", target.slug);
   try {
-    const res = await fetch(lookup, { cache: "no-store" });
+    const res = await fetch(aliasLookupUrl(target.slug), { cache: "no-store" });
     if (!res.ok) return null;
     const body = (await res.json()) as { redirectTo?: unknown };
     if (typeof body.redirectTo !== "string" || !isSlug(body.redirectTo)) return null;

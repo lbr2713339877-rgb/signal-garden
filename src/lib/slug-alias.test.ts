@@ -12,7 +12,7 @@ import { readmeBadgeMarkdown } from "@/lib/badge";
 import { pingRenamedProjectSlugs } from "@/lib/indexnow";
 import { allocateSlug, badgeAliasPath, ensureCurrentSlug, loadReservedSlugs, resolveSlug } from "@/lib/slug-alias";
 import { redirectAlias } from "@/lib/slug-redirect";
-import { aliasRedirectPath } from "@/lib/slug-redirect-path";
+import { aliasLookupUrl, aliasRedirectPath } from "@/lib/slug-redirect-path";
 import { backfillSlugs } from "@/jobs/slugs";
 import { createFeedback } from "@/db/queries";
 import { GET as badgeGet } from "@/app/badge/[owner]/[repo]/route";
@@ -25,6 +25,10 @@ test("alias paths cover project, classic and feedback pages", () => {
   assert.equal(aliasRedirectPath("/p/cosscom-coss/opengraph-image"), null);
   assert.equal(aliasRedirectPath("/p/cosscom-coss/twitter-image"), null);
   assert.equal(aliasRedirectPath("/badge/cosscom/coss.svg"), null);
+  assert.equal(
+    aliasLookupUrl("cosscom-coss").href,
+    "http://127.0.0.1:3000/api/slug-alias?slug=cosscom-coss",
+  );
 });
 
 test("alias redirects are permanent and keep the query string", () => {
@@ -232,6 +236,10 @@ test("pages redirect aliases and the open graph image does not", () => {
   const image = readFileSync("src/app/p/[slug]/opengraph-image.tsx", "utf8");
   const discover = readFileSync("src/jobs/discover.ts", "utf8");
   const cli = readFileSync("src/jobs/cli.ts", "utf8");
+  const middleware = readFileSync("src/middleware.ts", "utf8");
+  assert.match(middleware, /fetch\(aliasLookupUrl\(target\.slug\)/);
+  assert.match(middleware, /request\.nextUrl\.search/);
+  assert.equal(middleware.includes("nextUrl.clone"), false);
   assert.match(page, /redirectIfAlias\(\s*"\/p"/);
   assert.match(page, /searchParams/);
   assert.match(classic, /redirectIfAlias\(\s*"\/p"/);
