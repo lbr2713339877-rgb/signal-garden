@@ -15,6 +15,10 @@ import { projectPageMetadata } from "@/lib/page-meta";
 import { DIFFICULTY_LABEL, DIFFICULTY_LABEL_EN, DIFFICULTY_STARS, SECURITY_LABEL, SECURITY_LABEL_EN, STATUS_LABEL, STATUS_LABEL_EN, categoryLabel } from "@/lib/categories";
 import { T } from "@/lib/dict";
 import { formatCount } from "@/lib/utils";
+import { ReadmeBadge } from "@/components/v3/ReadmeBadge";
+import { projectWasFeatured } from "@/db/queries/featured";
+import { ownerRepo } from "@/lib/badge";
+import { siteOrigin } from "@/lib/edition";
 
 export const revalidate = 0;
 
@@ -62,6 +66,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
   if (!data) notFound();
 
   const { project: p, skills, content, mentions, history } = data;
+  const github = ownerRepo(p.fullName);
+  const featured = github ? await projectWasFeatured(p.id) : false;
   const copy = await getProjectCopy(p.id);
   const localized = pickLocalizedCopy(copy, p.description ?? null);
   const hookZh = localized.hook.zh;
@@ -156,6 +162,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
                 </a>
               ) : null}
             </div>
+            {featured && github ? (
+              <ReadmeBadge owner={github.owner} repo={github.repo} slug={p.slug} origin={siteOrigin()} />
+            ) : null}
           </div>
 
           {/* The four judgements, always separate. Heat is not quality. */}

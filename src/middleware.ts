@@ -1,7 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { isIndexNowKeyPath } from '@/lib/indexnow-key';
 
 export async function middleware(request: NextRequest) {
+  if (isIndexNowKeyPath(request.nextUrl.pathname, process.env.INDEXNOW_KEY)) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/api/indexnow-key';
+    url.search = '';
+    return NextResponse.rewrite(url);
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) return NextResponse.next({ request });

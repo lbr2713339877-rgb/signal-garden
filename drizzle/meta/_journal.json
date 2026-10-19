@@ -113,6 +113,13 @@
       "when": 1791676800000,
       "tag": "0015_newsletter",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791763200000,
+      "tag": "0016_public_api",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,8 @@ test("llms.txt names the site, the daily URLs, momentum ranking, languages, and 
   assert.match(text, /https:\/\/signalgarden\.site\//);
   assert.match(text, /https:\/\/signalgarden\.site\/today/);
   assert.match(text, /https:\/\/signalgarden\.site\/feed\.xml/);
+  assert.match(text, /https:\/\/signalgarden\.site\/api\/today\.json/);
+  assert.match(text, /utm_source/);
   assert.match(text, /https:\/\/signalgarden\.site\/p\/\{slug\}/);
   assert.match(text, /ranked by recent star growth and other momentum signals/);
   assert.doesNotMatch(text, /7-day fork delta/);

@@ -28,6 +28,9 @@ import { JsonLd } from '@/components/seo/JsonLd';
 import { githubCodeRepository, projectJsonLd } from '@/lib/jsonld';
 import { siteOrigin } from '@/lib/edition';
 import { SubscribeLink } from '@/components/v3/SubscribeLink';
+import { ReadmeBadge } from '@/components/v3/ReadmeBadge';
+import { projectWasFeatured } from '@/db/queries/featured';
+import { ownerRepo } from '@/lib/badge';
 
 export const revalidate = 0;
 
@@ -219,6 +222,8 @@ export default async function ProjectPageV3({
   /* ── 渲染 ──────────────────────────────────────────────────────────── */
 
   const repoUrl = githubCodeRepository(p.primaryUrl, p.fullName);
+  const github = ownerRepo(p.fullName);
+  const featured = github ? await projectWasFeatured(p.id) : false;
   const githubAttrs = /github\.com\//i.test(p.primaryUrl ?? '')
     ? { 'data-umami-event': 'repo_outbound', 'data-umami-event-repo': p.fullName ?? p.slug }
     : {};
@@ -303,6 +308,9 @@ export default async function ProjectPageV3({
           </div>
 
           <ProjectActions slug={p.slug} />
+          {featured && github ? (
+            <ReadmeBadge owner={github.owner} repo={github.repo} slug={p.slug} origin={siteOrigin()} />
+          ) : null}
 
         </div>
       </section>

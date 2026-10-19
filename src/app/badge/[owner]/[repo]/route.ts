@@ -1,0 +1,31 @@
+import { NextResponse } from "next/server";
+import { featuredRepo } from "@/db/queries/featured";
+import { badgeTheme, featuredBadgeSvg, isRepoSegment, repoSvgName } from "@/lib/badge";
+
+export const dynamic = "force-dynamic";
+
+const HIT = "public, max-age=86400, s-maxage=86400";
+const MISS = "public, max-age=300, s-maxage=300";
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ owner: string; repo: string }> },
+) {
+  const { owner, repo: repoFile } = await context.params;
+  const repo = repoSvgName(repoFile);
+  const theme = badgeTheme(new URL(request.url).searchParams.get("theme"));
+  if (!repo || !isRepoSegment(owner) || !(await featuredRepo(owner, repo))) {
+    return new NextResponse("Not found", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8", "cache-control": MISS },
+    });
+  }
+  return new NextResponse(featuredBadgeSvg(theme), {
+    status: 200,
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": HIT,
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
