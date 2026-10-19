@@ -74,9 +74,12 @@ export interface ProjectCard {
   isInteresting?: boolean;
   forks7d: number | null;
   stars24h: number | null;
+  stars7d: number | null;
   isRising: boolean;
   firstTrackedAt: string | null;
   heatScore: number | null;
+  /** Present on edition queries. Absent on catalogue rows that are not ranked today. */
+  rank?: number | null;
   capabilities?: string[];
   capabilitiesEn?: string[];
   targetUsers?: string[];
@@ -112,6 +115,7 @@ const CARD_COLUMNS = {
   isInteresting: interestingDiscovery(),
   forks7d: project.forks7d,
   stars24h: project.stars24h,
+  stars7d: project.stars7d,
   isRising: project.isRising,
   firstTrackedAt: sql<string | null>`${project.firstTrackedAt}::text`,
   heatScore: project.heatScoreLatest,

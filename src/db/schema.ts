@@ -36,6 +36,22 @@ import {
 } from "drizzle-orm/pg-core";
 import type { InstallCommand, RiskFlag } from "../parsers/types";
 
+/** Origin hits for the public read API. One row per path per site day. */
+export const apiRequestDaily = pgTable("api_request_daily", {
+  day: date("day").notNull(),
+  path: text("path").notNull(),
+  count: integer("count").notNull().default(0),
+}, (t) => [primaryKey({ columns: [t.day, t.path] })]);
+
+/** Successful IndexNow pings. The same payload is not sent twice in one day. */
+export const indexnowSubmission = pgTable("indexnow_submission", {
+  day: date("day").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  status: integer("status").notNull(),
+  urlCount: integer("url_count").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.day, t.payloadHash] })]);
+
 /** Daily homepage counters. Deliberately contains no visitor identifiers. */
 export const discoveryMetric = pgTable('discovery_metric', {
   day: date('day').notNull(),

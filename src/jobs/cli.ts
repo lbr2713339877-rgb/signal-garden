@@ -12,7 +12,7 @@
 
 import { loadLocalEnv } from "@/lib/env";
 import { closeDb } from "@/db/client";
-import { runJob } from "./run";
+import { log, runJob } from "./run";
 import { discover } from "./discover";
 import { enrich } from "./enrich";
 import { refocus } from "./refocus";
@@ -28,6 +28,7 @@ import { retaxonomy } from "./retaxonomy";
 import { discoverWeb } from "./discover-web";
 import { reviewDiscoveries } from "./review-discoveries";
 import { sendNewsletter } from "./newsletter";
+import { submitIndexNow } from "@/lib/indexnow";
 
 loadLocalEnv();
 
@@ -111,6 +112,8 @@ const jobs: Record<string, () => Promise<boolean>> = {
   publish: () => runJob("publish", () => publish({ top: Number(flag("top") ?? TODAY_LIMIT), date: flag("date") })),
   // Explicit only. Do not add this to DAILY_STEPS or a process schedule.
   newsletter: () => runJob("newsletter", () => sendNewsletter()),
+  // No-op when INDEXNOW_KEY is unset. Also runs at the end of `daily`.
+  indexnow: () => runJob("indexnow", () => submitIndexNow()),
   report,
   "ai-check": aiCheck,
   pipeline: async () => (await jobs.discover()) && (await jobs.refocus()) && (await jobs.enrich()),
@@ -138,6 +141,11 @@ const jobs: Record<string, () => Promise<boolean>> = {
       // projects that actually published today, including a lower focus score.
       const published = await runJob("growth-published", () => measurePublishedEdition());
       if (!published) failed.push("growth-published");
+
+      // Tell IndexNow about today's new project pages. A missed ping must not
+      // roll back a published edition; `pnpm job indexnow` can retry.
+      const pinged = await runJob("indexnow", () => submitIndexNow());
+      if (!pinged) log("daily", "indexnow did not complete; the edition is still published");
 
       if (failed.length) {
         throw new Error(`daily failed steps: ${failed.join(", ")}`);

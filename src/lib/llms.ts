@@ -17,6 +17,7 @@ The email newsletter is the Monday weekly digest (每周一周刊).
 - [Home](${base}/): the current edition
 - [Today](${base}/today): the full daily list, headline first
 - [Feed](${base}/feed.xml): RSS 2.0 for the current edition
+- [Today JSON](${base}/api/today.json): the current edition as JSON (rank, repository, descriptions, stars, 24-hour and 7-day star growth, heat score, 7-day new forks when present). Project links may take an optional \`utm_source\`.
 - [Project](${base}/p/{slug}): one project. Replace {slug} with the project slug
 - [Sponsor](${base}/sponsor): sponsorships for the daily list and the Monday weekly digest (每周一周刊). No rate card
 
@@ -26,6 +27,6 @@ ${CONTACT_EMAIL}
 
 ## Crawling
 
-This file and the public pages above may be fetched. robots.txt allows / and disallows /api/, /settings, and /my-garden.
+This file, /api/today.json, and the public pages above may be fetched. robots.txt allows / and /api/today.json, and disallows other /api/ paths, /settings, and /my-garden.
 `;
 }
