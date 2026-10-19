@@ -10,6 +10,8 @@ import { DetailInstall, type InstallCommand } from '@/components/v3/detail/Detai
 import { DetailLimits, type LimitItem } from '@/components/v3/detail/DetailLimits';
 import { categoryColor, categoryLabelEn, categoryLabelZh } from '@/components/v3/category-color';
 import { getProjectBySlug, getProjectCopy } from '@/db/queries';
+import { canonicalProjectSlug } from '@/lib/slug-alias';
+import { redirectIfAlias } from '@/lib/slug-redirect';
 import {
   DIFFICULTY_LABEL,
   DIFFICULTY_LABEL_EN,
@@ -40,12 +42,13 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const data = await getProjectBySlug(slug);
-  if (!data) return projectPageMetadata({ slug, name: slug });
+  const current = await canonicalProjectSlug(slug);
+  const data = await getProjectBySlug(current);
+  if (!data) return projectPageMetadata({ slug: current, name: current });
   const copy = await getProjectCopy(data.project.id);
   const localized = pickLocalizedCopy(copy, data.project.description ?? null);
   return projectPageMetadata({
-    slug,
+    slug: current,
     name: data.project.name,
     oneLinerZh: localized.oneLiner.zh,
     oneLinerEn: localized.oneLiner.en,
@@ -75,10 +78,13 @@ function fmtStamp(v: string | Date | null | undefined): string {
 
 export default async function ProjectPageV3({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  await redirectIfAlias("/p", slug, await searchParams);
   const data = await getProjectBySlug(slug);
   if (!data) notFound();
 

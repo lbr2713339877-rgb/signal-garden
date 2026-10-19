@@ -8,6 +8,8 @@
  *   pnpm job growth [--limit 400] [--force]
  *   pnpm job growth --edition today          # published projects for a day
  *   pnpm job newsletter          # Monday weekly digest; not part of `daily`
+ *   pnpm job slugs --dry-run     # preview slug repairs; writes nothing
+ *   pnpm job slugs --backfill    # apply repairs; back up the database first
  */
 
 import { loadLocalEnv } from "@/lib/env";
@@ -29,6 +31,7 @@ import { discoverWeb } from "./discover-web";
 import { reviewDiscoveries } from "./review-discoveries";
 import { sendNewsletter } from "./newsletter";
 import { submitIndexNow } from "@/lib/indexnow";
+import { backfillSlugs } from "./slugs";
 
 loadLocalEnv();
 
@@ -114,6 +117,16 @@ const jobs: Record<string, () => Promise<boolean>> = {
   newsletter: () => runJob("newsletter", () => sendNewsletter()),
   // No-op when INDEXNOW_KEY is unset. Also runs at the end of `daily`.
   indexnow: () => runJob("indexnow", () => submitIndexNow()),
+  // Explicit only. Do not add this to DAILY_STEPS. Back up the database first.
+  slugs: async () => {
+    const backfill = rest.includes("--backfill");
+    const dryRun = rest.includes("--dry-run");
+    if (!backfill && !dryRun) {
+      console.error("usage: pnpm job slugs --backfill [--dry-run]\nBack up the database before --backfill. This command is not part of `pnpm job daily`.");
+      return true;
+    }
+    return runJob("slugs", () => backfillSlugs({ dryRun }));
+  },
   report,
   "ai-check": aiCheck,
   pipeline: async () => (await jobs.discover()) && (await jobs.refocus()) && (await jobs.enrich()),

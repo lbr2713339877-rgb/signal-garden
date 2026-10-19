@@ -14,6 +14,7 @@ import { FOCUS_MIN, type FocusTheme } from "@/normalizers/focus";
 import { signalDate } from "@/lib/day";
 import { TODAY_LIMIT } from "@/lib/edition";
 import { catalogueTraction, interestingDiscovery } from '@/normalizers/discovery-policy';
+import { projectIdForSlug } from "@/lib/slug-alias";
 
 /** Conditions a project must meet to appear on any public ranked surface. */
 export function rankable() {
@@ -494,18 +495,14 @@ export async function createFeedback(input: {
   kind: FeedbackKind;
   note?: string | null;
 }) {
+  const projectId = await projectIdForSlug(input.slug);
+  if (!projectId) return null;
   const d = await db();
-  const [p] = await d
-    .select({ id: project.id })
-    .from(project)
-    .where(eq(project.slug, input.slug))
-    .limit(1);
-  if (!p) return null;
 
   const [row] = await d
     .insert(userFeedback)
     .values({
-      projectId: p.id,
+      projectId,
       kind: input.kind,
       note: input.note?.trim() ? input.note.trim().slice(0, 1200) : null,
     })

@@ -21,12 +21,14 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { project, sourceSignal } from "@/db/schema";
+import { project, projectSlugAlias, sourceSignal } from "@/db/schema";
 import { buildQueryMatrix, runSearchMatrix, type DiscoveredRepo } from "@/collectors/github/search";
 import { fingerprint } from "@/normalizers/fingerprint";
 import { canonicalId, homepageDomain } from "@/normalizers/dedupe";
 import { parseFocus } from "@/normalizers/focus-parse";
 import { toSlug } from "@/lib/utils";
+import { allocateSlug, ensureCurrentSlug } from "@/lib/slug-alias";
+import { pingRenamedProjectSlugs } from "@/lib/indexnow";
 import { chunk } from "@/lib/concurrency";
 import { log, type JobResult } from "./run";
 
@@ -66,7 +68,7 @@ export async function discover(opts: { only?: string[]; dryRun?: boolean } = {})
   const cids = rows.map((r) => canonicalId({ githubId: r.githubId }));
   const existingById = new Map<
     string,
-    { id: string; discoveryQueries: string[] | null; codeHitPaths: string[] | null; parseState: string; rawDataHash: string | null; slug: string }
+    { id: string; discoveryQueries: string[] | null; codeHitPaths: string[] | null; parseState: string; rawDataHash: string | null; slug: string; fullName: string | null }
   >();
   for (const ids of chunk(cids, 500)) {
     const found = await db
@@ -78,6 +80,7 @@ export async function discover(opts: { only?: string[]; dryRun?: boolean } = {})
         parseState: project.parseState,
         rawDataHash: project.rawDataHash,
         slug: project.slug,
+        fullName: project.fullName,
       })
       .from(project)
       .where(inArray(project.canonicalProjectId, ids));
@@ -87,9 +90,13 @@ export async function discover(opts: { only?: string[]; dryRun?: boolean } = {})
 
   /* ── 2. Split into new / changed / unchanged ───────────────────────────── */
   const inserts: (typeof project.$inferInsert)[] = [];
-  const updates: { id: string; values: Record<string, unknown> }[] = [];
+  const updates: { id: string; values: Record<string, unknown>; previousSlug: string; nextFullName: string | null; fullNameChanged: boolean }[] = [];
   const signals: (typeof sourceSignal.$inferInsert)[] = [];
   const slugTaken = new Set([...existingById.values()].map((e) => e.slug));
+  const aliases = await db.select({ slug: projectSlugAlias.slug }).from(projectSlugAlias);
+  for (const alias of aliases) slugTaken.add(alias.slug);
+  const otherSlugs = await db.select({ slug: project.slug }).from(project);
+  for (const row of otherSlugs) slugTaken.add(row.slug);
   let newSignals = 0;
   let changed = 0;
 
@@ -127,12 +134,8 @@ export async function discover(opts: { only?: string[]; dryRun?: boolean } = {})
 
     if (!existing) {
       // Slugs must be unique inside this batch too; suffix collisions deterministically.
-      let slug = toSlug(r.fullName) || `repo-${r.githubId}`;
-      if (slugTaken.has(slug)) {
-        let i = 2;
-        while (slugTaken.has(`${slug}-${i}`)) i++;
-        slug = `${slug}-${i}`;
-      }
+      const base = toSlug(r.fullName) || `repo-${r.githubId}`;
+      const slug = allocateSlug(base, slugTaken);
       slugTaken.add(slug);
       inserts.push({
         ...fields,
@@ -158,6 +161,9 @@ export async function discover(opts: { only?: string[]; dryRun?: boolean } = {})
     changed++;
     updates.push({
       id: existing.id,
+      previousSlug: existing.slug,
+      nextFullName: r.fullName,
+      fullNameChanged: existing.fullName !== r.fullName,
       values: {
         ...fields,
         discoveryQueries: queries,
@@ -187,13 +193,21 @@ export async function discover(opts: { only?: string[]; dryRun?: boolean } = {})
 
   // Drizzle has no bulk update; issue them in one transaction per chunk so the
   // round-trip cost is a function of chunk count, not row count.
+  const renamed: string[] = [];
   for (const part of chunk(updates, 50)) {
     await db.transaction(async (tx) => {
       for (const u of part) {
         await tx.update(project).set(u.values).where(eq(project.id, u.id));
+        if (!u.fullNameChanged) continue;
+        const result = await ensureCurrentSlug(tx, { id: u.id, slug: u.previousSlug, fullName: u.nextFullName });
+        if (result.changed) {
+          renamed.push(result.slug);
+          slugTaken.add(result.slug);
+        }
       }
     });
   }
+  if (renamed.length) await pingRenamedProjectSlugs(renamed);
 
   log(
     "discover",

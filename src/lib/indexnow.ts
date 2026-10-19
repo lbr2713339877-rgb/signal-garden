@@ -108,3 +108,53 @@ export async function submitIndexNow(opts: {
   }).onConflictDoNothing();
   return { itemsIn: payload.urlList.length, itemsOut: payload.urlList.length, meta: { status: response.status, urls: payload.urlList } };
 }
+
+/** Tell IndexNow about /p URLs whose slug just changed. No-op without a key. */
+export async function pingRenamedProjectSlugs(
+  slugs: string[],
+  opts: { key?: string; origin?: string; fetchImpl?: typeof fetch } = {},
+): Promise<void> {
+  const unique = [...new Set(slugs.filter((slug) => SLUG.test(slug)))];
+  if (!unique.length) return;
+  const key = (opts.key ?? process.env.INDEXNOW_KEY ?? "").trim();
+  if (!key) {
+    log("indexnow", "INDEXNOW_KEY unset; skipping rename ping");
+    return;
+  }
+  const origin = (opts.origin ?? siteOrigin()).replace(/\/+$/, "");
+  const payload: IndexNowPayload = {
+    host: new URL(origin).host,
+    key,
+    keyLocation: `${origin}/${key}.txt`,
+    urlList: unique.map((slug) => `${origin}/p/${slug}`),
+  };
+  try {
+    const hash = indexNowPayloadHash(payload);
+    const d = await db();
+    const day = signalDate();
+    const [seen] = await d.select({ status: indexnowSubmission.status }).from(indexnowSubmission)
+      .where(and(eq(indexnowSubmission.day, day), eq(indexnowSubmission.payloadHash, hash)))
+      .limit(1);
+    if (seen) {
+      log("indexnow", `rename ping already submitted (${unique.length} urls)`);
+      return;
+    }
+    const fetchImpl = opts.fetchImpl ?? fetch;
+    const response = await fetchImpl(INDEXNOW_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.text();
+    log("indexnow", `rename POST status=${response.status} urls=${unique.length} body=${body.slice(0, 180)}`);
+    if (response.status !== 200 && response.status !== 202) return;
+    await d.insert(indexnowSubmission).values({
+      day,
+      payloadHash: hash,
+      status: response.status,
+      urlCount: unique.length,
+    }).onConflictDoNothing();
+  } catch (error) {
+    log("indexnow", `rename ping failed: ${error instanceof Error ? error.message : "unknown"}`);
+  }
+}

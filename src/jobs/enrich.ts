@@ -23,6 +23,8 @@ import { FOCUS_MIN } from "@/normalizers/focus";
 import { refreshedDiscoveryDocuments } from '@/normalizers/discovery-policy';
 import { chunk, mapLimit } from "@/lib/concurrency";
 import { log, type JobResult } from "./run";
+import { ensureCurrentSlug } from "@/lib/slug-alias";
+import { pingRenamedProjectSlugs } from "@/lib/indexnow";
 
 /** Hot candidates (in focus, enough traction to rank) refresh daily. */
 const META_TTL_MS = 20 * 3_600_000;
@@ -56,6 +58,8 @@ async function refreshMetadata(slugs?: string[]) {
   const due = await db
     .select({
       id: project.id,
+      slug: project.slug,
+      fullName: project.fullName,
       nodeId: project.githubNodeId,
       parsedHeadSha: project.parsedHeadSha,
       parseState: project.parseState,
@@ -107,6 +111,7 @@ async function refreshMetadata(slugs?: string[]) {
   let updated = 0;
   let gone = 0;
   let snapshots = 0;
+  const renamed: string[] = [];
   const errors: string[] = [];
   const now = new Date();
   const pendingSnapshots: (typeof repoSnapshot.$inferInsert)[] = [];
@@ -151,6 +156,7 @@ async function refreshMetadata(slugs?: string[]) {
   }
 
   if (errors.length) log("enrich", `metadata errors (first 3): ${errors.slice(0, 3).join(" | ")}`);
+  if (renamed.length) await pingRenamedProjectSlugs(renamed);
   log("enrich", `metadata: ${updated} updated · ${gone} gone · ${snapshots} snapshots`);
   return { checked: due.length, updated, gone, snapshots, errors: errors.slice(0, 20) };
 
@@ -172,6 +178,7 @@ async function refreshMetadata(slugs?: string[]) {
       (d.contributors ?? 0) === (m.contributors ?? 0) &&
       d.defaultBranch === m.defaultBranch &&
       d.headSha === m.headOid &&
+      d.fullName === m.fullName &&
       !headChanged &&
       (m.isDisabled ? "dead" : "ok") === d.linkStatus &&
       !(m.isEmpty && d.junkReason !== "empty repository") &&
@@ -236,6 +243,14 @@ async function refreshMetadata(slugs?: string[]) {
             : {}),
       })
       .where(eq(project.id, d.id));
+    if (m.fullName && d.fullName !== m.fullName) {
+      const result = await db.transaction(async (tx) => ensureCurrentSlug(tx, {
+        id: d.id,
+        slug: d.slug,
+        fullName: m.fullName,
+      }));
+      if (result.changed) renamed.push(result.slug);
+    }
     updated++;
     queueSnapshot(d, m, now);
   }

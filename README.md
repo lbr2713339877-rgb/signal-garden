@@ -83,6 +83,15 @@ Cron to add, in `Asia/Singapore`, after the morning publish:
 20 6 * * * cd /opt/signal-garden && pnpm job indexnow
 ```
 
+When a GitHub repository is renamed, `project.slug` stays on the old name until it is repaired. Apply migration `0017_project_slug_alias` (`pnpm db:migrate`), back up the database, then:
+
+```bash
+pnpm job slugs --dry-run
+pnpm job slugs --backfill
+```
+
+`--dry-run` lists the rows it would change and writes nothing. `--backfill` stores each previous slug in `project_slug_alias` and moves `project.slug` to `toSlug(full_name)` when that name is free. Old `/p/<slug>` links then redirect with 308. Sitemap, IndexNow, `/api/today.json`, the feed, emails and cards keep using the current `project.slug`. This command is not part of `pnpm job daily`.
+
 ## License
 
 MIT (see `LICENSE`).

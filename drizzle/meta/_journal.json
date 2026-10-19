@@ -120,6 +120,13 @@
       "when": 1791763200000,
       "tag": "0016_public_api",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791849600000,
+      "tag": "0017_project_slug_alias",
+      "breakpoints": true
     }
   ]
 }

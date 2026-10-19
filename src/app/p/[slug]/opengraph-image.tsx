@@ -1,5 +1,6 @@
 import { getProjectBySlug } from "@/db/queries";
 import { renderProjectOg } from "@/lib/og/render";
+import { canonicalProjectSlug } from "@/lib/slug-alias";
 
 export const runtime = "nodejs";
 export const alt = "Signal Garden";
@@ -17,7 +18,7 @@ function ownerOf(owner: string | null, fullName: string | null): string | null {
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
-    const data = await getProjectBySlug(slug);
+    const data = await getProjectBySlug(await canonicalProjectSlug(slug));
     if (!data) return renderProjectOg({ name: slug, owner: null, forks7d: null, missing: true });
     const project = data.project;
     return renderProjectOg({

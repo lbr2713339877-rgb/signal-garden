@@ -11,6 +11,8 @@ import { PatternBlock } from "@/components/ui/PatternBlock";
 import { Fallback, LANG } from "@/lib/i18n";
 import { pickLocalizedCopy } from "@/lib/project-copy";
 import { getProjectBySlug, getProjectCopy } from "@/db/queries";
+import { canonicalProjectSlug } from "@/lib/slug-alias";
+import { redirectIfAlias } from "@/lib/slug-redirect";
 import { projectPageMetadata } from "@/lib/page-meta";
 import { DIFFICULTY_LABEL, DIFFICULTY_LABEL_EN, DIFFICULTY_STARS, SECURITY_LABEL, SECURITY_LABEL_EN, STATUS_LABEL, STATUS_LABEL_EN, categoryLabel } from "@/lib/categories";
 import { T } from "@/lib/dict";
@@ -28,12 +30,13 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const data = await getProjectBySlug(slug);
-  if (!data) return projectPageMetadata({ slug, name: slug });
+  const current = await canonicalProjectSlug(slug);
+  const data = await getProjectBySlug(current);
+  if (!data) return projectPageMetadata({ slug: current, name: current });
   const copy = await getProjectCopy(data.project.id);
   const localized = pickLocalizedCopy(copy, data.project.description ?? null);
   return projectPageMetadata({
-    slug,
+    slug: current,
     name: data.project.name,
     oneLinerZh: localized.oneLiner.zh,
     oneLinerEn: localized.oneLiner.en,
@@ -60,8 +63,15 @@ function Stars({ level }: { level: number }) {
   );
 }
 
-export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { slug } = await params;
+  await redirectIfAlias("/p", slug, await searchParams, "/classic");
   const data = await getProjectBySlug(slug);
   if (!data) notFound();
 

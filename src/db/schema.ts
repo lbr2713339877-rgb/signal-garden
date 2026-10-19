@@ -404,6 +404,15 @@ export const project = pgTable(
   ],
 );
 
+/** Previous public slugs. Old links redirect; the row's `project.slug` is current. */
+export const projectSlugAlias = pgTable("project_slug_alias", {
+  slug: text("slug").primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /**
  * One SKILL.md = one row. A repo of many skills is one project with many
  * skill rows (anthropics/skills -> frontend-design, pdf, spreadsheets, ...).

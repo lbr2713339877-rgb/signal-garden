@@ -10,6 +10,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { V3Shell } from '@/components/v3/V3Shell';
 import { getProjectBySlug } from '@/db/queries';
+import { redirectIfAlias } from '@/lib/slug-redirect';
 import { T } from '@/lib/dict';
 import { FeedbackForm } from './FeedbackForm';
 
@@ -18,10 +19,13 @@ export const revalidate = 0;
 
 export default async function FeedbackPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  await redirectIfAlias("/feedback", slug, await searchParams);
   const data = await getProjectBySlug(slug);
   if (!data) notFound();
 
