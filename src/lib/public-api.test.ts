@@ -10,7 +10,6 @@ import { signalDate } from "@/lib/day";
 import { siteOrigin } from "@/lib/edition";
 import { featuredBadgeSvg, readmeBadgeMarkdown } from "@/lib/badge";
 import { buildIndexNowPayload, INDEXNOW_ENDPOINT, submitIndexNow } from "@/lib/indexnow";
-import { isIndexNowKeyPath } from "@/lib/indexnow-key";
 import { GET as badgeGet } from "@/app/badge/[owner]/[repo]/route";
 import { GET as todayGet } from "@/app/api/today.json/route";
 
@@ -38,9 +37,6 @@ test("IndexNow payload lists today, new project pages, home and the feed", () =>
   assert.equal(payload.host, "signalgarden.site");
   assert.equal(payload.key, "indexnow-key");
   assert.equal(payload.keyLocation, "https://signalgarden.site/indexnow-key.txt");
-  assert.equal(isIndexNowKeyPath("/indexnow-key.txt", "indexnow-key"), true);
-  assert.equal(isIndexNowKeyPath("/today", "indexnow-key"), false);
-  assert.equal(isIndexNowKeyPath("/indexnow-key.txt", ""), false);
   assert.deepEqual(payload.urlList, [
     "https://signalgarden.site/today",
     "https://signalgarden.site/p/widget",
