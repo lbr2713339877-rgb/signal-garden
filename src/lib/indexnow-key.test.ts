@@ -47,3 +47,27 @@ test("the key route returns the env key only when k matches", async () => {
     else process.env.INDEXNOW_KEY = previous;
   }
 });
+
+test("the key route accepts the key from the original .txt pathname when k is missing", async () => {
+  const previous = process.env.INDEXNOW_KEY;
+  process.env.INDEXNOW_KEY = KEY;
+  try {
+    const hit = await GET(new Request(`https://signalgarden.site/${KEY}.txt`));
+    assert.equal(hit.status, 200);
+    assert.equal(await hit.text(), KEY);
+    assert.match(hit.headers.get("content-type") ?? "", /text\/plain/);
+
+    const other = "b".repeat(32);
+    const miss = await GET(new Request(`https://signalgarden.site/${other}.txt`));
+    assert.equal(miss.status, 404);
+
+    const shaped = await GET(new Request("https://signalgarden.site/not-a-key.txt"));
+    assert.equal(shaped.status, 404);
+
+    const queryWins = await GET(new Request(`https://signalgarden.site/${KEY}.txt?k=${other}`));
+    assert.equal(queryWins.status, 404);
+  } finally {
+    if (previous === undefined) delete process.env.INDEXNOW_KEY;
+    else process.env.INDEXNOW_KEY = previous;
+  }
+});
