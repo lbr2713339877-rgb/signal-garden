@@ -12,3 +12,13 @@ export function aliasRedirectPath(pathname: string): { slug: string; prefix: "/p
 export function isSlug(value: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
+
+/**
+ * Loopback to the Node listener. A fetch built from the public request URL is
+ * rewritten to https://localhost:3000 behind nginx and fails with EPROTO.
+ */
+export function aliasLookupUrl(slug: string): URL {
+  const url = new URL("http://127.0.0.1:3000/api/slug-alias");
+  url.searchParams.set("slug", slug);
+  return url;
+}
