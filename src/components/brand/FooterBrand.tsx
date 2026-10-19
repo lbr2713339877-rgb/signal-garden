@@ -70,7 +70,6 @@ export function FooterBrand({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
             {([
               ['/privacy', 'privacy.title'],
               ['/terms', 'terms.title'],
-              ['/refund', 'refund.title'],
               ['/cookies', 'cookies.title'],
             ] satisfies [string, DictKey][]).map(([href, k], i) => (
               <span key={href} className="flex items-center gap-2">

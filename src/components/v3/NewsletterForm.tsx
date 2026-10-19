@@ -44,6 +44,8 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
   const widgetRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+  const inFlightRef = useRef(false);
+  const done = message === "ok";
 
   useEffect(() => {
     if (!siteKey) return;
@@ -85,8 +87,11 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (inFlightRef.current || done) return;
     if (siteKey && !token) return;
+    inFlightRef.current = true;
     setPending(true);
+    let succeeded = false;
     try {
       const response = await fetch("/api/subscribe", {
         method: "POST",
@@ -101,6 +106,7 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
         }),
       });
       if (response.ok) {
+        succeeded = true;
         setMessage("ok");
         trackEvent("subscribe_submit", { page: source, source: currentUtmSource() });
       } else if (response.status === 429) {
@@ -124,18 +130,20 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
     } finally {
       setToken("");
       const widgetId = widgetIdRef.current;
-      if (widgetId && window.turnstile) {
+      if (!succeeded && widgetId && window.turnstile) {
         try {
           window.turnstile.reset(widgetId);
         } catch {
           /* widget already removed */
         }
       }
+      inFlightRef.current = false;
       setPending(false);
     }
   }
 
   const needsToken = siteKey.length > 0 && token.length === 0;
+  const locked = pending || done;
 
   return (
     <form onSubmit={onSubmit} className="max-w-[520px]">
@@ -156,21 +164,24 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
           autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
+          readOnly={locked}
           placeholder={t(lang, "newsletter.placeholder")}
           className="body min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
         />
-        <button type="submit" className="action-primary" disabled={pending || needsToken}>
-          <T k="newsletter.submit" as="span" fade={false} />
+        <button type="submit" className="action-primary" disabled={locked || needsToken} aria-disabled={locked || needsToken}>
+          <T k={done ? "newsletter.sent" : "newsletter.submit"} as="span" fade={false} />
         </button>
       </div>
-      {siteKey ? <div ref={widgetRef} className="mt-4" /> : null}
+      <div role="status" aria-live="polite">
+        {done ? <T k="newsletter.success" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
+      </div>
+      {siteKey ? <div ref={widgetRef} className="mt-4" hidden={done} /> : null}
       <p className="data mt-3 text-[var(--ink-3)]">
         <T k="newsletter.privacy" as="span" fade={false} />{" "}
         <Link href="/privacy" className="underline">
           <T k="privacy.title" as="span" fade={false} />
         </Link>
       </p>
-      {message === "ok" ? <T k="newsletter.success" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
       {message === "invalid_email" ? <T k="newsletter.invalid" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
       {message === "too_fast" ? <T k="newsletter.tooFast" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
       {message === "turnstile" ? <T k="newsletter.turnstile" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}

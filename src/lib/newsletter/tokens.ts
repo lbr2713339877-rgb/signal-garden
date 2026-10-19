@@ -2,6 +2,8 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 
 /** Confirm links stop working after 48 hours. Unsubscribe links do not expire. */
 export const CONFIRM_TTL_MS = 48 * 60 * 60 * 1000;
+/** Do not mint another confirm link until this long after the last one. */
+export const CONFIRM_RESEND_AFTER_MS = 10 * 60 * 1000;
 /** Pending rows that never confirm are removed on the next newsletter run. */
 export const PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** The address itself is deleted this long after unsubscribe. The hash stays. */
