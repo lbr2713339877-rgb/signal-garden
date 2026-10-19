@@ -52,7 +52,7 @@ Secrets the live site may use (all optional for a local read-only run):
 - `GITHUB_TOKEN` — higher GitHub API rate limit
 - `RESEND_API_KEY`, `NEWSLETTER_*`, Turnstile keys — email signup
 - `NEXT_PUBLIC_ANALYTICS_*` — Umami / Plausible snippet
-- `INDEXNOW_KEY` — public IndexNow key. Empty means `pnpm job indexnow` does nothing. The same value is served at `/<INDEXNOW_KEY>.txt`.
+- `INDEXNOW_KEY` — public IndexNow key, 32 lowercase hex characters. Empty means `pnpm job indexnow` does nothing. The same value is served at `/<INDEXNOW_KEY>.txt`.
 - Supabase — accounts. Stripe routes remain in the API and have no public page.
 
 See comments in `.env.example` for the full list.

@@ -14,6 +14,14 @@ const nextConfig: NextConfig = {
       { source: "/newsletter/", destination: "/#subscribe", permanent: true },
     ];
   },
+  // A middleware rewrite used the public host and failed behind the https
+  // proxy (EPROTO to localhost). This stays inside Next and does not build
+  // that absolute URL. The route still checks k against INDEXNOW_KEY.
+  async rewrites() {
+    return [
+      { source: "/:key([0-9a-f]{32}).txt", destination: "/api/indexnow-key?k=:key" },
+    ];
+  },
   // PGlite ships a WASM binary; keep it external so Next does not try to
   // bundle it into the server build.
   serverExternalPackages: ["@electric-sql/pglite"],
