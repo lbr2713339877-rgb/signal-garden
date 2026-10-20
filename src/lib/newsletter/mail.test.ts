@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { DICT } from "@/lib/dict";
 import { renderConfirmMail, renderDailyMail, renderWelcomeDigest } from "@/emails/render-newsletter";
+import { CONFIRM_FROM_ADDRESS, CONFIRM_SUBJECT, confirmSubject } from "./confirm-copy";
 import { newsletterFormEnabled } from "./flags";
 import { listUnsubscribeHeaders } from "./headers";
 import {
@@ -109,7 +110,24 @@ test("confirm, welcome and daily letters include an unsubscribe footer in both l
     assert.match(mail.html, /hello@signalgarden\.site/);
     assert.match(mail.text, /Signal Garden/);
   }
-  assert.match(mails[0].subject, /确认/);
+  assert.equal(mails[0].subject, CONFIRM_SUBJECT.zh);
+  assert.equal(mails[0].subject, confirmSubject("zh"));
+  assert.equal(mails[1].subject, CONFIRM_SUBJECT.en);
+  assert.equal(mails[1].subject, "Confirm your Signal Garden weekly subscription");
+  assert.match(mails[0].subject, /^请确认订阅/);
+  assert.match(mails[0].text, new RegExp(token));
+  assert.match(mails[0].html, new RegExp(token));
+  assert.match(mails[1].text, new RegExp(token));
+  assert.doesNotMatch(mails[0].text, /才会开始接收/);
+  assert.match(mails[0].text, /48 小时内有效/);
+  const confirmSource = readFileSync(new URL("../../emails/Confirm.tsx", import.meta.url), "utf8");
+  const buttonAt = confirmSource.indexOf("<Button");
+  const expiryAt = confirmSource.indexOf("链接 48 小时内有效。如果不是你本人操作");
+  const linkAt = confirmSource.indexOf("<Link");
+  assert.ok(buttonAt > 0 && buttonAt < expiryAt && expiryAt < linkAt);
+  assert.match(confirmSource, /confirm-copy/);
+  assert.equal(CONFIRM_FROM_ADDRESS, "hello@signalgarden.site");
+  assert.equal(DEFAULT_NEWSLETTER_REPLY_TO, CONFIRM_FROM_ADDRESS);
   assert.doesNotMatch(mails[1].html, /[\u4e00-\u9fff]/);
   assert.doesNotMatch(mails[1].text, /[\u4e00-\u9fff]/);
   assert.match(mails[4].html, /一句话/);

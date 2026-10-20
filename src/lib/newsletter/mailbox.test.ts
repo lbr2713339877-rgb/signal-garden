@@ -1,0 +1,19 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { mailboxUrl } from "./mailbox";
+
+test("open-mailbox links follow the domain and stay empty otherwise", () => {
+  assert.equal(mailboxUrl("a@qq.com"), "https://mail.qq.com");
+  assert.equal(mailboxUrl(" A@QQ.com "), "https://mail.qq.com");
+  assert.equal(mailboxUrl("a@163.com"), "https://mail.163.com");
+  assert.equal(mailboxUrl("a@126.com"), "https://mail.126.com");
+  assert.equal(mailboxUrl("a@gmail.com"), "https://mail.google.com");
+  assert.equal(mailboxUrl("a@outlook.com"), "https://outlook.live.com");
+  assert.equal(mailboxUrl("a@hotmail.com"), "https://outlook.live.com");
+  assert.equal(mailboxUrl("a@sub.outlook.com"), "https://outlook.live.com");
+  assert.equal(mailboxUrl("a@example.com"), null);
+  assert.equal(mailboxUrl("a@googlemail.com"), null);
+  assert.equal(mailboxUrl("a@live.com"), null);
+  assert.equal(mailboxUrl("not-an-email"), null);
+  assert.equal(mailboxUrl("a@b@qq.com"), null);
+});

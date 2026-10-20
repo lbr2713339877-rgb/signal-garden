@@ -4,8 +4,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useLang } from "@/components/ui/Lang";
 import { T, t } from "@/lib/dict";
+import { LANG } from "@/lib/i18n";
 import { newsletterFormEnabled } from "@/lib/newsletter/flags";
-import { subscribeAck, subscribeAnalyticsProps, type SubscribeLocation } from "@/lib/newsletter/placement";
+import { CONFIRM_FROM_ADDRESS, CONFIRM_SUBJECT } from "@/lib/newsletter/confirm-copy";
+import { mailboxUrl } from "@/lib/newsletter/mailbox";
+import { resendAnalytics, subscribeAck, subscribeAnalyticsProps, type SubscribeLocation } from "@/lib/newsletter/placement";
+import { resendCooldownSeconds } from "@/lib/newsletter/resend-policy";
 import { currentUtmSource, trackEvent } from "@/components/analytics/track";
 import { loadTurnstile, scheduleTurnstileRender } from "./turnstile-widget";
 import { SUBSCRIBE_ID, SUBSCRIBE_SCROLL_MARGIN_PX } from "@/lib/subscribe-scroll";
@@ -40,19 +44,75 @@ export function NewsletterSignup({ location }: { location: SubscribeLocation }) 
   );
 }
 
+function ConfirmStep({
+  email,
+  cooldown,
+  pending,
+  limited,
+  onResend,
+}: {
+  email: string;
+  cooldown: number;
+  pending: boolean;
+  limited: boolean;
+  onResend: () => void;
+}) {
+  const inbox = mailboxUrl(email);
+  const waiting = cooldown > 0 || pending;
+  return (
+    <div>
+      <T k="newsletter.confirmHeading" as="h2" className="page-title max-w-[12em] text-[var(--ink-1)]" fade={false} />
+      <p className="body mt-5 text-[var(--ink-2)]">
+        <T k="newsletter.confirmFromLabel" as="span" fade={false} />{" "}
+        <span className="text-[var(--ink-1)]">{CONFIRM_FROM_ADDRESS}</span>
+      </p>
+      <p className="body mt-2 text-[var(--ink-2)]">
+        <T k="newsletter.confirmSubjectLabel" as="span" fade={false} />{" "}
+        <LANG as="span" className="text-[var(--ink-1)]" zh={CONFIRM_SUBJECT.zh} en={CONFIRM_SUBJECT.en} />
+      </p>
+      <T k="newsletter.confirmSpam" as="p" className="body mt-4 text-[var(--ink-2)]" fade={false} />
+      {inbox ? (
+        <a href={inbox} target="_blank" rel="noopener noreferrer" className="action-primary mt-6">
+          <T k="newsletter.openMailbox" as="span" fade={false} />
+          <span aria-hidden>↗</span>
+        </a>
+      ) : null}
+      <div className="mt-4">
+        <button type="button" className={inbox ? "action-secondary" : "action-primary"} disabled={waiting} aria-disabled={waiting} onClick={onResend}>
+          {cooldown > 0 ? (
+            <T k="newsletter.resendWait" vars={{ n: cooldown }} as="span" fade={false} />
+          ) : (
+            <T k="newsletter.resend" as="span" fade={false} />
+          )}
+        </button>
+      </div>
+      {limited ? <T k="newsletter.limited" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
+    </div>
+  );
+}
+
 function NewsletterForm({ location }: { location: SubscribeLocation }) {
   const lang = useLang();
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [token, setToken] = useState("");
-  const [message, setMessage] = useState<"idle" | "ok" | "already" | "invalid_email" | "too_fast" | "turnstile" | "rate_limited">("idle");
+  const [message, setMessage] = useState<"idle" | "ok" | "limited" | "invalid_email" | "too_fast" | "turnstile" | "rate_limited">("idle");
+  const [resendLimited, setResendLimited] = useState(false);
   const [pending, setPending] = useState(false);
+  const [resendPending, setResendPending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [started] = useState(() => Date.now());
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
   const widgetRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const inFlightRef = useRef(false);
-  const done = message === "ok" || message === "already";
+  const done = message === "ok";
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = window.setTimeout(() => setCooldown((value) => (value <= 1 ? 0 : value - 1)), 1000);
+    return () => window.clearTimeout(id);
+  }, [cooldown]);
 
   useEffect(() => {
     if (!siteKey) return;
@@ -116,7 +176,13 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
       if (response.ok) {
         succeeded = true;
         const body = await response.json().catch(() => null) as { sent?: unknown } | null;
-        setMessage(subscribeAck(body) === "already" ? "already" : "ok");
+        if (subscribeAck(body) === "limited") {
+          setMessage("limited");
+        } else {
+          setMessage("ok");
+          setResendLimited(false);
+          setCooldown(resendCooldownSeconds());
+        }
         trackEvent("subscribe_submit", analytics);
       } else if (response.status === 429) {
         setMessage("rate_limited");
@@ -151,67 +217,98 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
     }
   }
 
+  async function onResend() {
+    if (cooldown > 0 || resendPending || inFlightRef.current) return;
+    inFlightRef.current = true;
+    setResendPending(true);
+    setCooldown(resendCooldownSeconds());
+    try {
+      const response = await fetch("/api/subscribe/resend", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, locale: lang, source: location }),
+      });
+      const body = await response.json().catch(() => null) as { sent?: unknown } | null;
+      const sent = response.ok && !!body && body.sent !== false;
+      trackEvent("subscribe_resend", resendAnalytics(location, currentUtmSource(), sent));
+      setResendLimited(!sent);
+    } catch {
+      trackEvent("subscribe_resend", resendAnalytics(location, currentUtmSource(), false));
+      setResendLimited(true);
+    } finally {
+      inFlightRef.current = false;
+      setResendPending(false);
+    }
+  }
+
   const needsToken = siteKey.length > 0 && token.length === 0;
   const locked = pending || done;
   const compact = location === "project_cta";
 
   return (
     <form onSubmit={onSubmit} className={compact ? "w-full min-w-0" : "max-w-[520px]"}>
-      {compact ? (
-        <T k="newsletter.body" as="p" className="body text-[var(--ink-2)]" fade={false} />
+      {message === "ok" ? (
+        <ConfirmStep
+          email={email}
+          cooldown={cooldown}
+          pending={resendPending}
+          limited={resendLimited}
+          onResend={onResend}
+        />
       ) : (
         <>
-          <T k="newsletter.title" as="h2" className="system" fade={false} />
-          <T k="newsletter.body" as="p" className="body mt-3 text-[var(--ink-2)]" />
-          <Link href="/weekly/1" className="data mt-3 inline-flex text-[var(--ink-2)] underline decoration-[var(--glass-2-border)] underline-offset-4 transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]">
-            <T k="newsletter.sample" as="span" fade={false} />
-          </Link>
+          {compact ? (
+            <T k="newsletter.body" as="p" className="body text-[var(--ink-2)]" fade={false} />
+          ) : (
+            <>
+              <T k="newsletter.title" as="h2" className="system" fade={false} />
+              <T k="newsletter.body" as="p" className="body mt-3 text-[var(--ink-2)]" />
+              <Link href="/weekly/1" className="data mt-3 inline-flex text-[var(--ink-2)] underline decoration-[var(--glass-2-border)] underline-offset-4 transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]">
+                <T k="newsletter.sample" as="span" fade={false} />
+              </Link>
+            </>
+          )}
+          <div className="absolute left-[-10000px] h-0 overflow-hidden" aria-hidden="true">
+            <label>
+              <T k="newsletter.company" as="span" fade={false} />
+              <input tabIndex={-1} autoComplete="off" value={company} onChange={(event) => setCompany(event.target.value)} />
+            </label>
+          </div>
+          <label htmlFor={`newsletter-email-${location}`} className="sr-only">{t(lang, "newsletter.placeholder")}</label>
+          <div className={compact ? "mt-3 flex w-full min-w-0 items-center gap-3" : "glass-2 mt-5 flex items-center gap-3 p-1.5"}>
+            <input
+              id={`newsletter-email-${location}`}
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              readOnly={locked}
+              placeholder={t(lang, "newsletter.placeholder")}
+              className={compact
+                ? "body min-w-0 flex-1 border border-[var(--glass-2-border)] bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
+                : "body min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"}
+            />
+            <button type="submit" className={compact ? "action-primary shrink-0" : "action-primary"} disabled={locked || needsToken} aria-disabled={locked || needsToken}>
+              <T k="newsletter.submit" as="span" fade={false} />
+            </button>
+          </div>
+          <div role="status" aria-live="polite">
+            {message === "limited" ? <T k="newsletter.limited" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
+          </div>
+          <p className="data mt-3 text-[var(--ink-3)]">
+            <T k="newsletter.privacy" as="span" fade={false} />{" "}
+            <Link href="/privacy" className="underline">
+              <T k="privacy.title" as="span" fade={false} />
+            </Link>
+          </p>
+          {message === "invalid_email" ? <T k="newsletter.invalid" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
+          {message === "too_fast" ? <T k="newsletter.tooFast" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
+          {message === "turnstile" ? <T k="newsletter.turnstile" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
+          {message === "rate_limited" ? <T k="newsletter.rate" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
         </>
       )}
-      <div className="absolute left-[-10000px] h-0 overflow-hidden" aria-hidden="true">
-        <label>
-          <T k="newsletter.company" as="span" fade={false} />
-          <input tabIndex={-1} autoComplete="off" value={company} onChange={(event) => setCompany(event.target.value)} />
-        </label>
-      </div>
-      <label htmlFor={`newsletter-email-${location}`} className="sr-only">{t(lang, "newsletter.placeholder")}</label>
-      <div className={compact ? "mt-3 flex w-full min-w-0 items-center gap-3" : "glass-2 mt-5 flex items-center gap-3 p-1.5"}>
-        <input
-          id={`newsletter-email-${location}`}
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          readOnly={locked}
-          placeholder={t(lang, "newsletter.placeholder")}
-          className={compact
-            ? "body min-w-0 flex-1 border border-[var(--glass-2-border)] bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
-            : "body min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"}
-        />
-        <button type="submit" className={compact ? "action-primary shrink-0" : "action-primary"} disabled={locked || needsToken} aria-disabled={locked || needsToken}>
-          <T
-            k={message === "already" ? "newsletter.already" : message === "ok" ? "newsletter.sent" : "newsletter.submit"}
-            as="span"
-            fade={false}
-          />
-        </button>
-      </div>
-      <div role="status" aria-live="polite">
-        {message === "ok" ? <T k="newsletter.success" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
-        {message === "already" ? <T k="newsletter.alreadyBody" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
-      </div>
       {siteKey ? <div ref={widgetRef} className="mt-4" hidden={done} /> : null}
-      <p className="data mt-3 text-[var(--ink-3)]">
-        <T k="newsletter.privacy" as="span" fade={false} />{" "}
-        <Link href="/privacy" className="underline">
-          <T k="privacy.title" as="span" fade={false} />
-        </Link>
-      </p>
-      {message === "invalid_email" ? <T k="newsletter.invalid" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
-      {message === "too_fast" ? <T k="newsletter.tooFast" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
-      {message === "turnstile" ? <T k="newsletter.turnstile" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
-      {message === "rate_limited" ? <T k="newsletter.rate" as="p" className="body mt-4 text-[var(--ink-1)]" /> : null}
     </form>
   );
 }

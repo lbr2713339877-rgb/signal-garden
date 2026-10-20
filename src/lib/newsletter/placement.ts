@@ -29,10 +29,23 @@ export function subscribeAnalyticsProps(location: SubscribeLocation, utmSource: 
 
 /**
  * `{ok:true}` without `sent` is a real send (older responses).
- * `sent:false` is a quiet no-op: recent confirm, email rate limit, or already active.
+ * `sent:false` did not call the mailer: quiet window, already active, or the
+ * 3-per-24h email cap. The screen must say so instead of showing the confirm step.
  */
-export function subscribeAck(body: { sent?: unknown } | null | undefined): "sent" | "already" {
-  return body?.sent === false ? "already" : "sent";
+export function subscribeAck(body: { sent?: unknown } | null | undefined): "sent" | "limited" {
+  return body?.sent === false ? "limited" : "sent";
+}
+
+/** Umami payload for an explicit resend. `location` is the signup placement. */
+export function resendAnalytics(
+  location: SubscribeLocation,
+  utmSource: string,
+  sent: boolean,
+): Record<string, string> {
+  return {
+    ...subscribeAnalyticsProps(location, utmSource),
+    outcome: sent ? "sent" : "limited",
+  };
 }
 
 export function subscribeResponse(result: { ok: true; sent: boolean } | { ok: false; error: string; code?: string }): {

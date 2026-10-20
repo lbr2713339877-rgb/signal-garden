@@ -666,6 +666,23 @@ export const DICT = {
   'newsletter.tooFast': ['请在页面上停留一会儿再提交。', 'Stay on the page a moment, then submit again.'],
   'newsletter.turnstile': ['人机验证没有通过，请再试一次。', 'The check did not pass. Please try again.'],
   'newsletter.rate': ['提交太频繁了，请稍后再试。', 'Too many attempts. Please try again later.'],
+  'newsletter.confirmHeading': [
+    '还差一步：去邮箱点确认链接',
+    'One step left: open your inbox and tap the confirm link',
+  ],
+  'newsletter.confirmFromLabel': ['发件人', 'From'],
+  'newsletter.confirmSubjectLabel': ['邮件主题', 'Subject'],
+  'newsletter.confirmSpam': [
+    '如果没看到，请到垃圾箱和推广邮件里找。',
+    'If it is not there, check spam and promotions.',
+  ],
+  'newsletter.openMailbox': ['打开邮箱', 'Open mailbox'],
+  'newsletter.resend': ['没收到？重发', "Didn't get it? Resend"],
+  'newsletter.resendWait': ['没收到？重发（{n}s）', "Didn't get it? Resend ({n}s)"],
+  'newsletter.limited': [
+    '已发送过多次，请查看已有邮件或稍后再试',
+    'This address was emailed several times. Check those messages, or try again later.',
+  ],
   'newsletter.privacy': [
     '订阅即表示你同意我们按隐私政策发送每周一周刊。',
     'Subscribing means you agree that we email the Monday weekly digest as described in the privacy policy.',
