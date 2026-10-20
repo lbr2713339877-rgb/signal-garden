@@ -280,31 +280,34 @@ export default async function ProjectPageV3({
             <a href="#install">{isWebsite ? <LANG zh="开始体验" en="Get started" /> : <T k="pd.install.title" as="span" fade={false} />} ↓</a>
             <a href="#limits"><T k="pd.limits.title" as="span" fade={false} /> ↓</a>
           </nav>
-          <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
-            <a
-              href={p.primaryUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              {...githubAttrs}
-              className="body inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)]"
-            >
-              {isWebsite ? <LANG zh="打开官网" en="Visit the website" /> : <T k="pd.hero.openRepo" as="span" fade={false} />} <span aria-hidden>↗</span>
-            </a>
-            {p.homepageUrl && !isWebsite ? (
+          <div className="mt-10 flex flex-col items-start gap-6 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+            <div className="flex shrink-0 flex-wrap items-center gap-x-8 gap-y-4">
               <a
-                href={p.homepageUrl}
+                href={p.primaryUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="body inline-flex items-center gap-2 border-b border-[var(--glass-1-border)] pb-1 text-[var(--ink-3)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)] hover:text-[var(--ink-1)]"
+                {...githubAttrs}
+                className="body inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)]"
               >
-                <T k="pd.hero.homepage" as="span" fade={false} /> <span aria-hidden>↗</span>
+                {isWebsite ? <LANG zh="打开官网" en="Visit the website" /> : <T k="pd.hero.openRepo" as="span" fade={false} />} <span aria-hidden>↗</span>
               </a>
-            ) : null}
-            {p.isRising ? (
-              <span className="data" style={{ color: accent }}>
-                <T k="pd.hero.rising" as="span" fade={false} />
-              </span>
-            ) : null}
+              {p.homepageUrl && !isWebsite ? (
+                <a
+                  href={p.homepageUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="body inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b border-[var(--glass-1-border)] pb-1 text-[var(--ink-3)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)] hover:text-[var(--ink-1)]"
+                >
+                  <T k="pd.hero.homepage" as="span" fade={false} /> <span aria-hidden>↗</span>
+                </a>
+              ) : null}
+              {p.isRising ? (
+                <span className="data" style={{ color: accent }}>
+                  <T k="pd.hero.rising" as="span" fade={false} />
+                </span>
+              ) : null}
+            </div>
+            <NewsletterSignup location="project_cta" />
           </div>
 
           <ProjectActions slug={p.slug} />

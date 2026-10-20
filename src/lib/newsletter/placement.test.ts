@@ -15,12 +15,18 @@ test("signup placements stay on the allowlist and today maps to the inline box",
   assert.equal(normalizeSubscribeLocation("today"), "today_inline");
   assert.equal(normalizeSubscribeLocation("today_inline"), "today_inline");
   assert.equal(normalizeSubscribeLocation("project_bottom"), "project_bottom");
+  assert.equal(normalizeSubscribeLocation("project_cta"), "project_cta");
   assert.equal(normalizeSubscribeLocation("footer"), "footer");
   assert.equal(normalizeSubscribeLocation("home"), "home");
   assert.equal(normalizeSubscribeLocation("reader@example.com"), null);
   assert.equal(normalizeSubscribeLocation("javascript:alert(1)"), null);
   assert.deepEqual(subscribeAnalyticsProps("project_bottom", "direct"), {
     location: "project_bottom",
+    page: "project",
+    source: "direct",
+  });
+  assert.deepEqual(subscribeAnalyticsProps("project_cta", "direct"), {
+    location: "project_cta",
     page: "project",
     source: "direct",
   });
@@ -46,12 +52,17 @@ test("a successful response with sent false is not treated as a fresh send", () 
   assert.equal(DICT["newsletter.alreadyBody"][0], "已发过，请查收件箱");
   assert.notEqual(DICT["newsletter.alreadyBody"][0], DICT["newsletter.sent"][0]);
   assert.equal(DICT["newsletter.body"][0], "每周一 1 封：本周热度最高的 10 个 GitHub 新项目。免费，随时退订。");
+  assert.equal(
+    DICT["newsletter.body"][1],
+    "One email each Monday: the 10 hottest new GitHub projects this week. Free, unsubscribe any time.",
+  );
   assert.equal(DICT["newsletter.sample"][0], "看第 1 期");
 });
 
 test("confirm redirect carries location and never a raw address", () => {
   assert.equal(confirmStatusQuery("confirmed", "footer"), "status=confirmed&loc=footer");
   assert.equal(confirmStatusQuery("confirmed", "today"), "status=confirmed&loc=today_inline");
+  assert.equal(confirmStatusQuery("confirmed", "project_cta"), "status=confirmed&loc=project_cta");
   assert.equal(confirmStatusQuery("already", "nope"), "status=already");
   assert.doesNotMatch(confirmStatusQuery("confirmed", "a@b.c"), /@/);
 });
@@ -68,9 +79,22 @@ test("the inline today box sits after the third card, or after the last when sho
   assert.match(today, /todayInlineInsertIndex/);
   assert.match(today, /location="today_inline"/);
   assert.match(project, /location="project_bottom"/);
+  assert.match(project, /location="project_cta"/);
+  const ctaAt = project.indexOf('location="project_cta"');
+  const bottomAt = project.indexOf('location="project_bottom"');
+  assert.ok(ctaAt > 0 && bottomAt > ctaAt);
+  const hero = project.slice(project.indexOf("mt-10 flex flex-col"), ctaAt);
+  assert.match(hero, /flex-col/);
+  assert.match(hero, /lg:flex-row/);
+  assert.match(hero, /shrink-0/);
+  assert.match(hero, /whitespace-nowrap/);
+  assert.match(hero, /pd\.hero\.openRepo/);
   assert.match(footer, /location="footer"/);
   assert.match(form, /subscribe_submit/);
   assert.match(form, /subscribeAnalyticsProps/);
+  assert.match(form, /source: location/);
+  assert.match(form, /location === "project_cta"/);
+  assert.match(form, /newsletter\.body/);
   assert.match(form, /href="\/weekly\/1"/);
   const home = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
   assert.match(home, /location="home"/);
@@ -79,7 +103,9 @@ test("the inline today box sits after the third card, or after the last when sho
   for (const line of errors) {
     assert.match(line, /\.\.\.analytics|\.\.\.subscribeAnalyticsProps\(location/);
   }
+  assert.match(form, /const analytics = subscribeAnalyticsProps\(location, currentUtmSource\(\)\)/);
   assert.match(form, /trackEvent\("subscribe_submit", analytics\)/);
+  assert.equal(subscribeAnalyticsProps("project_cta", "newsletter").location, "project_cta");
   const confirm = readFileSync(new URL("../../app/subscribe/confirm/page.tsx", import.meta.url), "utf8");
   assert.match(confirm, /event="subscribe_confirmed"/);
   assert.match(confirm, /\{ location \}/);
