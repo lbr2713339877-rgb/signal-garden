@@ -15,24 +15,28 @@ function subscribeErrorCode(value: unknown): string {
   return /^[a-z0-9-]{1,48}$/.test(raw) ? raw : "failed";
 }
 
+function signupFrame(location: SubscribeLocation): string {
+  if (location === "home") return "mx-auto max-w-[var(--container)] px-[var(--gutter)] pb-[clamp(48px,8vh,96px)]";
+  if (location === "today_inline") return "my-2 max-w-[640px] border-y border-[var(--glass-1-border)] py-10";
+  if (location === "project_bottom") return "max-w-[520px]";
+  if (location === "project_cta") return "w-full min-w-0 lg:max-w-[520px] lg:flex-1";
+  return "mt-8 max-w-[360px]";
+}
+
 export function NewsletterSignup({ location }: { location: SubscribeLocation }) {
   const enabled = newsletterFormEnabled();
   if (!enabled && location !== "home") return null;
-  const frame = location === "home"
-    ? "mx-auto max-w-[var(--container)] px-[var(--gutter)] pb-[clamp(48px,8vh,96px)]"
-    : location === "today_inline"
-      ? "my-2 max-w-[640px] border-y border-[var(--glass-1-border)] py-10"
-      : location === "project_bottom"
-        ? "max-w-[520px]"
-        : "mt-8 max-w-[360px]";
+  const frame = signupFrame(location);
+  const inline = location === "project_cta";
+  const Region = inline ? "div" : "section";
   return (
-    <section
+    <Region
       id={location === "home" ? SUBSCRIBE_ID : undefined}
       className={frame}
       style={location === "home" ? { scrollMarginTop: SUBSCRIBE_SCROLL_MARGIN_PX } : undefined}
     >
       {enabled ? <NewsletterForm location={location} /> : null}
-    </section>
+    </Region>
   );
 }
 
@@ -149,14 +153,21 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
 
   const needsToken = siteKey.length > 0 && token.length === 0;
   const locked = pending || done;
+  const compact = location === "project_cta";
 
   return (
-    <form onSubmit={onSubmit} className="max-w-[520px]">
-      <T k="newsletter.title" as="h2" className="system" fade={false} />
-      <T k="newsletter.body" as="p" className="body mt-3 text-[var(--ink-2)]" />
-      <Link href="/weekly/1" className="data mt-3 inline-flex text-[var(--ink-2)] underline decoration-[var(--glass-2-border)] underline-offset-4 transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]">
-        <T k="newsletter.sample" as="span" fade={false} />
-      </Link>
+    <form onSubmit={onSubmit} className={compact ? "w-full min-w-0" : "max-w-[520px]"}>
+      {compact ? (
+        <T k="newsletter.body" as="p" className="body text-[var(--ink-2)]" fade={false} />
+      ) : (
+        <>
+          <T k="newsletter.title" as="h2" className="system" fade={false} />
+          <T k="newsletter.body" as="p" className="body mt-3 text-[var(--ink-2)]" />
+          <Link href="/weekly/1" className="data mt-3 inline-flex text-[var(--ink-2)] underline decoration-[var(--glass-2-border)] underline-offset-4 transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]">
+            <T k="newsletter.sample" as="span" fade={false} />
+          </Link>
+        </>
+      )}
       <div className="absolute left-[-10000px] h-0 overflow-hidden" aria-hidden="true">
         <label>
           <T k="newsletter.company" as="span" fade={false} />
@@ -164,7 +175,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
         </label>
       </div>
       <label htmlFor={`newsletter-email-${location}`} className="sr-only">{t(lang, "newsletter.placeholder")}</label>
-      <div className="glass-2 mt-5 flex items-center gap-3 p-1.5">
+      <div className={compact ? "mt-3 flex w-full min-w-0 items-center gap-3" : "glass-2 mt-5 flex items-center gap-3 p-1.5"}>
         <input
           id={`newsletter-email-${location}`}
           type="email"
@@ -174,9 +185,11 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
           onChange={(event) => setEmail(event.target.value)}
           readOnly={locked}
           placeholder={t(lang, "newsletter.placeholder")}
-          className="body min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
+          className={compact
+            ? "body min-w-0 flex-1 border border-[var(--glass-2-border)] bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
+            : "body min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"}
         />
-        <button type="submit" className="action-primary" disabled={locked || needsToken} aria-disabled={locked || needsToken}>
+        <button type="submit" className={compact ? "action-primary shrink-0" : "action-primary"} disabled={locked || needsToken} aria-disabled={locked || needsToken}>
           <T
             k={message === "already" ? "newsletter.already" : message === "ok" ? "newsletter.sent" : "newsletter.submit"}
             as="span"
