@@ -679,6 +679,7 @@ export const DICT = {
   'newsletter.openMailbox': ['打开邮箱', 'Open mailbox'],
   'newsletter.resend': ['没收到？重发', "Didn't get it? Resend"],
   'newsletter.resendWait': ['没收到？重发（{n}s）', "Didn't get it? Resend ({n}s)"],
+  'newsletter.resent': ['已重发，请查收', 'Sent again — check your inbox'],
   'newsletter.limited': [
     '已发送过多次，请查看已有邮件或稍后再试',
     'This address was emailed several times. Check those messages, or try again later.',
