@@ -72,4 +72,15 @@ test("the inline today box sits after the third card, or after the last when sho
   assert.match(form, /subscribe_submit/);
   assert.match(form, /subscribeAnalyticsProps/);
   assert.match(form, /href="\/weekly\/1"/);
+  const home = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
+  assert.match(home, /location="home"/);
+  const errors = form.split("\n").filter((line) => line.includes('trackEvent("subscribe_error"'));
+  assert.equal(errors.length, 4);
+  for (const line of errors) {
+    assert.match(line, /\.\.\.analytics|\.\.\.subscribeAnalyticsProps\(location/);
+  }
+  assert.match(form, /trackEvent\("subscribe_submit", analytics\)/);
+  const confirm = readFileSync(new URL("../../app/subscribe/confirm/page.tsx", import.meta.url), "utf8");
+  assert.match(confirm, /event="subscribe_confirmed"/);
+  assert.match(confirm, /\{ location \}/);
 });

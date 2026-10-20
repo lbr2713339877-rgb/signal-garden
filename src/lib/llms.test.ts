@@ -22,3 +22,7 @@ test("llms.txt names the site, the daily URLs, momentum ranking, languages, and 
   assert.match(text, /hello@signalgarden\.site/);
   assert.match(text, /robots\.txt allows \//);
 });
+
+test("links the sample weekly issue", () => {
+  assert.ok(llmsTxt("https://signalgarden.site").includes("https://signalgarden.site/weekly/1"));
+});
