@@ -6,11 +6,21 @@ import { resolveEmailLocale, type EmailLocale } from "@/lib/email-locale";
 import { renderConfirmMail, renderWelcomeDigest } from "@/emails/render-newsletter";
 import { hashEmail, honeypotTripped, dwellOk, normalizeEmail, normalizeSource } from "./address";
 import { confirmPageUrl, listUnsubscribeHeaders, unsubscribePageUrl } from "./headers";
-import { allowRate } from "./rate-limit";
+import { allowRate, countRate, recordRate } from "./rate-limit";
+import {
+  RESEND_COOLDOWN_MS,
+  RESEND_DAILY_LIMIT,
+  RESEND_DAILY_WINDOW_MS,
+  RESEND_DAY_BUCKET,
+  RESEND_EMAIL_BUCKET,
+  RESEND_IP_BUCKET,
+} from "./resend-policy";
 import { confirmOutcome, subscribeAction, unsubscribeOutcome } from "./state";
 import {
   CONFIRM_RESEND_AFTER_MS,
   CONFIRM_TTL_MS,
+  confirmExpiry,
+  confirmTokenFor,
   EMAIL_LIMIT,
   EMAIL_WINDOW_MS,
   hashIp,
@@ -19,7 +29,6 @@ import {
   IP_WINDOW_MS,
   isTokenShape,
   newSubscriberId,
-  newToken,
   PURGE_AFTER_MS,
   sha256,
   unsubTokenFor,
@@ -67,6 +76,7 @@ async function sendConfirm(input: {
   subscriberId: string;
   location: unknown;
   transport: MailTransport;
+  idempotencyKey: string;
 }) {
   const mail = await renderConfirmMail({
     locale: input.locale,
@@ -80,8 +90,22 @@ async function sendConfirm(input: {
     html: mail.html,
     text: mail.text,
     headers: listUnsubscribeHeaders(input.siteUrl, input.unsubToken),
-    idempotencyKey: `newsletter-confirm/${input.subscriberId}/${hashToken(input.confirmToken).slice(0, 16)}`,
+    idempotencyKey: input.idempotencyKey,
   });
+}
+
+/**
+ * A still-valid confirm link can be rebuilt from the subscriber id and expiry.
+ * A random legacy hash, or an expired row, returns null so the caller mints a new one.
+ */
+export function reusableConfirmToken(
+  row: { id: string; status: string; confirmTokenHash: string | null; confirmExpiresAt: Date | null },
+  now: Date,
+): string | null {
+  if (row.status !== "pending" || !row.confirmTokenHash || !row.confirmExpiresAt) return null;
+  if (row.confirmExpiresAt.getTime() <= now.getTime()) return null;
+  const token = confirmTokenFor(row.id, row.confirmExpiresAt.getTime());
+  return hashToken(token) === row.confirmTokenHash ? token : null;
 }
 
 /** A pending confirm mailed inside the quiet window must keep its token. */
@@ -139,8 +163,9 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
 
   assertLiveSecret();
   const locale = resolveEmailLocale(input.locale, existing?.locale, input.acceptLanguage);
-  const confirmToken = newToken();
   const id = existing?.id ?? newSubscriberId();
+  const confirmExpiresAt = confirmExpiry(now);
+  const confirmToken = confirmTokenFor(id, confirmExpiresAt.getTime());
   const unsubToken = unsubTokenFor(id);
   const patch = {
     email,
@@ -148,7 +173,7 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
     locale,
     status: "pending" as const,
     confirmTokenHash: hashToken(confirmToken),
-    confirmExpiresAt: new Date(now.getTime() + CONFIRM_TTL_MS),
+    confirmExpiresAt,
     unsubTokenHash: hashToken(unsubToken),
     source: normalizeSource(input.source),
     consentIpHash: input.ip ? hashIp(input.ip) : null,
@@ -190,6 +215,118 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
     subscriberId: id,
     location: patch.source,
     transport,
+    idempotencyKey: `newsletter-confirm/${id}/${hashToken(confirmToken).slice(0, 16)}`,
+  });
+  return { ok: true, sent: true };
+}
+
+export interface ResendInput {
+  email: unknown;
+  locale: unknown;
+  source: unknown;
+  ip: string | null;
+  now?: Date;
+  siteUrl?: string;
+  transport?: MailTransport;
+}
+
+/**
+ * Explicit "send the confirmation again" for a pending address.
+ * The body is always `{ok:true, sent}` so a miss and a rate limit look the same.
+ * `sent:false` means Resend was not called.
+ */
+export async function requestResend(input: ResendInput): Promise<{ ok: true; sent: boolean }> {
+  const now = input.now ?? new Date();
+  const email = normalizeEmail(input.email);
+  if (!email) return { ok: true, sent: false };
+
+  const emailHash = hashEmail(email);
+  const ipKey = sha256(`ip:${input.ip ?? "unknown"}`);
+  const cooledIp = await countRate({
+    bucket: RESEND_IP_BUCKET,
+    keyHash: ipKey,
+    windowMs: RESEND_COOLDOWN_MS,
+    now,
+  });
+  if (cooledIp >= 1) return { ok: true, sent: false };
+  const cooledEmail = await countRate({
+    bucket: RESEND_EMAIL_BUCKET,
+    keyHash: emailHash,
+    windowMs: RESEND_COOLDOWN_MS,
+    now,
+  });
+  if (cooledEmail >= 1) return { ok: true, sent: false };
+
+  await recordRate({ bucket: RESEND_IP_BUCKET, keyHash: ipKey, now });
+  await recordRate({ bucket: RESEND_EMAIL_BUCKET, keyHash: emailHash, now });
+
+  const mailedRecently = await countRate({
+    bucket: "email",
+    keyHash: emailHash,
+    windowMs: RESEND_COOLDOWN_MS,
+    now,
+  });
+  if (mailedRecently >= 1) return { ok: true, sent: false };
+
+  const mailedToday = await countRate({
+    bucket: "email",
+    keyHash: emailHash,
+    windowMs: EMAIL_WINDOW_MS,
+    now,
+  });
+  if (mailedToday >= EMAIL_LIMIT) return { ok: true, sent: false };
+
+  const resentToday = await countRate({
+    bucket: RESEND_DAY_BUCKET,
+    keyHash: emailHash,
+    windowMs: RESEND_DAILY_WINDOW_MS,
+    now,
+  });
+  if (resentToday >= RESEND_DAILY_LIMIT) return { ok: true, sent: false };
+
+  const d = await db();
+  const [existing] = await d.select().from(newsletterSubscriber).where(eq(newsletterSubscriber.emailHash, emailHash)).limit(1);
+  if (!existing || existing.status !== "pending" || !existing.email) return { ok: true, sent: false };
+
+  let confirmToken = reusableConfirmToken(existing, now);
+  if (!confirmToken) {
+    const confirmExpiresAt = confirmExpiry(now);
+    confirmToken = confirmTokenFor(existing.id, confirmExpiresAt.getTime());
+    const tokenSame = existing.confirmTokenHash
+      ? eq(newsletterSubscriber.confirmTokenHash, existing.confirmTokenHash)
+      : isNull(newsletterSubscriber.confirmTokenHash);
+    const updated = await d
+      .update(newsletterSubscriber)
+      .set({
+        confirmTokenHash: hashToken(confirmToken),
+        confirmExpiresAt,
+      })
+      .where(and(
+        eq(newsletterSubscriber.id, existing.id),
+        eq(newsletterSubscriber.status, "pending"),
+        tokenSame,
+      ))
+      .returning({ id: newsletterSubscriber.id });
+    if (updated.length === 0) return { ok: true, sent: false };
+  }
+
+  await recordRate({ bucket: "email", keyHash: emailHash, now });
+  await recordRate({ bucket: RESEND_DAY_BUCKET, keyHash: emailHash, now });
+
+  assertLiveSecret();
+  const locale = resolveEmailLocale(input.locale, existing.locale);
+  const unsubToken = unsubTokenFor(existing.id);
+  const transport = input.transport ?? newsletterTransport();
+  await sendConfirm({
+    email: existing.email,
+    locale,
+    confirmToken,
+    unsubToken,
+    siteUrl: siteUrlOf(input.siteUrl),
+    subscriberId: existing.id,
+    location: normalizeSource(input.source) ?? existing.source,
+    transport,
+    idempotencyKey: `newsletter-confirm/${existing.id}/${hashToken(confirmToken).slice(0, 16)}/r${Math.floor(now.getTime() / 1000)}`,
   });
   return { ok: true, sent: true };
 }

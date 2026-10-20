@@ -49,6 +49,21 @@ export function unsubTokenFor(subscriberId: string, secret?: string): string {
   return createHmac("sha256", key).update(`unsub:${subscriberId}`).digest("base64url");
 }
 
+/**
+ * Confirm links are an HMAC of the subscriber id and the expiry instant, so a
+ * later resend can rebuild the same token while it is still valid. Only the
+ * hash is stored. The `confirm:` prefix keeps this distinct from unsubscribe.
+ */
+export function confirmTokenFor(subscriberId: string, expiresAtMs: number, secret?: string): string {
+  const key = secret ?? (process.env.NEWSLETTER_UNSUB_SECRET?.trim() || "signal-garden-newsletter-unsub-dev");
+  return createHmac("sha256", key).update(`confirm:${subscriberId}:${expiresAtMs}`).digest("base64url");
+}
+
+/** Whole seconds, so a timestamp round-trip cannot change the HMAC input. */
+export function confirmExpiry(now: Date): Date {
+  return new Date(Math.floor((now.getTime() + CONFIRM_TTL_MS) / 1000) * 1000);
+}
+
 export function newSubscriberId(): string {
   return randomUUID();
 }

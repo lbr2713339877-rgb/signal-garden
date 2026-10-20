@@ -2,14 +2,12 @@ import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { newsletterRateEvent } from "@/db/schema";
 
-/** Returns true when this attempt is still inside the window. */
-export async function allowRate(input: {
-  bucket: "ip" | "email";
+export async function countRate(input: {
+  bucket: string;
   keyHash: string;
-  limit: number;
   windowMs: number;
   now: Date;
-}): Promise<boolean> {
+}): Promise<number> {
   const d = await db();
   const since = new Date(input.now.getTime() - input.windowMs);
   const [row] = await d
@@ -20,7 +18,15 @@ export async function allowRate(input: {
       eq(newsletterRateEvent.keyHash, input.keyHash),
       gte(newsletterRateEvent.createdAt, since),
     ));
-  if (Number(row?.n ?? 0) >= input.limit) return false;
+  return Number(row?.n ?? 0);
+}
+
+export async function recordRate(input: {
+  bucket: string;
+  keyHash: string;
+  now: Date;
+}): Promise<void> {
+  const d = await db();
   await d.insert(newsletterRateEvent).values({
     bucket: input.bucket,
     keyHash: input.keyHash,
@@ -30,5 +36,18 @@ export async function allowRate(input: {
     newsletterRateEvent.createdAt,
     new Date(input.now.getTime() - 48 * 60 * 60 * 1000),
   ));
+}
+
+/** Returns true when this attempt is still inside the window. */
+export async function allowRate(input: {
+  bucket: string;
+  keyHash: string;
+  limit: number;
+  windowMs: number;
+  now: Date;
+}): Promise<boolean> {
+  const n = await countRate(input);
+  if (n >= input.limit) return false;
+  await recordRate(input);
   return true;
 }

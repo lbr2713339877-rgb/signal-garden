@@ -5,6 +5,7 @@ import { DICT } from "@/lib/dict";
 import {
   confirmStatusQuery,
   normalizeSubscribeLocation,
+  resendAnalytics,
   subscribeAck,
   subscribeAnalyticsProps,
   subscribeResponse,
@@ -36,7 +37,7 @@ test("signup placements stay on the allowlist and today maps to the inline box",
 
 test("a successful response with sent false is not treated as a fresh send", () => {
   assert.equal(subscribeAck({ sent: true }), "sent");
-  assert.equal(subscribeAck({ sent: false }), "already");
+  assert.equal(subscribeAck({ sent: false }), "limited");
   assert.equal(subscribeAck({}), "sent");
   assert.equal(subscribeAck(null), "sent");
   assert.deepEqual(subscribeResponse({ ok: true, sent: false }), {
@@ -57,6 +58,13 @@ test("a successful response with sent false is not treated as a fresh send", () 
     "One email each Monday: the 10 hottest new GitHub projects this week. Free, unsubscribe any time.",
   );
   assert.equal(DICT["newsletter.sample"][0], "看第 1 期");
+  assert.equal(DICT["newsletter.confirmHeading"][0], "还差一步：去邮箱点确认链接");
+  assert.equal(DICT["newsletter.confirmHeading"][1], "One step left: open your inbox and tap the confirm link");
+  assert.doesNotMatch(DICT["newsletter.confirmHeading"][1], /[\u4e00-\u9fff]/);
+  assert.equal(DICT["newsletter.limited"][0], "已发送过多次，请查看已有邮件或稍后再试");
+  assert.equal(DICT["newsletter.resend"][0], "没收到？重发");
+  assert.equal(DICT["newsletter.confirmSpam"][0], "如果没看到，请到垃圾箱和推广邮件里找。");
+  assert.match(DICT["newsletter.confirmSpam"][1], /spam and promotions/);
 });
 
 test("confirm redirect carries location and never a raw address", () => {
@@ -105,6 +113,29 @@ test("the inline today box sits after the third card, or after the last when sho
   }
   assert.match(form, /const analytics = subscribeAnalyticsProps\(location, currentUtmSource\(\)\)/);
   assert.match(form, /trackEvent\("subscribe_submit", analytics\)/);
+  assert.match(form, /subscribeAck\(body\) === "limited"/);
+  assert.match(form, /message === "ok" \? \(/);
+  assert.match(form, /<ConfirmStep/);
+  assert.match(form, /message === "limited" \? <T k="newsletter\.limited"/);
+  assert.doesNotMatch(form.slice(form.indexOf('message === "limited"')), /ConfirmStep/);
+  assert.match(form, /CONFIRM_SUBJECT/);
+  assert.match(form, /CONFIRM_FROM_ADDRESS/);
+  assert.match(form, /from "@\/lib\/newsletter\/confirm-copy"/);
+  assert.match(form, /mailboxUrl\(email\)/);
+  assert.match(form, /resendCooldownSeconds\(\)/);
+  assert.match(form, /trackEvent\("subscribe_resend", resendAnalytics\(location, currentUtmSource\(\), sent\)\)/);
+  assert.deepEqual(resendAnalytics("footer", "direct", true), {
+    location: "footer",
+    page: "footer",
+    source: "direct",
+    outcome: "sent",
+  });
+  assert.deepEqual(resendAnalytics("project_cta", "newsletter", false), {
+    location: "project_cta",
+    page: "project",
+    source: "newsletter",
+    outcome: "limited",
+  });
   assert.equal(subscribeAnalyticsProps("project_cta", "newsletter").location, "project_cta");
   const confirm = readFileSync(new URL("../../app/subscribe/confirm/page.tsx", import.meta.url), "utf8");
   assert.match(confirm, /event="subscribe_confirmed"/);

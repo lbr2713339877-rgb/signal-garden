@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { hashToken, isTokenShape, newToken, tokenMatches, unsubTokenFor } from "./tokens";
+import { confirmTokenFor, hashToken, isTokenShape, newToken, tokenMatches, unsubTokenFor } from "./tokens";
 
 test("confirm tokens are stored as hashes, not plaintext", () => {
   const token = newToken();
@@ -12,6 +12,16 @@ test("confirm tokens are stored as hashes, not plaintext", () => {
   assert.equal(tokenMatches(newToken(), hash), false);
   assert.equal(tokenMatches("short", hash), false);
   assert.equal(tokenMatches(token, "ab"), false);
+});
+
+test("confirm tokens can be rebuilt from the subscriber and expiry", () => {
+  const id = "6f1e0c3a-1b2c-4d5e-8f90-aabbccddeeff";
+  const expires = Date.parse("2026-10-22T03:00:00.000Z");
+  assert.equal(confirmTokenFor(id, expires, "secret-a"), confirmTokenFor(id, expires, "secret-a"));
+  assert.notEqual(confirmTokenFor(id, expires, "secret-a"), confirmTokenFor(id, expires + 1000, "secret-a"));
+  assert.notEqual(confirmTokenFor(id, expires, "secret-a"), unsubTokenFor(id, "secret-a"));
+  assert.equal(isTokenShape(confirmTokenFor(id, expires, "secret-a")), true);
+  assert.equal(tokenMatches(confirmTokenFor(id, expires), hashToken(confirmTokenFor(id, expires))), true);
 });
 
 test("unsubscribe tokens are stable for a subscriber and change with the secret", () => {

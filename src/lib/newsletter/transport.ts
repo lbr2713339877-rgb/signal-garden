@@ -1,7 +1,8 @@
 import { Resend } from "resend";
+import { CONFIRM_FROM_ADDRESS } from "./confirm-copy";
 
-export const DEFAULT_NEWSLETTER_FROM = "Signal Garden <hello@signalgarden.site>";
-export const DEFAULT_NEWSLETTER_REPLY_TO = "hello@signalgarden.site";
+export const DEFAULT_NEWSLETTER_FROM = `Signal Garden <${CONFIRM_FROM_ADDRESS}>`;
+export const DEFAULT_NEWSLETTER_REPLY_TO = CONFIRM_FROM_ADDRESS;
 
 export interface OutboundMail {
   to: string;
