@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { V3Shell } from "@/components/v3/V3Shell";
 import { T, type DictKey } from "@/lib/dict";
 import { inspectConfirm } from "@/lib/newsletter/subscribe";
+import { normalizeSubscribeLocation } from "@/lib/newsletter/placement";
 import { TrackOnLoad } from "@/components/analytics/TrackOnLoad";
 
 export const metadata: Metadata = {
@@ -22,24 +23,28 @@ const COPY: Record<string, { title: DictKey; body: DictKey }> = {
 export default async function ConfirmPage({
   searchParams,
 }: {
-  searchParams: Promise<{ t?: string; status?: string }>;
+  searchParams: Promise<{ t?: string; status?: string; loc?: string }>;
 }) {
   const params = await searchParams;
   const posted = params.status && COPY[params.status] ? COPY[params.status] : null;
   const view = !posted && params.t ? await inspectConfirm(params.t) : null;
   const showButton = view?.state === "pending" && params.t;
   const fallback = view ? COPY[view.state] ?? COPY.invalid : COPY.invalid;
+  const location = normalizeSubscribeLocation(params.loc);
 
   return (
     <V3Shell>
       <main className="mx-auto max-w-[var(--container)] px-[var(--gutter)] pt-[clamp(120px,16vh,200px)] pb-[var(--section-gap)]">
-        {params.status === "confirmed" ? <TrackOnLoad event="subscribe_confirmed" /> : null}
+        {params.status === "confirmed" ? (
+          <TrackOnLoad event="subscribe_confirmed" data={location ? { location } : undefined} />
+        ) : null}
         <T k="nl.kicker" as="p" className="system" fade={false} />
         <T k={(posted ?? fallback).title} as="h1" className="page-title mt-4 max-w-[16ch]" />
         <T k={(posted ?? fallback).body} as="p" className="body mt-6 max-w-[58ch] text-[var(--ink-2)]" />
         {showButton ? (
           <form method="post" action="/api/subscribe/confirm" className="mt-10">
             <input type="hidden" name="t" value={params.t} />
+            {location ? <input type="hidden" name="loc" value={location} /> : null}
             <button type="submit" className="action-primary">
               <T k="nl.confirmButton" as="span" fade={false} />
             </button>

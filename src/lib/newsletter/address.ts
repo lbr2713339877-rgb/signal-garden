@@ -1,3 +1,4 @@
+import { normalizeSubscribeLocation, type SubscribeLocation } from "./placement";
 import { MIN_DWELL_MS, sha256 } from "./tokens";
 
 const EMAIL =
@@ -59,8 +60,6 @@ export function honeypotTripped(value: unknown): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-const SOURCES = new Set(["home", "today", "footer"]);
-
-export function normalizeSource(value: unknown): "home" | "today" | "footer" | null {
-  return typeof value === "string" && SOURCES.has(value) ? value as "home" | "today" | "footer" : null;
+export function normalizeSource(value: unknown): SubscribeLocation | null {
+  return normalizeSubscribeLocation(value);
 }

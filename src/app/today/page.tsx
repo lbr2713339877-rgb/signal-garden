@@ -11,6 +11,7 @@
  */
 
 import Link from 'next/link';
+import { Fragment } from 'react';
 import type { Metadata } from 'next';
 import { V3Shell } from '@/components/v3/V3Shell';
 import { SpaceRow } from '@/components/v3/category/CategorySpace';
@@ -21,6 +22,7 @@ import { TODAY_LIMIT, siteOrigin } from '@/lib/edition';
 import { Fallback } from '@/lib/i18n';
 import { NewsletterSignup } from '@/components/v3/NewsletterForm';
 import { SubscribeLink } from '@/components/v3/SubscribeLink';
+import { todayInlineInsertIndex } from '@/lib/newsletter/placement';
 import { todayPageMetadata } from '@/lib/page-meta';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { todayItemList } from '@/lib/jsonld';
@@ -40,6 +42,7 @@ export default async function TodayPage() {
   const headline = cards[0] ?? null;
   const rows = cards.slice(1);
   const total = cards.length;
+  const rowSplit = Math.max(0, todayInlineInsertIndex(total) - (headline ? 1 : 0));
 
   const headlineAccent = categoryColor(headline?.primaryCategory);
 
@@ -117,30 +120,38 @@ export default async function TodayPage() {
             />
             <div className="mt-6 flex flex-col">
               {rows.map((c, i) => (
-                <SpaceRow
-                  key={c.id}
-                  index={i + (headline ? 1 : 0)}
-                  slug={c.slug}
-                  name={c.name}
-                  hook={{ zh: c.hook, en: c.hookEn }}
-                  oneLiner={{ zh: c.oneLiner, en: c.oneLinerEn ?? c.description }}
-                  metric={c.forks7d ?? c.stars24h ?? 0}
-                  metricUnit={c.forks7d ? 'FORKS / 7D' : 'STARS / 24H'}
-                  category={categoryLabelEn(c.primaryCategory)}
-                  accent={categoryColor(c.primaryCategory)}
-                  isVerified={c.isVerifiedSkill}
-                  track={{ repo: c.fullName ?? c.slug, rank: i + (headline ? 2 : 1), page: 'today' }}
-                />
+                <Fragment key={c.id}>
+                  {i === rowSplit ? <NewsletterSignup location="today_inline" /> : null}
+                  <SpaceRow
+                    index={i + (headline ? 1 : 0)}
+                    slug={c.slug}
+                    name={c.name}
+                    hook={{ zh: c.hook, en: c.hookEn }}
+                    oneLiner={{ zh: c.oneLiner, en: c.oneLinerEn ?? c.description }}
+                    metric={c.forks7d ?? c.stars24h ?? 0}
+                    metricUnit={c.forks7d ? 'FORKS / 7D' : 'STARS / 24H'}
+                    category={categoryLabelEn(c.primaryCategory)}
+                    accent={categoryColor(c.primaryCategory)}
+                    isVerified={c.isVerifiedSkill}
+                    track={{ repo: c.fullName ?? c.slug, rank: i + (headline ? 2 : 1), page: 'today' }}
+                  />
+                </Fragment>
               ))}
+              {rowSplit >= rows.length ? <NewsletterSignup location="today_inline" /> : null}
             </div>
           </section>
         ) : !headline ? (
-          <T
-            k="pg.today.empty"
-            as="p"
-            className="body mt-10 max-w-[52ch] text-[var(--ink-3)]"
-          />
-        ) : null}
+          <>
+            <T
+              k="pg.today.empty"
+              as="p"
+              className="body mt-10 max-w-[52ch] text-[var(--ink-3)]"
+            />
+            <NewsletterSignup location="today_inline" />
+          </>
+        ) : (
+          <NewsletterSignup location="today_inline" />
+        )}
 
         <SubscribeLink
           medium="today"
@@ -148,7 +159,6 @@ export default async function TodayPage() {
         >
           <T k="pd.subscribe.cta" as="span" fade={false} /> <span aria-hidden>→</span>
         </SubscribeLink>
-        <NewsletterSignup source="today" />
         <div className="mt-10 border-t border-[var(--glass-1-border)] pt-8">
           <Link
             href="/archive"

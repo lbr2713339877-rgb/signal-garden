@@ -65,11 +65,12 @@ async function sendConfirm(input: {
   unsubToken: string;
   siteUrl: string;
   subscriberId: string;
+  location: unknown;
   transport: MailTransport;
 }) {
   const mail = await renderConfirmMail({
     locale: input.locale,
-    confirmUrl: confirmPageUrl(input.siteUrl, input.confirmToken),
+    confirmUrl: confirmPageUrl(input.siteUrl, input.confirmToken, input.location),
     unsubscribeUrl: unsubscribePageUrl(input.siteUrl, input.unsubToken),
     siteUrl: input.siteUrl,
   });
@@ -187,6 +188,7 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
     unsubToken,
     siteUrl: siteUrlOf(input.siteUrl),
     subscriberId: id,
+    location: patch.source,
     transport,
   });
   return { ok: true, sent: true };

@@ -18,7 +18,7 @@ export default async function HomePage() {
         <Section01Hero />
         <NoiseToSignal />
         <TodaySignals limit={TODAY_LIMIT} />
-        <NewsletterSignup source="home" />
+        <NewsletterSignup location="home" />
         <TaskDiscovery />
         <DiscoveryTelemetry />
       </main>

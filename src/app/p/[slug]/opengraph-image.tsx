@@ -1,5 +1,6 @@
 import { getProjectBySlug } from "@/db/queries";
 import { renderProjectOg } from "@/lib/og/render";
+import { snapshotStarGrowth } from "@/lib/star-growth";
 import { canonicalProjectSlug } from "@/lib/slug-alias";
 
 export const runtime = "nodejs";
@@ -19,16 +20,19 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const { slug } = await params;
   try {
     const data = await getProjectBySlug(await canonicalProjectSlug(slug));
-    if (!data) return renderProjectOg({ name: slug, owner: null, forks7d: null, missing: true });
+    if (!data) return renderProjectOg({ name: slug, owner: null, missing: true });
     const project = data.project;
+    const growth = snapshotStarGrowth(data.history);
     return renderProjectOg({
       name: project.name || slug,
       owner: ownerOf(project.owner, project.fullName),
-      forks7d: project.forks7d,
-      stars24h: project.stars24h,
+      starsFrom: growth?.from ?? null,
+      starsTo: growth?.to ?? null,
+      starsRecent: growth ? null : (project.stars7d ?? project.stars24h),
+      heatScore: project.heatScoreLatest,
     });
   } catch (error) {
     console.error("[og] project image failed", slug, error);
-    return renderProjectOg({ name: slug, owner: null, forks7d: null, missing: true });
+    return renderProjectOg({ name: slug, owner: null, missing: true });
   }
 }

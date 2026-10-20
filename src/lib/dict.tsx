@@ -648,12 +648,15 @@ export const DICT = {
 
   'newsletter.title': ['每周一周刊', 'Monday weekly digest'],
   'newsletter.body': [
-    '每周一寄出一封周刊。我们会先发确认邮件，点一下才会开始发送。',
-    'One letter each Monday. We email a confirmation first, and nothing is sent until you click it.',
+    '每周一 1 封：本周热度最高的 10 个 GitHub 新项目。免费，随时退订。',
+    'One email each Monday: the 10 hottest new GitHub projects this week. Free, unsubscribe any time.',
   ],
+  'newsletter.sample': ['看第 1 期', 'Read issue 1'],
   'newsletter.placeholder': ['you@example.com', 'you@example.com'],
   'newsletter.submit': ['订阅', 'Subscribe'],
   'newsletter.sent': ['已发送', 'Sent'],
+  'newsletter.already': ['已发过', 'Already sent'],
+  'newsletter.alreadyBody': ['已发过，请查收件箱', 'Already sent. Check your inbox.'],
   'newsletter.company': ['公司', 'Company'],
   'newsletter.success': [
     '请到收件箱确认订阅 Signal Garden 每周一周刊。',
@@ -667,6 +670,13 @@ export const DICT = {
     '订阅即表示你同意我们按隐私政策发送每周一周刊。',
     'Subscribing means you agree that we email the Monday weekly digest as described in the privacy policy.',
   ],
+  'weekly.kicker': ['公开样刊', 'PUBLIC SAMPLE'],
+  'weekly.title': ['第 1 期', 'Issue 1'],
+  'weekly.note': [
+    '这是每周精选的公开样刊，只收录项目和公开简介。没有订阅者、确认链接或退订信息。',
+    'This is a public sample of the weekly digest: projects and public summaries only. No subscribers, confirm links, or unsubscribe data.',
+  ],
+  'weekly.today': ['看今天的榜单', 'See today’s list'],
 
   'nl.kicker': ['每周一周刊', 'Monday weekly digest'],
   'nl.confirmTitle': ['确认订阅', 'Confirm subscription'],

@@ -20,6 +20,7 @@ const STATIC_PATHS = [
   '/terms',
   '/refund',
   '/cookies',
+  '/weekly/1',
 ] as const;
 
 function siteUrl(): string {
