@@ -49,35 +49,42 @@ function ConfirmStep({
   cooldown,
   pending,
   limited,
+  resent,
   onResend,
 }: {
   email: string;
   cooldown: number;
   pending: boolean;
   limited: boolean;
+  resent: boolean;
   onResend: () => void;
 }) {
   const inbox = mailboxUrl(email);
   const waiting = cooldown > 0 || pending;
   return (
     <div>
-      <T k="newsletter.confirmHeading" as="h2" className="page-title max-w-[12em] text-[var(--ink-1)]" fade={false} />
-      <p className="body mt-5 text-[var(--ink-2)]">
+      <T
+        k="newsletter.confirmHeading"
+        as="h2"
+        className="max-w-[18ch] font-[family-name:var(--font-display)] text-[clamp(1.75rem,3vw,2.35rem)] leading-[1.2] tracking-[-0.03em] text-[var(--ink-1)]"
+        fade={false}
+      />
+      <p className="body mt-3 text-[var(--ink-2)]">
         <T k="newsletter.confirmFromLabel" as="span" fade={false} />{" "}
         <span className="text-[var(--ink-1)]">{CONFIRM_FROM_ADDRESS}</span>
       </p>
-      <p className="body mt-2 text-[var(--ink-2)]">
+      <p className="body mt-1 text-[var(--ink-2)]">
         <T k="newsletter.confirmSubjectLabel" as="span" fade={false} />{" "}
         <LANG as="span" className="text-[var(--ink-1)]" zh={CONFIRM_SUBJECT.zh} en={CONFIRM_SUBJECT.en} />
       </p>
-      <T k="newsletter.confirmSpam" as="p" className="body mt-4 text-[var(--ink-2)]" fade={false} />
+      <T k="newsletter.confirmSpam" as="p" className="body mt-2 text-[var(--ink-2)]" fade={false} />
       {inbox ? (
-        <a href={inbox} target="_blank" rel="noopener noreferrer" className="action-primary mt-6">
+        <a href={inbox} target="_blank" rel="noopener noreferrer" className="action-primary mt-4">
           <T k="newsletter.openMailbox" as="span" fade={false} />
           <span aria-hidden>↗</span>
         </a>
       ) : null}
-      <div className="mt-4">
+      <div className="mt-3">
         <button type="button" className={inbox ? "action-secondary" : "action-primary"} disabled={waiting} aria-disabled={waiting} onClick={onResend}>
           {cooldown > 0 ? (
             <T k="newsletter.resendWait" vars={{ n: cooldown }} as="span" fade={false} />
@@ -86,7 +93,10 @@ function ConfirmStep({
           )}
         </button>
       </div>
-      {limited ? <T k="newsletter.limited" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
+      <div role="status" aria-live="polite">
+        {resent ? <T k="newsletter.resent" as="p" className="body mt-3 text-[var(--ink-1)]" fade={false} /> : null}
+        {limited ? <T k="newsletter.limited" as="p" className="body mt-3 text-[var(--ink-1)]" fade={false} /> : null}
+      </div>
     </div>
   );
 }
@@ -98,6 +108,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
   const [token, setToken] = useState("");
   const [message, setMessage] = useState<"idle" | "ok" | "limited" | "invalid_email" | "too_fast" | "turnstile" | "rate_limited">("idle");
   const [resendLimited, setResendLimited] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
   const [pending, setPending] = useState(false);
   const [resendPending, setResendPending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -105,8 +116,14 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
   const widgetRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const inFlightRef = useRef(false);
   const done = message === "ok";
+
+  useEffect(() => {
+    if (message !== "ok") return;
+    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [message]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -181,6 +198,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
         } else {
           setMessage("ok");
           setResendLimited(false);
+          setResendSent(false);
           setCooldown(resendCooldownSeconds());
         }
         trackEvent("subscribe_submit", analytics);
@@ -231,9 +249,11 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
       const body = await response.json().catch(() => null) as { sent?: unknown } | null;
       const sent = response.ok && !!body && body.sent !== false;
       trackEvent("subscribe_resend", resendAnalytics(location, currentUtmSource(), sent));
+      setResendSent(sent);
       setResendLimited(!sent);
     } catch {
       trackEvent("subscribe_resend", resendAnalytics(location, currentUtmSource(), false));
+      setResendSent(false);
       setResendLimited(true);
     } finally {
       inFlightRef.current = false;
@@ -248,13 +268,16 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
   return (
     <form onSubmit={onSubmit} className={compact ? "w-full min-w-0" : "max-w-[520px]"}>
       {message === "ok" ? (
-        <ConfirmStep
-          email={email}
-          cooldown={cooldown}
-          pending={resendPending}
-          limited={resendLimited}
-          onResend={onResend}
-        />
+        <div ref={panelRef} style={{ scrollMarginTop: SUBSCRIBE_SCROLL_MARGIN_PX, scrollMarginBottom: 24 }}>
+          <ConfirmStep
+            email={email}
+            cooldown={cooldown}
+            pending={resendPending}
+            limited={resendLimited}
+            resent={resendSent}
+            onResend={onResend}
+          />
+        </div>
       ) : (
         <>
           {compact ? (

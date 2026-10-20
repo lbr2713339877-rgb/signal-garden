@@ -63,6 +63,9 @@ test("a successful response with sent false is not treated as a fresh send", () 
   assert.doesNotMatch(DICT["newsletter.confirmHeading"][1], /[\u4e00-\u9fff]/);
   assert.equal(DICT["newsletter.limited"][0], "已发送过多次，请查看已有邮件或稍后再试");
   assert.equal(DICT["newsletter.resend"][0], "没收到？重发");
+  assert.equal(DICT["newsletter.resent"][0], "已重发，请查收");
+  assert.equal(DICT["newsletter.resent"][1], "Sent again — check your inbox");
+  assert.doesNotMatch(DICT["newsletter.resent"][1], /[\u4e00-\u9fff]/);
   assert.equal(DICT["newsletter.confirmSpam"][0], "如果没看到，请到垃圾箱和推广邮件里找。");
   assert.match(DICT["newsletter.confirmSpam"][1], /spam and promotions/);
 });
@@ -122,6 +125,11 @@ test("the inline today box sits after the third card, or after the last when sho
   assert.match(form, /CONFIRM_FROM_ADDRESS/);
   assert.match(form, /from "@\/lib\/newsletter\/confirm-copy"/);
   assert.match(form, /mailboxUrl\(email\)/);
+  assert.match(form, /href=\{inbox\}/);
+  assert.match(form, /scrollIntoView\(\{ behavior: "smooth", block: "center" \}\)/);
+  assert.match(form, /newsletter\.resent/);
+  assert.match(form, /setResendSent\(sent\)/);
+  assert.match(form, /setResendLimited\(!sent\)/);
   assert.match(form, /resendCooldownSeconds\(\)/);
   assert.match(form, /trackEvent\("subscribe_resend", resendAnalytics\(location, currentUtmSource\(\), sent\)\)/);
   assert.deepEqual(resendAnalytics("footer", "direct", true), {
