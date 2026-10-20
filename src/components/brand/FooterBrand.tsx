@@ -23,7 +23,7 @@ export function FooterBrand({ theme = 'dark' }: { theme?: 'dark' | 'light' }) {
             as="p"
             className="editorial max-w-[30ch] text-[var(--ink-2)]"
           />
-          <NewsletterSignup source="footer" />
+          <NewsletterSignup location="footer" />
         </div>
 
         <div className="flex flex-col gap-3 md:items-end">

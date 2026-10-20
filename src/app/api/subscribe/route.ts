@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { subscribeResponse } from "@/lib/newsletter/placement";
 import { requestSubscribe } from "@/lib/newsletter/subscribe";
 
 export const runtime = "nodejs";
@@ -30,9 +31,6 @@ export async function POST(request: Request) {
     userAgent: request.headers.get("user-agent"),
     acceptLanguage: request.headers.get("accept-language"),
   });
-  if (!result.ok && result.error === "rate_limited") {
-    return NextResponse.json(result, { status: 429 });
-  }
-  if (!result.ok) return NextResponse.json(result, { status: 400 });
-  return NextResponse.json({ ok: true });
+  const http = subscribeResponse(result);
+  return NextResponse.json(http.body, { status: http.status });
 }

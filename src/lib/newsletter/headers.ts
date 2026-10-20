@@ -1,7 +1,11 @@
+import { normalizeSubscribeLocation } from "./placement";
+
 export const LIST_UNSUBSCRIBE_MAILBOX = "unsubscribe@signalgarden.site";
 
-export function confirmPageUrl(siteUrl: string, token: string): string {
-  return `${siteUrl}/subscribe/confirm?t=${encodeURIComponent(token)}`;
+export function confirmPageUrl(siteUrl: string, token: string, location?: unknown): string {
+  const base = `${siteUrl}/subscribe/confirm?t=${encodeURIComponent(token)}`;
+  const loc = normalizeSubscribeLocation(location);
+  return loc ? `${base}&loc=${encodeURIComponent(loc)}` : base;
 }
 
 export function unsubscribePageUrl(siteUrl: string, token: string): string {

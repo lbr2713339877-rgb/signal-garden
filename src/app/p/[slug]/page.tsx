@@ -29,7 +29,9 @@ import { projectPageMetadata, projectBodySummary } from '@/lib/page-meta';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { githubCodeRepository, projectJsonLd } from '@/lib/jsonld';
 import { siteOrigin } from '@/lib/edition';
+import { NewsletterSignup } from '@/components/v3/NewsletterForm';
 import { SubscribeLink } from '@/components/v3/SubscribeLink';
+import { snapshotStarGrowth } from '@/lib/star-growth';
 import { ReadmeBadge } from '@/components/v3/ReadmeBadge';
 import { projectWasFeatured } from '@/db/queries/featured';
 import { ownerRepo } from '@/lib/badge';
@@ -123,15 +125,7 @@ export default async function ProjectPageV3({
 
   const firstSeen = fmtDate(p.firstSeenAt ?? p.firstTrackedAt);
 
-  // 增长：至少两个快照才算。用最早的快照到最新快照。
-  const growth = (() => {
-    if (history.length < 2) return null;
-    const first = history[0];
-    const last = history[history.length - 1];
-    if (!first.stars || first.stars <= 0) return null;
-    const pct = ((last.stars - first.stars) / first.stars) * 100;
-    return { pct, from: first.stars, to: last.stars, samples: history.length };
-  })();
+  const growth = snapshotStarGrowth(history);
 
   // 外部讨论：按来源去重计数
   const sources = new Set(mentions.map((m) => m.source));
@@ -482,8 +476,7 @@ export default async function ProjectPageV3({
           </details>
 
           <div className="mt-12 border-t border-[var(--glass-1-border)] pt-8">
-            <T k="pd.subscribe.kicker" as="p" className="system" fade={false} />
-            <T k="pd.subscribe.title" as="h2" className="editorial mt-4 max-w-[24ch] text-[var(--ink-1)]" />
+            <NewsletterSignup location="project_bottom" />
             <SubscribeLink
               medium="project_page"
               className="body mt-6 inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)]"

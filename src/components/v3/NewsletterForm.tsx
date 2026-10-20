@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLang } from "@/components/ui/Lang";
 import { T, t } from "@/lib/dict";
 import { newsletterFormEnabled } from "@/lib/newsletter/flags";
+import { subscribeAck, subscribeAnalyticsProps, type SubscribeLocation } from "@/lib/newsletter/placement";
 import { currentUtmSource, trackEvent } from "@/components/analytics/track";
 import { loadTurnstile, scheduleTurnstileRender } from "./turnstile-widget";
 import { SUBSCRIBE_ID, SUBSCRIBE_SCROLL_MARGIN_PX } from "@/lib/subscribe-scroll";
@@ -14,38 +15,40 @@ function subscribeErrorCode(value: unknown): string {
   return /^[a-z0-9-]{1,48}$/.test(raw) ? raw : "failed";
 }
 
-export function NewsletterSignup({ source }: { source: "home" | "today" | "footer" }) {
+export function NewsletterSignup({ location }: { location: SubscribeLocation }) {
   const enabled = newsletterFormEnabled();
-  if (!enabled && source !== "home") return null;
-  const frame = source === "home"
+  if (!enabled && location !== "home") return null;
+  const frame = location === "home"
     ? "mx-auto max-w-[var(--container)] px-[var(--gutter)] pb-[clamp(48px,8vh,96px)]"
-    : source === "today"
-      ? "mt-16 max-w-[520px] border-t border-[var(--glass-1-border)] pt-10"
-      : "mt-8 max-w-[360px]";
+    : location === "today_inline"
+      ? "my-2 max-w-[640px] border-y border-[var(--glass-1-border)] py-10"
+      : location === "project_bottom"
+        ? "max-w-[520px]"
+        : "mt-8 max-w-[360px]";
   return (
     <section
-      id={source === "home" ? SUBSCRIBE_ID : undefined}
+      id={location === "home" ? SUBSCRIBE_ID : undefined}
       className={frame}
-      style={source === "home" ? { scrollMarginTop: SUBSCRIBE_SCROLL_MARGIN_PX } : undefined}
+      style={location === "home" ? { scrollMarginTop: SUBSCRIBE_SCROLL_MARGIN_PX } : undefined}
     >
-      {enabled ? <NewsletterForm source={source} /> : null}
+      {enabled ? <NewsletterForm location={location} /> : null}
     </section>
   );
 }
 
-function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
+function NewsletterForm({ location }: { location: SubscribeLocation }) {
   const lang = useLang();
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [token, setToken] = useState("");
-  const [message, setMessage] = useState<"idle" | "ok" | "invalid_email" | "too_fast" | "turnstile" | "rate_limited">("idle");
+  const [message, setMessage] = useState<"idle" | "ok" | "already" | "invalid_email" | "too_fast" | "turnstile" | "rate_limited">("idle");
   const [pending, setPending] = useState(false);
   const [started] = useState(() => Date.now());
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
   const widgetRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const inFlightRef = useRef(false);
-  const done = message === "ok";
+  const done = message === "ok" || message === "already";
 
   useEffect(() => {
     if (!siteKey) return;
@@ -100,33 +103,35 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
           email,
           company,
           locale: lang,
-          source,
+          source: location,
           formStartedAt: started,
           turnstileToken: token,
         }),
       });
+      const analytics = subscribeAnalyticsProps(location, currentUtmSource());
       if (response.ok) {
         succeeded = true;
-        setMessage("ok");
-        trackEvent("subscribe_submit", { page: source, source: currentUtmSource() });
+        const body = await response.json().catch(() => null) as { sent?: unknown } | null;
+        setMessage(subscribeAck(body) === "already" ? "already" : "ok");
+        trackEvent("subscribe_submit", analytics);
       } else if (response.status === 429) {
         setMessage("rate_limited");
-        trackEvent("subscribe_error", { reason: "rate_limited" });
+        trackEvent("subscribe_error", { ...analytics, reason: "rate_limited" });
       } else {
         const body = await response.json().catch(() => null) as { error?: string; code?: string } | null;
         const error = body?.error;
         if (error === "turnstile") {
           setMessage("turnstile");
-          trackEvent("subscribe_error", { reason: `turnstile:${subscribeErrorCode(body?.code)}` });
+          trackEvent("subscribe_error", { ...analytics, reason: `turnstile:${subscribeErrorCode(body?.code)}` });
         } else {
           const reason = error === "too_fast" ? "too_fast" : "invalid_email";
           setMessage(reason);
-          trackEvent("subscribe_error", { reason: error === reason ? reason : `${reason}:${String(error ?? response.status).slice(0, 20)}` });
+          trackEvent("subscribe_error", { ...analytics, reason: error === reason ? reason : `${reason}:${String(error ?? response.status).slice(0, 20)}` });
         }
       }
     } catch {
       setMessage("invalid_email");
-      trackEvent("subscribe_error", { reason: "network" });
+      trackEvent("subscribe_error", { ...subscribeAnalyticsProps(location, currentUtmSource()), reason: "network" });
     } finally {
       setToken("");
       const widgetId = widgetIdRef.current;
@@ -149,16 +154,19 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
     <form onSubmit={onSubmit} className="max-w-[520px]">
       <T k="newsletter.title" as="h2" className="system" fade={false} />
       <T k="newsletter.body" as="p" className="body mt-3 text-[var(--ink-2)]" />
+      <Link href="/weekly/1" className="data mt-3 inline-flex text-[var(--ink-2)] underline decoration-[var(--glass-2-border)] underline-offset-4 transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]">
+        <T k="newsletter.sample" as="span" fade={false} />
+      </Link>
       <div className="absolute left-[-10000px] h-0 overflow-hidden" aria-hidden="true">
         <label>
           <T k="newsletter.company" as="span" fade={false} />
           <input tabIndex={-1} autoComplete="off" value={company} onChange={(event) => setCompany(event.target.value)} />
         </label>
       </div>
-      <label htmlFor={`newsletter-email-${source}`} className="sr-only">{t(lang, "newsletter.placeholder")}</label>
+      <label htmlFor={`newsletter-email-${location}`} className="sr-only">{t(lang, "newsletter.placeholder")}</label>
       <div className="glass-2 mt-5 flex items-center gap-3 p-1.5">
         <input
-          id={`newsletter-email-${source}`}
+          id={`newsletter-email-${location}`}
           type="email"
           required
           autoComplete="email"
@@ -169,11 +177,16 @@ function NewsletterForm({ source }: { source: "home" | "today" | "footer" }) {
           className="body min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
         />
         <button type="submit" className="action-primary" disabled={locked || needsToken} aria-disabled={locked || needsToken}>
-          <T k={done ? "newsletter.sent" : "newsletter.submit"} as="span" fade={false} />
+          <T
+            k={message === "already" ? "newsletter.already" : message === "ok" ? "newsletter.sent" : "newsletter.submit"}
+            as="span"
+            fade={false}
+          />
         </button>
       </div>
       <div role="status" aria-live="polite">
-        {done ? <T k="newsletter.success" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
+        {message === "ok" ? <T k="newsletter.success" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
+        {message === "already" ? <T k="newsletter.alreadyBody" as="p" className="body mt-4 text-[var(--ink-1)]" fade={false} /> : null}
       </div>
       {siteKey ? <div ref={widgetRef} className="mt-4" hidden={done} /> : null}
       <p className="data mt-3 text-[var(--ink-3)]">

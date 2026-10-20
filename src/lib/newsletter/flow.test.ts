@@ -60,6 +60,7 @@ test("subscribe, confirm, digest idempotency and unsubscribe", async () => {
       transport,
     });
     assert.deepEqual(created, { ok: true, sent: true });
+    assert.match(newsletterOutbox()[0].html, /loc=footer/);
     const [row] = await d.select().from(schema.newsletterSubscriber);
     assert.equal(row.email, "reader@example.com");
     assert.equal(row.status, "pending");

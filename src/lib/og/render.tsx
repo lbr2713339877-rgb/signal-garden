@@ -74,8 +74,10 @@ function respond(node: ReactElement) {
 export function renderProjectOg(input: {
   name: string;
   owner: string | null;
-  forks7d: number | null;
-  stars24h?: number | null;
+  starsFrom?: number | null;
+  starsTo?: number | null;
+  starsRecent?: number | null;
+  heatScore?: number | null;
   missing?: boolean;
 }) {
   const name = clip(input.name || "Signal Garden", 42) || "Signal Garden";
