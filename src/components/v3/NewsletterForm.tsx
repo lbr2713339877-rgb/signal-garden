@@ -9,7 +9,7 @@ import { newsletterFormEnabled } from "@/lib/newsletter/flags";
 import { CONFIRM_FROM_ADDRESS, CONFIRM_SUBJECT } from "@/lib/newsletter/confirm-copy";
 import { mailboxUrl } from "@/lib/newsletter/mailbox";
 import { resendAnalytics, subscribeAck, subscribeAnalyticsProps, type SubscribeLocation } from "@/lib/newsletter/placement";
-import { resendCooldownSeconds } from "@/lib/newsletter/resend-policy";
+import { resendCooldownRemaining, resendCooldownSeconds } from "@/lib/newsletter/resend-policy";
 import { currentUtmSource, trackEvent } from "@/components/analytics/track";
 import { loadTurnstile, scheduleTurnstileRender } from "./turnstile-widget";
 import { SUBSCRIBE_ID, SUBSCRIBE_SCROLL_MARGIN_PX } from "@/lib/subscribe-scroll";
@@ -111,6 +111,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
   const [resendSent, setResendSent] = useState(false);
   const [pending, setPending] = useState(false);
   const [resendPending, setResendPending] = useState(false);
+  const [resendDeadline, setResendDeadline] = useState<number | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [started] = useState(() => Date.now());
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
@@ -126,10 +127,16 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
   }, [message]);
 
   useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = window.setTimeout(() => setCooldown((value) => (value <= 1 ? 0 : value - 1)), 1000);
-    return () => window.clearTimeout(id);
-  }, [cooldown]);
+    if (resendDeadline == null) return;
+    const tick = () => {
+      const left = resendCooldownRemaining(resendDeadline, Date.now());
+      setCooldown(left);
+      if (left === 0) setResendDeadline(null);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [resendDeadline]);
 
   useEffect(() => {
     if (!siteKey) return;
@@ -199,7 +206,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
           setMessage("ok");
           setResendLimited(false);
           setResendSent(false);
-          setCooldown(resendCooldownSeconds());
+          armResendCooldown();
         }
         trackEvent("subscribe_submit", analytics);
       } else if (response.status === 429) {
@@ -239,7 +246,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
     if (cooldown > 0 || resendPending || inFlightRef.current) return;
     inFlightRef.current = true;
     setResendPending(true);
-    setCooldown(resendCooldownSeconds());
+    armResendCooldown();
     try {
       const response = await fetch("/api/subscribe/resend", {
         method: "POST",
@@ -259,6 +266,12 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
       inFlightRef.current = false;
       setResendPending(false);
     }
+  }
+
+  function armResendCooldown() {
+    const deadline = Date.now() + resendCooldownSeconds() * 1000;
+    setResendDeadline(deadline);
+    setCooldown(resendCooldownRemaining(deadline, Date.now()));
   }
 
   const needsToken = siteKey.length > 0 && token.length === 0;

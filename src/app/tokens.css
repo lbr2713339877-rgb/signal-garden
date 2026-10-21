@@ -106,13 +106,13 @@
   --nav-h: 56px;
 
   /* --- Type ---------------------------------------------------------------
-     Latin display: Inter Tight (set by next/font, fallback below).
-     CJK: PingFang SC on Apple, Noto Sans SC elsewhere.
-     Mono: JetBrains Mono for every number, rank and command. */
-  --font-sans: "Inter Tight", "PingFang SC", "Noto Sans SC",
-    system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo,
-    monospace;
+     Latin: next/font CSS variables on <html> (self-hosted, display: swap).
+     The quoted names are only used when those variables are missing.
+     CJK: PingFang SC on Apple, Noto Sans SC elsewhere. */
+  --font-sans: var(--font-inter-tight, "Inter Tight"), var(--font-inter-tight-ext, "Inter Tight"),
+    var(--font-noto-sans-sc, "Noto Sans SC"), "PingFang SC", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), var(--font-jetbrains-mono-ext, "JetBrains Mono"),
+    ui-monospace, "SF Mono", Menlo, monospace;
 
   --fs-display: clamp(2.5rem, 7vw, 5.75rem); /* hero 40 -> 92 */
   --fs-h1: clamp(2rem, 4vw, 3.25rem);

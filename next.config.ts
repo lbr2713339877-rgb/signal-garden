@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
+import { HTML_LIMITED_BOTS } from "./src/lib/html-limited-bots";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Replaces Next's default list. Googlebot, Bingbot, and the social/AI
+  // crawlers in HTML_LIMITED_BOTS receive metadata in the initial HTML
+  // instead of a streamed follow-up.
+  htmlLimitedBots: HTML_LIMITED_BOTS,
   async redirects() {
     return [
       { source: "/pricing", destination: "/sponsor", permanent: true },

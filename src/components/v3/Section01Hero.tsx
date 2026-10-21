@@ -1,21 +1,11 @@
 /**
  * V3 Section 01 — 黑场与呼吸
  *
- * 加载编排（2.4s，6 层，全部纯 CSS，见 01-art-direction-v3.md §01）：
- *   1. 纯黑                 0–300ms    （默认态）
- *   2. 光带扫过             300–1500ms
- *   3. 标题字形轮廓出现     700–1200ms
- *   4. 标题填满             1200–2000ms，每字 +40ms
- *   5. 系统信息层上浮 12px  1900–2300ms
- *   6. 第一个信号对象进入   2300–2400ms
+ * 标题是首页的 LCP 元素，必须在首帧就可见：不能从 opacity: 0、transparent
+ * 或屏外开始，也不能等 JS 水合。保留的入场只做 translateY，不改透明度。
+ * prefers-reduced-motion 时这段位移也关掉。
  *
- * 为什么不再用 useState 开关：上一版靠 useEffect 置 loaded 才播动画，
- * 结果是 JS 慢或水合失败时标题永远不会出现（初始 opacity: 0）。现在整套
- * 动画是 CSS，元素一上屏就开始按 delay 推进，不依赖 JS。
- *
- * 轮廓 → 填满是真的两层：先用 -webkit-text-stroke 画出描边字，再把描边
- * 收掉、把 color 从 transparent 变成 --ink-1。上一版只是把 opacity 从
- * 0 推到 1，看起来是"淡入"，不是"字形被填满"。
+ * 光带和系统信息层仍是装饰性的 CSS 动画，不承担 LCP。
  */
 
 'use client';
@@ -27,21 +17,14 @@ import { T } from '@/lib/dict';
 const LINE_1 = 'Something new';
 const LINE_2 = 'is taking shape.';
 
-/** 跨行连续编号，这样 stagger 不会被换行切断。 */
-function chars(line: string, offset: number) {
-  return Array.from(line).map((ch, i) => ({ ch, i: offset + i }));
-}
-
-const TOTAL = LINE_1.length + LINE_2.length;
-
 export function Section01Hero() {
   const sectionRef = useRef<HTMLElement>(null);
   const reduce = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  /* Parallax only: the hero rises slightly and softens as it leaves. The
-     per-character fill animation is untouched — it is still pure CSS. */
+  /* Parallax only, and only after mount, so the first paint is not a
+     scroll-linked opacity or blur. The headline itself stays opaque. */
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ['start start', 'end start'],
@@ -69,33 +52,14 @@ export function Section01Hero() {
           100% { opacity: 0; transform: translateX(130vw) scaleX(1); }
         }
 
-        /* ── 3–4. 逐字轮廓 → 填满 ───────────────────────────────────── */
-        .hero-char {
-          display: inline-block;
-          white-space: pre;
-          color: transparent;
-          -webkit-text-stroke: 1px rgba(242, 240, 234, 0.34);
-          opacity: 0;
-          /* 两层动画：先让描边字显形，再逐字把描边收掉、实心填满 */
-          animation:
-            hero-char-outline 0.32s ease-out
-              calc(700ms + var(--i) * 20ms) both,
-            hero-char-fill 0.82s var(--e-v3)
-              calc(1200ms + var(--i) * 40ms) forwards;
+        /* ── 标题：首帧即可见，只做位移 ─────────────────────────────── */
+        .hero-headline {
+          color: var(--ink-1);
+          animation: hero-headline-in 0.7s var(--e-v3) both;
         }
-        @keyframes hero-char-outline {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes hero-char-fill {
-          from {
-            color: transparent;
-            -webkit-text-stroke-color: rgba(242, 240, 234, 0.34);
-          }
-          to {
-            color: var(--ink-1);
-            -webkit-text-stroke-color: transparent;
-          }
+        @keyframes hero-headline-in {
+          from { transform: translateY(12px); }
+          to   { transform: translateY(0); }
         }
 
         /* ── 5. 系统信息层 ──────────────────────────────────────────── */
@@ -122,14 +86,12 @@ export function Section01Hero() {
           50%      { opacity: 0.9; }
         }
 
-        /* ── Reduced-motion：全部压成一次 200ms 淡入 ─────────────────── */
         @media (prefers-reduced-motion: reduce) {
           .hero-sweep { display: none; }
-          .hero-char {
+          .hero-headline {
             animation: none;
-            opacity: 1;
             color: var(--ink-1);
-            -webkit-text-stroke-color: transparent;
+            transform: none;
           }
           .hero-system,
           .hero-first {
@@ -159,29 +121,9 @@ export function Section01Hero() {
       >
         <T k="hero.system" as="p" className="system hero-system fade-in" fade={false} />
 
-        <h1 className="display-xl mt-10">
-          <span className="sr-only">
-            {LINE_1} {LINE_2}
-          </span>
-          <span aria-hidden className="block">
-            {chars(LINE_1, 0).map(({ ch, i }) => (
-              <span
-                key={i}
-                className="hero-char"
-                style={{ ['--i' as string]: i }}
-                data-total={TOTAL}
-              >
-                {ch}
-              </span>
-            ))}
-          </span>
-          <span aria-hidden className="block">
-            {chars(LINE_2, LINE_1.length).map(({ ch, i }) => (
-              <span key={i} className="hero-char" style={{ ['--i' as string]: i }}>
-                {ch}
-              </span>
-            ))}
-          </span>
+        <h1 className="display-xl hero-headline mt-10">
+          <span className="block">{LINE_1}</span>
+          <span className="block">{LINE_2}</span>
         </h1>
 
         <T
