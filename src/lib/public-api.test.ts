@@ -9,7 +9,7 @@ import type { Database, DbHandle } from "@/db/client";
 import { signalDate } from "@/lib/day";
 import { siteOrigin } from "@/lib/edition";
 import { featuredBadgeSvg, readmeBadgeMarkdown } from "@/lib/badge";
-import { buildIndexNowPayload, INDEXNOW_ENDPOINT, submitIndexNow } from "@/lib/indexnow";
+import { buildIndexNowPayload, INDEXNOW_ENDPOINT, submitIndexNow, weeklyIssuesForIndexNow } from "@/lib/indexnow";
 import { GET as badgeGet } from "@/app/badge/[owner]/[repo]/route";
 import { GET as todayGet } from "@/app/api/today.json/route";
 
@@ -28,7 +28,7 @@ test("readme badge markdown and shields svg follow the public contract", () => {
   assert.equal(light.includes("#16382a"), false);
 });
 
-test("IndexNow payload lists today, new project pages, home and the feed", () => {
+test("IndexNow payload lists today, new project pages, weekly issues, home and the feed", () => {
   const payload = buildIndexNowPayload({
     key: "indexnow-key",
     origin: "https://signalgarden.site/",
@@ -41,9 +41,32 @@ test("IndexNow payload lists today, new project pages, home and the feed", () =>
     "https://signalgarden.site/today",
     "https://signalgarden.site/p/widget",
     "https://signalgarden.site/p/old-library",
+    "https://signalgarden.site/weekly/1",
     "https://signalgarden.site/",
     "https://signalgarden.site/feed.xml",
   ]);
+});
+
+test("IndexNow weekly URLs include the latest issue and one published that day", () => {
+  assert.deepEqual(weeklyIssuesForIndexNow([
+    { number: 1, publishedOn: "2026-10-19" },
+    { number: 2, publishedOn: "2026-10-26" },
+  ], "2026-10-20"), [2]);
+  assert.deepEqual(weeklyIssuesForIndexNow([
+    { number: 1, publishedOn: "2026-10-19" },
+    { number: 2, publishedOn: "2026-10-26" },
+    { number: 0, publishedOn: "2026-10-19" },
+  ], "2026-10-19"), [1, 2]);
+  const payload = buildIndexNowPayload({
+    key: "indexnow-key",
+    origin: "https://signalgarden.site",
+    newProjectSlugs: [],
+    weeklyIssues: [2, 1, 2, 0, -3, 1.5],
+  });
+  assert.deepEqual(
+    payload.urlList.filter((url) => url.includes("/weekly/")),
+    ["https://signalgarden.site/weekly/1", "https://signalgarden.site/weekly/2"],
+  );
 });
 
 test("badge, today.json and indexnow use published editions only", async () => {
@@ -153,13 +176,14 @@ test("badge, today.json and indexnow use published editions only", async () => {
       return new Response("accepted", { status: 202 });
     };
     const first = await submitIndexNow({ key: "indexnow-key", origin: "https://signalgarden.site", fetchImpl });
-    assert.equal(first.itemsOut, 4);
+    assert.equal(first.itemsOut, 5);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, INDEXNOW_ENDPOINT);
     assert.equal(calls[0].body.host, "signalgarden.site");
     assert.deepEqual(calls[0].body.urlList, [
       "https://signalgarden.site/today",
       "https://signalgarden.site/p/widget",
+      "https://signalgarden.site/weekly/1",
       "https://signalgarden.site/",
       "https://signalgarden.site/feed.xml",
     ]);

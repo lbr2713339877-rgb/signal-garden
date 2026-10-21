@@ -31,6 +31,7 @@ import { discoverWeb } from "./discover-web";
 import { reviewDiscoveries } from "./review-discoveries";
 import { sendNewsletter } from "./newsletter";
 import { submitIndexNow } from "@/lib/indexnow";
+import { revalidatePublishedProjectPages } from "@/lib/project-revalidate";
 import { backfillSlugs } from "./slugs";
 
 loadLocalEnv();
@@ -159,6 +160,11 @@ const jobs: Record<string, () => Promise<boolean>> = {
       // roll back a published edition; `pnpm job indexnow` can retry.
       const pinged = await runJob("indexnow", () => submitIndexNow());
       if (!pinged) log("daily", "indexnow did not complete; the edition is still published");
+
+      // Drop ISR HTML for the projects this edition published. A missed ping
+      // only means those pages stay cached until revalidate (one hour).
+      const refreshed = await runJob("revalidate-projects", () => revalidatePublishedProjectPages());
+      if (!refreshed) log("daily", "project page revalidation did not complete; /p pages expire within an hour");
 
       if (failed.length) {
         throw new Error(`daily failed steps: ${failed.join(", ")}`);

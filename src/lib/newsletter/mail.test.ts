@@ -180,6 +180,6 @@ test("privacy draft covers the digest and the page date moved", () => {
   assert.match(DICT["privacy.newsletterP4"][1], /one click/i);
   assert.match(DICT["privacy.newsletterP5"][0], /30 天/);
   assert.match(DICT["privacy.newsletterP5"][1], /keep only a hash/);
-  const page = readFileSync(new URL("../../app/privacy/page.tsx", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../../app/(site)/privacy/page.tsx", import.meta.url), "utf8");
   assert.match(page, /updated="2026-10-17"/);
 });

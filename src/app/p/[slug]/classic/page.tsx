@@ -71,9 +71,11 @@ export default async function ProjectPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
-  await redirectIfAlias("/p", slug, await searchParams, "/classic");
   const data = await getProjectBySlug(slug);
-  if (!data) notFound();
+  if (!data) {
+    await redirectIfAlias("/p", slug, await searchParams, "/classic");
+    notFound();
+  }
 
   const { project: p, skills, content, mentions, history } = data;
   const github = ownerRepo(p.fullName);

@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { dailySignal, indexnowSubmission, project } from "@/db/schema";
 import { signalDate } from "@/lib/day";
 import { siteOrigin } from "@/lib/edition";
+import { publicWeeklyIssues, type PublicWeeklyIssue } from "@/lib/weekly-sample";
 import { log, type JobResult } from "@/jobs/run";
 
 export const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
@@ -17,11 +18,36 @@ export interface IndexNowPayload {
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/**
+ * Latest public issue, plus any issue whose page went live on `date`.
+ * The same number is returned once.
+ */
+export function weeklyIssuesForIndexNow(issues: PublicWeeklyIssue[], date: string): number[] {
+  const valid = issues.filter((issue) => Number.isInteger(issue.number) && issue.number > 0);
+  if (!valid.length) return [];
+  const latest = Math.max(...valid.map((issue) => issue.number));
+  const fresh = valid.filter((issue) => issue.publishedOn === date).map((issue) => issue.number);
+  return [...new Set([latest, ...fresh])].sort((a, b) => a - b);
+}
+
+function weeklyPaths(origin: string, issues: number[]): string[] {
+  return [...new Set(issues.filter((n) => Number.isInteger(n) && n > 0))]
+    .sort((a, b) => a - b)
+    .map((n) => `${origin}/weekly/${n}`);
+}
+
 /** host, keyLocation and the daily URL list IndexNow should fetch. */
-export function buildIndexNowPayload(input: { key: string; origin: string; newProjectSlugs: string[] }): IndexNowPayload {
+export function buildIndexNowPayload(input: {
+  key: string;
+  origin: string;
+  newProjectSlugs: string[];
+  /** Issue numbers for /weekly/<n>. Omitted means the latest public issue. */
+  weeklyIssues?: number[];
+}): IndexNowPayload {
   const origin = input.origin.replace(/\/+$/, "");
   const host = new URL(origin).host;
   const projects = input.newProjectSlugs.filter((slug) => SLUG.test(slug));
+  const weekly = input.weeklyIssues ?? weeklyIssuesForIndexNow(publicWeeklyIssues(), "");
   return {
     host,
     key: input.key,
@@ -29,6 +55,7 @@ export function buildIndexNowPayload(input: { key: string; origin: string; newPr
     urlList: [
       `${origin}/today`,
       ...projects.map((slug) => `${origin}/p/${slug}`),
+      ...weeklyPaths(origin, weekly),
       `${origin}/`,
       `${origin}/feed.xml`,
     ],
@@ -62,7 +89,8 @@ export async function newlyPublishedSlugs(date: string): Promise<string[]> {
 }
 
 /**
- * POST the day's new project pages plus /today, / and /feed.xml.
+ * POST the day's new project pages plus /today, /weekly/<n>, / and /feed.xml.
+ * Weekly URLs are the latest issue and any issue published on this signal date.
  * A missing key is a no-op. The same payload is not sent twice that day.
  */
 export async function submitIndexNow(opts: {
@@ -79,7 +107,12 @@ export async function submitIndexNow(opts: {
   const date = signalDate(opts.now);
   const origin = (opts.origin ?? siteOrigin()).replace(/\/+$/, "");
   const slugs = await newlyPublishedSlugs(date);
-  const payload = buildIndexNowPayload({ key, origin, newProjectSlugs: slugs });
+  const payload = buildIndexNowPayload({
+    key,
+    origin,
+    newProjectSlugs: slugs,
+    weeklyIssues: weeklyIssuesForIndexNow(publicWeeklyIssues(), date),
+  });
   const hash = indexNowPayloadHash(payload);
   const d = await db();
   const [seen] = await d.select({ status: indexnowSubmission.status }).from(indexnowSubmission)

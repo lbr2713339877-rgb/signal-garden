@@ -25,9 +25,11 @@ export default async function FeedbackPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
-  await redirectIfAlias("/feedback", slug, await searchParams);
   const data = await getProjectBySlug(slug);
-  if (!data) notFound();
+  if (!data) {
+    await redirectIfAlias("/feedback", slug, await searchParams);
+    notFound();
+  }
 
   return (
     <V3Shell>

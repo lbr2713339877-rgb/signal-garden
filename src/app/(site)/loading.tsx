@@ -10,6 +10,11 @@
  *
  * 不做成"像真内容的占位卡片"是有意的：V3 的第一屏本来就是纯黑 300ms，
  * 骨架屏跟着黑场比跟着卡片更接近真实观感。
+ *
+ * 这个文件放在 (site) 而不是 app 根上：根上的 loading.tsx 会包住 /p 和
+ * /feedback。Next 这时把 permanentRedirect / notFound 渲成 HTTP 200，只在
+ * RSC payload 里放 NEXT_REDIRECT。旧 slug 必须是真正的 308，未知 slug 必须是
+ * 真正的 404，所以那两条路由留在这个 Suspense 边界外面。
  */
 
 export default function Loading() {

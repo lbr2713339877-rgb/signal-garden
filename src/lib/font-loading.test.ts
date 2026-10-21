@@ -9,7 +9,7 @@ function read(path: string): string {
 test("font CSS is self-hosted, swap, and limited to used weights", () => {
   const layout = read("../app/layout.tsx");
   const fonts = read("../app/fonts.ts");
-  const tokens = read("../app/v3/tokens.css");
+  const tokens = read("../app/(site)/v3/tokens.css");
   const combined = `${layout}\n${fonts}\n${tokens}`;
 
   assert.match(layout, /fontVariableClassName/);

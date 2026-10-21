@@ -83,7 +83,7 @@ test("the inline today box sits after the third card, or after the last when sho
   assert.equal(todayInlineInsertIndex(3), 3);
   assert.equal(todayInlineInsertIndex(2), 2);
   assert.equal(todayInlineInsertIndex(0), 0);
-  const today = readFileSync(new URL("../../app/today/page.tsx", import.meta.url), "utf8");
+  const today = readFileSync(new URL("../../app/(site)/today/page.tsx", import.meta.url), "utf8");
   const project = readFileSync(new URL("../../app/p/[slug]/page.tsx", import.meta.url), "utf8");
   const footer = readFileSync(new URL("../../components/brand/FooterBrand.tsx", import.meta.url), "utf8");
   const form = readFileSync(new URL("../../components/v3/NewsletterForm.tsx", import.meta.url), "utf8");
@@ -107,7 +107,7 @@ test("the inline today box sits after the third card, or after the last when sho
   assert.match(form, /location === "project_cta"/);
   assert.match(form, /newsletter\.body/);
   assert.match(form, /href="\/weekly\/1"/);
-  const home = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
+  const home = readFileSync(new URL("../../app/(site)/page.tsx", import.meta.url), "utf8");
   assert.match(home, /location="home"/);
   const errors = form.split("\n").filter((line) => line.includes('trackEvent("subscribe_error"'));
   assert.equal(errors.length, 4);
@@ -145,7 +145,7 @@ test("the inline today box sits after the third card, or after the last when sho
     outcome: "limited",
   });
   assert.equal(subscribeAnalyticsProps("project_cta", "newsletter").location, "project_cta");
-  const confirm = readFileSync(new URL("../../app/subscribe/confirm/page.tsx", import.meta.url), "utf8");
+  const confirm = readFileSync(new URL("../../app/(site)/subscribe/confirm/page.tsx", import.meta.url), "utf8");
   assert.match(confirm, /event="subscribe_confirmed"/);
   assert.match(confirm, /\{ location \}/);
 });

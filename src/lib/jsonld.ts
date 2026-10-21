@@ -3,7 +3,7 @@ import { pageUrl, projectPath } from "@/lib/page-meta";
 import { siteOrigin } from "@/lib/edition";
 
 /**
- * Public search lives at `src/app/search/page.tsx` (`?q=`).
+ * Public search lives at `src/app/(site)/search/page.tsx` (`?q=`).
  * SearchAction is omitted when this is false.
  */
 export const SEARCH_ROUTE_EXISTS = true;
