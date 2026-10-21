@@ -11,3 +11,9 @@ export const RESEND_DAY_BUCKET = "resend-day";
 export function resendCooldownSeconds(): number {
   return RESEND_COOLDOWN_MS / 1000;
 }
+
+/** Seconds left until `deadlineMs`, from the clock rather than a decremented counter. */
+export function resendCooldownRemaining(deadlineMs: number, nowMs: number): number {
+  if (!Number.isFinite(deadlineMs) || !Number.isFinite(nowMs)) return 0;
+  return Math.max(0, Math.ceil((deadlineMs - nowMs) / 1000));
+}
