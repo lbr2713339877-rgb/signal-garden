@@ -5,35 +5,20 @@ import { LANG_BOOTSTRAP, THEME_BOOTSTRAP } from "@/components/ui/Lang";
 import { siteOrigin } from "@/lib/edition";
 import { SEARCH_ROUTE_EXISTS, siteJsonLd } from "@/lib/jsonld";
 import { RANKING_ZH_SHORT } from "@/lib/site";
+import { fontVariableClassName } from "./fonts";
 import "./globals.css";
 import "./v3/tokens.css";
 
 /**
- * Latin display face. Self-hosted by next/font, so there is no render-blocking
- * request to Google and no layout shift.
- */
-
-/**
- * Every number, rank and command in this product is mono and tabular, so
- * digits never change width while a value animates.
- */
-
-/**
- * V3 display face. Instrument Serif is a single-weight serif with a lot of
- * contrast at large sizes, which is what the display-xl scale (up to 240px)
- * needs. Self-hosted for the same reason as the Latin sans.
- */
-
-/**
- * V3 archive mono — the "field notes" voice, used for every measured value in
- * the V3 sections.
- */
-
-/**
- * V3 tokens are imported at the top of this file rather than in the V3 page,
- * so every V3 route has them on a cold load. It is safe to load them globally:
- * every selector in that file is scoped to `.v3-root`, so nothing reaches a V2
- * page. Importing them only from `/` would leave a direct visit to `/p/[slug]`
+ * Every face is self-hosted by next/font (see ./fonts.ts). The @font-face
+ * rules are merged into the app CSS with font-display: swap. There is no
+ * stylesheet request to Google Fonts or jsDelivr, and LXGW WenKai Mono is
+ * not loaded.
+ *
+ * V3 tokens are imported here rather than in the V3 page, so every V3 route
+ * has them on a cold load. It is safe to load them globally: every selector
+ * in that file is scoped to `.v3-root`, so nothing reaches a V2 page.
+ * Importing them only from `/` would leave a direct visit to `/p/[slug]`
  * unstyled.
  */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -98,7 +83,7 @@ export default function RootLayout({
       lang="zh-CN"
       data-lang="zh"
       data-theme="dark"
-      className="sg-fonts"
+      className={`sg-fonts ${fontVariableClassName}`}
       suppressHydrationWarning
     >
       <head>
@@ -106,27 +91,6 @@ export default function RootLayout({
             never sees the wrong language flash. */}
         <script dangerouslySetInnerHTML={{ __html: LANG_BOOTSTRAP }} />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
-
-        {/* CJK faces are not self-hosted through next/font: the full Noto SC
-            families are megabytes, and next/font would inline every subset.
-            Google serves them pre-subsetted by unicode-range instead, so a
-            Chinese page pulls a few hundred KB of woff2 and an English one
-            pulls almost nothing. preconnect keeps the handshake off the
-            critical path. */}
-        {/* Latin fonts are self-hosted from /public/fonts so local development
-            never falls back to system fonts when fonts.gstatic.com is down. */}
-        <link rel="stylesheet" href="/fonts/fonts.css" />
-
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Noto+Sans+SC:wght@400;500&display=swap"
-        />
-        {/* WenKai, used only for editorial pull-quotes in the V3 narrative. */}
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css"
-        />
         <Analytics />
         <JsonLd data={siteJsonLd({ origin: siteOrigin(SITE_URL), search: SEARCH_ROUTE_EXISTS })} />
       </head>

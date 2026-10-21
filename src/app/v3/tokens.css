@@ -18,8 +18,9 @@
  * 优先级提到 (0,2,0)，稳定压过 :root 的 (0,1,0)，不依赖 CSS 注入顺序。
  * 同时移除了 * / html / body 这些全局重置 —— 它们曾经泄漏到 V2 页面。
  *
- * 字体不在这里 @import：@import 会阻塞 CSS 解析，直接伤害 LCP 预算
- * （桌面 1.8s）。字体改由根 layout 的 <link> 加载，见 app/layout.tsx。
+ * 字体不在这里 @import：@import 会阻塞 CSS 解析，直接伤害 LCP。
+ * Latin 与 CJK 都由 next/font 自托管并合并进 CSS（app/fonts.ts，display: swap）。
+ * 不加载 LXGW WenKai Mono。
  */
 
 .v3-root.v3-root {
@@ -27,20 +28,19 @@
      Typography
      --------------------------------------------------------------------- */
 
-  /* Display: Instrument Serif (Latin) + Noto Serif SC (CJK) */
-  --font-display: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
+  /* Display: Instrument Serif (next/font, preloaded) + Noto Serif SC 400 */
+  --font-display: var(--font-instrument-serif, "Instrument Serif"), var(--font-noto-serif-sc, "Noto Serif SC"), Georgia, serif;
 
-  /* Sans: Inter Tight 由 next/font 自托管（见 app/layout.tsx），
-     所以这里不依赖任何外部字体请求。 */
-  --font-sans: 'Inter Tight', 'Noto Sans SC', 'PingFang SC',
-    -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Sans: Inter Tight 300–600 and Noto Sans SC 400/500, both next/font. */
+  --font-sans: var(--font-inter-tight, "Inter Tight"), var(--font-inter-tight-ext, "Inter Tight"),
+    var(--font-noto-sans-sc, "Noto Sans SC"), "PingFang SC", -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Mono: IBM Plex Mono — 档案感 */
-  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace,
-    'SF Mono', Menlo, monospace;
+  --font-mono: var(--font-ibm-plex-mono, "IBM Plex Mono"), var(--font-jetbrains-mono, "JetBrains Mono"),
+    var(--font-jetbrains-mono-ext, "JetBrains Mono"), ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Accent: LXGW WenKai — 仅编辑性引用 */
-  --font-accent: 'LXGW WenKai', 'Noto Serif SC', serif;
+  /* LXGW WenKai Mono is unused and is not loaded. */
+  --font-accent: var(--font-noto-serif-sc, "Noto Serif SC"), Georgia, serif;
 
   /* Size Scale: 极端差异 21:1 */
   --fs-display-xl: clamp(3.5rem, 13vw, 15rem); /* 56px → 240px */
