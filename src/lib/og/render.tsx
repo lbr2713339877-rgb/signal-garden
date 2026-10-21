@@ -116,6 +116,53 @@ export function renderProjectOg(input: {
   );
 }
 
+export function weeklyOgContent(input: {
+  issue: number;
+  from: string;
+  to: string;
+  names: string[];
+}) {
+  const issue = Number.isInteger(input.issue) && input.issue > 0 ? input.issue : 1;
+  return {
+    title: `第 ${issue} 期`,
+    range: `${input.from} – ${input.to}`,
+    names: input.names.slice(0, 5).map((name) => clip(name, 32)),
+    footer: "每周精选",
+  };
+}
+
+export function renderWeeklyOg(input: {
+  issue: number;
+  from: string;
+  to: string;
+  names: string[];
+}) {
+  const content = weeklyOgContent(input);
+  return respond(
+    frame(
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", fontSize: 64, letterSpacing: "-0.03em" }}>{content.title}</div>
+        <div style={{ display: "flex", marginTop: 14, fontSize: 28, color: MUTED }}>{content.range}</div>
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 32 }}>
+          {content.names.map((name, index) => (
+            <div
+              key={`${name}-${index}`}
+              style={{
+                display: "flex",
+                marginTop: index === 0 ? 0 : 12,
+                fontSize: 30,
+              }}
+            >
+              {name}
+            </div>
+          ))}
+        </div>
+      </div>,
+      content.footer,
+    ),
+  );
+}
+
 export function renderTodayOg(input: {
   date: string;
   projects: { name: string; forks7d: number | null }[];
