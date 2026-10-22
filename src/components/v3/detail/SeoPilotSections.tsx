@@ -43,6 +43,7 @@ export function SeoPilotSections({ view }: { view: SeoPilotView }) {
             <LANG as="p" zh={view.momentum.summaryZh} en={view.momentum.summaryEn} className="body mt-6 max-w-[62ch] text-[var(--ink-2)]" />
             <MomentumSparkline points={view.momentum.sparkline} />
             <LANG as="p" zh={view.momentum.captionZh} en={view.momentum.captionEn} className="data mt-2 text-[var(--ink-4)]" />
+            <LANG as="p" zh={view.momentum.dataNoteZh} en={view.momentum.dataNoteEn} className="data mt-4 max-w-[62ch] text-[var(--ink-4)]" />
             <details className="mt-6 max-w-[720px]">
               <summary className="data cursor-pointer text-[var(--ink-3)]">
                 <LANG zh={SEO_PILOT_COPY.dailyToggle.zh} en={SEO_PILOT_COPY.dailyToggle.en} />

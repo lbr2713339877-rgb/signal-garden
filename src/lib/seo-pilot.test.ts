@@ -95,8 +95,12 @@ test("momentum section needs three scored days and labels published days apart f
   assert.match(section!.rows[0]!.lineZh, /名次 4/);
   assert.match(section!.rows[0]!.lineZh, /热度分 14/);
   assert.match(section!.rows[0]!.lineZh, /较上次记录 −1/);
+  assert.match(section!.rows[0]!.lineEn, /Ranked/);
+  assert.doesNotMatch(section!.rows[0]!.lineEn, /on the ranking/);
   assert.match(section!.rows[0]!.lineEn, /momentum 14/);
   assert.match(section!.rows[0]!.lineEn, /−1 vs the previous tracked day/);
+  assert.equal(section!.dataNoteZh, "数据说明：走势来自 Signal Garden 每日追踪的热度分；只有标注「上榜」的日期出现在公开每日榜单上。");
+  assert.equal(section!.dataNoteEn, "Data note: the trend uses Signal Garden\u2019s daily tracked momentum scores; only dates marked \u201cRanked\u201d appeared on the public daily list.");
   assert.match(section!.rows.at(-1)!.lineZh, /首次记录/);
   assert.doesNotMatch(section!.summaryZh, /2025-12-01/);
   assert.match(section!.summaryZh, /自 2026-01-01 起追踪 5 天/);
@@ -187,6 +191,9 @@ test("momentum section needs three scored days and labels published days apart f
   assert.doesNotMatch(quiet!.summaryZh, /名次|峰值/);
   assert.match(quiet!.summaryEn, /highest tracked level/);
   assert.match(quiet!.summaryEn, /Tracked 3 days since/);
+  assert.equal(quiet!.dataNoteZh, "数据说明：走势来自 Signal Garden 每日追踪的热度分；该项目尚未出现在公开每日榜单上。");
+  assert.equal(quiet!.dataNoteEn, section!.dataNoteEn);
+  assert.doesNotMatch(quiet!.dataNoteZh, /上榜/);
   const quietMeta = seoPilotMetaDescription({ name: "Quiet", momentum: quiet });
   assert.doesNotMatch(quietMeta ?? "", /上榜/);
   assert.doesNotMatch(seoPilotPlainText({ momentum: quiet, peers: null, audience: null, metaDescription: quietMeta }), /名次|上榜/);
