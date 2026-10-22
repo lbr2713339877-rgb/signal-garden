@@ -43,16 +43,21 @@ export function SeoPilotSections({ view }: { view: SeoPilotView }) {
             <LANG as="p" zh={view.momentum.summaryZh} en={view.momentum.summaryEn} className="body mt-6 max-w-[62ch] text-[var(--ink-2)]" />
             <MomentumSparkline points={view.momentum.sparkline} />
             <LANG as="p" zh={view.momentum.captionZh} en={view.momentum.captionEn} className="data mt-2 text-[var(--ink-4)]" />
-            {view.momentum.noteZh && view.momentum.noteEn ? (
-              <LANG as="p" zh={view.momentum.noteZh} en={view.momentum.noteEn} className="data mt-3 text-[var(--ink-4)]" />
-            ) : null}
-            <ul className="mt-6 max-w-[720px]">
-              {view.momentum.rows.map((row) => (
-                <li key={row.date} className="border-t border-[var(--glass-1-border)] py-3">
-                  <LANG zh={row.lineZh} en={row.lineEn} className="data text-[var(--ink-2)]" />
-                </li>
-              ))}
-            </ul>
+            <details className="mt-6 max-w-[720px]">
+              <summary className="data cursor-pointer text-[var(--ink-3)]">
+                <LANG zh={SEO_PILOT_COPY.dailyToggle.zh} en={SEO_PILOT_COPY.dailyToggle.en} />
+              </summary>
+              {view.momentum.noteZh && view.momentum.noteEn ? (
+                <LANG as="p" zh={view.momentum.noteZh} en={view.momentum.noteEn} className="data mt-3 text-[var(--ink-4)]" />
+              ) : null}
+              <ul className="mt-2">
+                {view.momentum.rows.map((row) => (
+                  <li key={row.date} className="border-t border-[var(--glass-1-border)] py-3">
+                    <LANG zh={row.lineZh} en={row.lineEn} className="data text-[var(--ink-2)]" />
+                  </li>
+                ))}
+              </ul>
+            </details>
           </div>
         </section>
       ) : null}

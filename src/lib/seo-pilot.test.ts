@@ -18,7 +18,7 @@ import {
   type SeoPeerCandidate,
 } from "./seo-pilot";
 
-const BLOCKED = [/fork/i, /fastest/i, /涨得最快/, /最快/, /\bbest\b/i, /\bhighest\b/i, /\btop\b/i];
+const BLOCKED = [/fork/i, /fastest/i, /涨得最快/, /最快/, /\bbest\b/i, /\btop\b/i];
 
 function assertClear(text: string) {
   for (const pattern of BLOCKED) assert.doesNotMatch(text, pattern);
@@ -85,7 +85,7 @@ test("momentum section needs three scored days and labels published days apart f
     ],
   });
   assert.ok(section);
-  assert.equal(section!.firstTracked, "2025-12-01");
+  assert.equal(section!.firstTracked, "2026-01-01");
   assert.equal(section!.trackedDays, 5);
   assert.equal(section!.publishedDays, 5);
   assert.equal(section!.bestRank, 2);
@@ -98,10 +98,14 @@ test("momentum section needs three scored days and labels published days apart f
   assert.match(section!.rows[0]!.lineEn, /momentum 14/);
   assert.match(section!.rows[0]!.lineEn, /−1 vs the previous tracked day/);
   assert.match(section!.rows.at(-1)!.lineZh, /首次记录/);
-  assert.match(section!.summaryZh, /2025-12-01/);
-  assert.match(section!.summaryZh, /追踪 5 天，上榜 5 天/);
-  assert.match(section!.summaryZh, /第 2 名/);
-  assert.match(section!.summaryEn, /momentum/i);
+  assert.doesNotMatch(section!.summaryZh, /2025-12-01/);
+  assert.match(section!.summaryZh, /自 2026-01-01 起追踪 5 天/);
+  assert.match(section!.summaryZh, /热度分从 10 到 14，净变化 \+4/);
+  assert.match(section!.summaryZh, /峰值 15，出现在 2026-01-04/);
+  assert.doesNotMatch(section!.summaryZh, /最高水平/);
+  assert.match(section!.summaryZh, /上榜 5 天，记录里排到过第 2 名/);
+  assert.match(section!.summaryEn, /The peak was 15 on 2026-01-04/);
+  assert.doesNotMatch(section!.summaryEn, /highest tracked level/);
   assert.equal(section!.sparkline.length, 5);
   assert.ok(section!.sparkline[3]!.y < section!.sparkline[0]!.y);
   assert.equal(section!.noteZh, null);
@@ -111,6 +115,10 @@ test("momentum section needs three scored days and labels published days apart f
   assert.ok(flat);
   assert.ok(flat!.sparkline.every((point) => point.y === flat!.sparkline[0]!.y));
   assert.match(flat!.rows[0]!.lineZh, /较上次记录持平/);
+  assert.match(flat!.summaryZh, /净变化 0/);
+  assert.match(flat!.summaryZh, /目前处于追踪以来的最高水平/);
+  assert.doesNotMatch(flat!.summaryZh, /峰值/);
+  assert.match(flat!.summaryEn, /currently at its highest tracked level/);
 
   const long = buildMomentumSection({
     points: series(30, (index) => 5 + index, (index) => (index === 0 ? 1 : 9)),
@@ -152,8 +160,12 @@ test("momentum section needs three scored days and labels published days apart f
   assert.match(mixed!.rows[1]!.lineZh, /名次 4/);
   assert.match(mixed!.rows[2]!.lineZh, /首次记录/);
   assert.doesNotMatch(mixed!.rows[2]!.lineZh, /上榜|名次/);
-  assert.match(mixed!.summaryZh, /追踪 3 天，上榜 1 天/);
-  assert.match(mixed!.summaryZh, /第 4 名/);
+  assert.equal(mixed!.firstTracked, "2026-01-01");
+  assert.doesNotMatch(mixed!.summaryZh, /2025-11-01/);
+  assert.match(mixed!.summaryZh, /自 2026-01-01 起追踪 3 天/);
+  assert.match(mixed!.summaryZh, /热度分从 10 到 9，净变化 −1/);
+  assert.match(mixed!.summaryZh, /峰值 12，出现在 2026-01-02/);
+  assert.match(mixed!.summaryZh, /上榜 1 天，记录里排到过第 4 名/);
   assertClear(seoPilotPlainText({ momentum: mixed, peers: null, audience: null, metaDescription: null }));
 
   const quiet = buildMomentumSection({
@@ -162,8 +174,24 @@ test("momentum section needs three scored days and labels published days apart f
   assert.ok(quiet);
   assert.equal(quiet!.bestRank, null);
   assert.equal(quiet!.publishedDays, 0);
-  assert.doesNotMatch(quiet!.summaryZh, /上榜/);
-  assert.doesNotMatch(seoPilotPlainText({ momentum: quiet, peers: null, audience: null, metaDescription: null }), /上榜|名次/);
+  assert.match(quiet!.summaryZh, /上榜 0 天/);
+  assert.doesNotMatch(quiet!.summaryZh, /名次|峰值/);
+  assert.match(quiet!.summaryEn, /highest tracked level/);
+  assert.doesNotMatch(seoPilotPlainText({ momentum: quiet, peers: null, audience: null, metaDescription: null }), /名次/);
+
+  const dated = buildMomentumSection({
+    firstTrackedAt: "2010-05-05T00:00:00.000Z",
+    points: [
+      { date: "2024-06-01", rank: null, heatScore: null, published: false },
+      { date: "2026-03-01", rank: 3, heatScore: 4, published: true },
+      { date: "2026-03-02", rank: 2, heatScore: 5, published: true },
+      { date: "2026-03-03", rank: 2, heatScore: 5, published: true },
+    ],
+  });
+  assert.equal(dated?.firstTracked, "2024-06-01");
+  assert.match(dated?.summaryZh ?? "", /自 2024-06-01 起追踪 3 天/);
+  assert.doesNotMatch(dated?.summaryZh ?? "", /2010-05-05/);
+  assert.match(dated?.summaryZh ?? "", /热度分从 4 到 5/);
 });
 
 test("peer section needs three real overlaps and does not sort by the score", () => {
@@ -222,6 +250,8 @@ test("audience copy is omitted when the fields are thin and differs when they ar
   assert.equal(buildAudienceSection({ topics: ["tools", "hacktoberfest"], license: "MIT" }), null);
   assert.equal(buildAudienceSection({ language: "Go", license: "NOASSERTION" }), null);
   assert.equal(buildAudienceSection({ language: "Go", license: "Other" }), null);
+  assert.equal(buildAudienceSection({ language: "JavaScript", hasSkillMd: true, requiresApiKey: true }), null);
+  assert.equal(buildAudienceSection({ requiresDocker: true, license: "GPL-3.0", requiresLocalRuntime: true }), null);
 
   const rust = buildAudienceSection({
     language: "Rust",
@@ -230,6 +260,8 @@ test("audience copy is omitted when the fields are thin and differs when they ar
     description: "A command-line helper for logs",
     skillType: "library",
     requiresLocalRuntime: true,
+    hasSkillMd: true,
+    requiresApiKey: true,
   });
   const typed = buildAudienceSection({
     language: "TypeScript",
@@ -238,25 +270,17 @@ test("audience copy is omitted when the fields are thin and differs when they ar
     description: "An MCP server for notes",
     skillType: "mcp",
     requiresApiKey: true,
+    hasSkillMd: true,
     projectKind: "repo",
   });
   assert.ok(rust && typed);
   assert.notEqual(rust!.zh, typed!.zh);
-  assert.match(rust!.zh, /Rust/);
-  assert.match(rust!.zh, /cli/);
-  assert.match(rust!.zh, /MIT/);
-  assert.match(rust!.zh, /命令行/);
-  assert.match(rust!.zh, /本机运行/);
-  assert.match(rust!.en, /using Rust/);
-  assert.match(typed!.zh, /TypeScript/);
-  assert.match(typed!.zh, /Apache-2.0/);
-  assert.match(typed!.en, /API key/);
-  assert.equal((typed!.zh.match(/接入 MCP 服务/g) ?? []).length, 1);
+  assert.equal(rust!.zh, "适合使用 Rust、并且关注 cli 的人。它是一个代码库。仓库许可为 MIT。");
+  assert.equal(rust!.en, "For people using Rust and following cli. It is a library. The repository license is MIT.");
+  assert.equal(typed!.zh, "适合使用 TypeScript、并且关注 mcp 的人。它提供 MCP 服务。仓库许可为 Apache-2.0。");
+  assert.doesNotMatch(`${rust!.zh}\n${rust!.en}\n${typed!.zh}\n${typed!.en}`, /API key|SKILL\.md|命令行|本机运行|Docker/i);
+  assert.equal((rust!.zh.split("。")[0]!.match(/、/g) ?? []).length, 1);
   assertClear(`${rust!.zh}\n${rust!.en}\n${typed!.zh}\n${typed!.en}`);
-
-  const licensed = buildAudienceSection({ requiresDocker: true, license: "GPL-3.0" });
-  assert.match(licensed?.zh ?? "", /Docker/);
-  assert.match(licensed?.zh ?? "", /GPL-3.0/);
 });
 
 test("pilot meta description is the ranking record, and blocked or huge leads are left out", () => {
@@ -264,10 +288,12 @@ test("pilot meta description is the ranking record, and blocked or huge leads ar
     firstTrackedAt: "2025-12-01",
     points: series(3, (index) => 10 + index),
   }) as MomentumSection;
+  assert.equal(momentum.firstTracked, "2026-01-01");
   const rich = seoPilotMetaDescription({ name: "Widget", oneLiner: "一句介绍。", momentum });
   assert.match(rich ?? "", /一句介绍。/);
   assert.match(rich ?? "", /Widget 的热度分记录/);
-  assert.match(rich ?? "", /2025-12-01/);
+  assert.match(rich ?? "", /2026-01-01/);
+  assert.doesNotMatch(rich ?? "", /2025-12-01/);
   assertClear(rich ?? "");
 
   const dirty = seoPilotMetaDescription({ name: "Widget", oneLiner: "a fork and the fastest 涨得最快", momentum });
