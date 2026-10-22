@@ -1,12 +1,17 @@
 import type { MetadataRoute } from 'next';
+import { unstable_cache } from 'next/cache';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
+import { connection } from 'next/server';
 import { db } from '@/db/client';
 import { project } from '@/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
 
 /* PGlite allows a single process to hold the data directory. Prerendering the
    sitemap alongside other DB-reading pages makes two build workers fight over
-   that lock, so it is generated per request instead. */
-export const dynamic = 'force-dynamic';
+   that lock, and the database may be absent during `next build`. Bail out of
+   that prerender (dynamic on the first request). `revalidate` plus the cached
+   project query keep later requests off the database for an hour. */
+export const revalidate = 3600;
 
 const STATIC_PATHS = [
   '/',
@@ -34,17 +39,13 @@ function siteUrl(): string {
   return raw;
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = siteUrl();
+type SitemapProject = {
+  slug: string;
+  firstTrackedAt: string | null;
+};
 
-  const statics = STATIC_PATHS.map((path) => ({
-    url: `${base}${path}`,
-    lastModified: new Date(),
-    changeFrequency: path === '/' || path === '/today' ? ('daily' as const) : ('monthly' as const),
-    priority: path === '/' ? 1 : path === '/today' ? 0.9 : 0.6,
-  }));
-
-  try {
+const loadSitemapProjects = unstable_cache(
+  async (): Promise<SitemapProject[]> => {
     const d = await db();
     const rows = await d
       .select({ slug: project.slug, firstTrackedAt: project.firstTrackedAt })
@@ -58,12 +59,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           isNull(project.duplicateOf),
         ),
       );
+    return rows.map((row) => ({
+      slug: row.slug,
+      firstTrackedAt: row.firstTrackedAt ? row.firstTrackedAt.toISOString() : null,
+    }));
+  },
+  ['sitemap-projects'],
+  { revalidate: 3600 },
+);
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) {
+    await connection();
+  }
+
+  const base = siteUrl();
+
+  const statics = STATIC_PATHS.map((path) => ({
+    url: `${base}${path}`,
+    lastModified: new Date(),
+    changeFrequency: path === '/' || path === '/today' ? ('daily' as const) : ('monthly' as const),
+    priority: path === '/' ? 1 : path === '/today' ? 0.9 : 0.6,
+  }));
+
+  try {
+    const rows = await loadSitemapProjects();
 
     return [
       ...statics,
       ...rows.map((row) => ({
         url: `${base}/p/${row.slug}`,
-        lastModified: row.firstTrackedAt ?? new Date(),
+        lastModified: row.firstTrackedAt ? new Date(row.firstTrackedAt) : new Date(),
         changeFrequency: 'weekly' as const,
         priority: 0.7,
       })),

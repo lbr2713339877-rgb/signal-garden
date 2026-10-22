@@ -46,8 +46,22 @@ ssh "$REMOTE_HOST" "set -euo pipefail
   fi
   pm2 restart signal-garden --update-env >/dev/null
   sleep 4
-  code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 http://127.0.0.1:3000/ || echo 000)
-  echo \"    health: \$code\"
+  code=000
+  attempt=1
+  while [ \"\$attempt\" -le 10 ]; do
+    code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 http://127.0.0.1:3000/ || true)
+    if [ -z \"\$code\" ]; then
+      code=000
+    fi
+    echo \"    health attempt \$attempt: \$code\"
+    if [ \"\$code\" = 200 ]; then
+      break
+    fi
+    if [ \"\$attempt\" -lt 10 ]; then
+      sleep 2
+    fi
+    attempt=\$((attempt + 1))
+  done
   [ \"\$code\" = 200 ]"
 
 echo "==> done. live check: https://signalgarden.site/pricing"
