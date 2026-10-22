@@ -78,12 +78,14 @@ export function projectPageMetadata(input: {
   name?: string | null;
   oneLinerZh?: string | null;
   oneLinerEn?: string | null;
+  /** Pilot pages pass a longer factual description. Empty keeps the body summary. */
+  description?: string | null;
   origin?: string;
 }): Metadata {
   const name = clean(input.name) || input.slug;
   return pageMetadata({
     title: name,
-    description: projectBodySummary({ name, oneLinerZh: input.oneLinerZh, oneLinerEn: input.oneLinerEn }),
+    description: clean(input.description) || projectBodySummary({ name, oneLinerZh: input.oneLinerZh, oneLinerEn: input.oneLinerEn }),
     path: projectPath(input.slug),
     origin: input.origin,
   });
