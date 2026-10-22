@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@/components/analytics/Analytics";
+import { AttributionCapture } from "@/components/subscribe/AttributionCapture";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { LANG_BOOTSTRAP, THEME_BOOTSTRAP } from "@/components/ui/Lang";
 import { siteOrigin } from "@/lib/edition";
@@ -94,7 +95,10 @@ export default function RootLayout({
         <Analytics />
         <JsonLd data={siteJsonLd({ origin: siteOrigin(SITE_URL), search: SEARCH_ROUTE_EXISTS })} />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AttributionCapture />
+        {children}
+      </body>
     </html>
   );
 }

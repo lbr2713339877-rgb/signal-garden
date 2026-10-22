@@ -874,6 +874,13 @@ export const newsletterSubscriber = pgTable(
     source: text("source"),
     consentIpHash: text("consent_ip_hash"),
     consentUa: text("consent_ua"),
+    /** First-touch campaign tags. Nullable; never an IP or user agent. */
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    /** Referrer origin and path only. Query string is dropped before insert. */
+    referrer: text("referrer"),
   },
   (t) => [
     unique("newsletter_subscriber_email_uniq").on(t.email),

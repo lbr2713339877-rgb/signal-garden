@@ -76,6 +76,7 @@ const sections: LegalSection[] = [
       'privacy.newsletterP3',
       'privacy.newsletterP4',
       'privacy.newsletterP5',
+      'privacy.newsletterP6',
     ],
   },
 ];
@@ -87,7 +88,7 @@ export default function PrivacyPage() {
       title="privacy.title"
       intro="privacy.intro"
       sections={sections}
-      updated="2026-10-17"
+      updated="2026-10-22"
     />
   );
 }

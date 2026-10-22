@@ -5,6 +5,7 @@ import { emailSiteUrl } from "@/lib/email-template";
 import { resolveEmailLocale, type EmailLocale } from "@/lib/email-locale";
 import { renderConfirmMail, renderWelcomeDigest } from "@/emails/render-newsletter";
 import { hashEmail, honeypotTripped, dwellOk, normalizeEmail, normalizeSource } from "./address";
+import { emptyAttribution, type SignupAttribution } from "./attribution";
 import { confirmPageUrl, listUnsubscribeHeaders, unsubscribePageUrl } from "./headers";
 import { allowRate, countRate, recordRate } from "./rate-limit";
 import {
@@ -50,6 +51,8 @@ export interface SubscribeInput {
   source: unknown;
   ip: string | null;
   userAgent: string | null;
+  /** Optional campaign tags. IP and user agent are not part of this record. */
+  attribution?: SignupAttribution;
   acceptLanguage?: string | null;
   now?: Date;
   siteUrl?: string;
@@ -167,6 +170,7 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
   const confirmExpiresAt = confirmExpiry(now);
   const confirmToken = confirmTokenFor(id, confirmExpiresAt.getTime());
   const unsubToken = unsubTokenFor(id);
+  const attribution = input.attribution ?? emptyAttribution();
   const patch = {
     email,
     emailHash,
@@ -178,6 +182,11 @@ export async function requestSubscribe(input: SubscribeInput): Promise<Subscribe
     source: normalizeSource(input.source),
     consentIpHash: input.ip ? hashIp(input.ip) : null,
     consentUa: input.userAgent?.slice(0, 300) ?? null,
+    utmSource: attribution.utmSource,
+    utmMedium: attribution.utmMedium,
+    utmCampaign: attribution.utmCampaign,
+    utmContent: attribution.utmContent,
+    referrer: attribution.referrer,
     unsubscribedAt: null,
     purgeEmailAt: null,
   };

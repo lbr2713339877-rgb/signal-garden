@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseSignupAttribution } from "@/lib/newsletter/attribution";
 import { subscribeResponse } from "@/lib/newsletter/placement";
 import { requestSubscribe } from "@/lib/newsletter/subscribe";
 
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
     ip: clientIp(request),
     userAgent: request.headers.get("user-agent"),
     acceptLanguage: request.headers.get("accept-language"),
+    attribution: parseSignupAttribution(body),
   });
   const http = subscribeResponse(result);
   return NextResponse.json(http.body, { status: http.status });
