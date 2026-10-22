@@ -1,0 +1,71 @@
+/** Outside `(site)` so this stays `/en/opengraph-image`. A route-group parent makes Next hash the filename. */
+import { ImageResponse } from "next/og";
+import { ogFont } from "@/lib/og/font";
+
+export const runtime = "nodejs";
+export const revalidate = 86400;
+export const alt = "Signal Garden — Five minutes a day, the developer projects worth opening.";
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
+
+export default async function Image() {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          background: "#030303",
+          color: "#f2f0ea",
+          padding: "72px 80px",
+          fontFamily: "Noto Sans SC",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            fontSize: 28,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "#f2f0ea",
+          }}
+        >
+          SIGNAL GARDEN
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ width: 92, height: 1, background: "rgba(242,240,234,.10)" }} />
+          <div
+            style={{
+              display: "flex",
+              maxWidth: 940,
+              fontSize: 58,
+              lineHeight: 1.25,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Five minutes a day, the developer projects worth opening.
+          </div>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: 22,
+            color: "rgba(242,240,234,.58)",
+          }}
+        >
+          <span>signalgarden.site</span>
+          <span>Developer discovery, daily.</span>
+        </div>
+      </div>
+    ),
+    {
+      ...size,
+      fonts: [{ name: "Noto Sans SC", data: ogFont(), weight: 400, style: "normal" }],
+    },
+  );
+}
