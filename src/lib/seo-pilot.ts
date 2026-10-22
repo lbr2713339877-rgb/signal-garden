@@ -34,6 +34,7 @@ export const SEO_PILOT_COPY = {
   peerTitle: { zh: "同类项目对比", en: "Similar ranked projects" },
   audienceKicker: { zh: "读者", en: "WHO IT'S FOR" },
   audienceTitle: { zh: "适合谁用", en: "Who it's for" },
+  dailyToggle: { zh: "每日记录", en: "Daily record" },
 } as const;
 
 const GENERIC_TOPICS = new Set([
@@ -54,17 +55,6 @@ const GENERIC_TOPICS = new Set([
   "misc",
   "other",
 ]);
-
-const DESCRIPTION_RULES: { test: RegExp; zh: string; en: string }[] = [
-  { test: /\b(?:cli|command[- ]line)\b|命令行/i, zh: "做命令行工具", en: "building a command-line tool" },
-  { test: /\bmcp\b/i, zh: "接入 MCP 服务", en: "connecting an MCP server" },
-  { test: /\b(?:browser extension|chrome extension|firefox extension)\b|浏览器扩展/i, zh: "做浏览器扩展", en: "building a browser extension" },
-  { test: /\b(?:kubernetes|\bk8s\b)/i, zh: "处理 Kubernetes", en: "working with Kubernetes" },
-  { test: /\b(?:database|postgres|sqlite|mysql)\b|数据库/i, zh: "处理数据库", en: "working with a database" },
-  { test: /\b(?:compiler|interpreter)\b|编译器/i, zh: "写编译或解释器", en: "working on a compiler or interpreter" },
-  { test: /\b(?:editor|ide)\b|编辑器/i, zh: "做编辑器", en: "building an editor" },
-  { test: /\b(?:notebook|jupyter)\b/i, zh: "用笔记本环境", en: "using a notebook environment" },
-];
 
 export function containsSeoPilotBlocked(text: string): boolean {
   return BLOCKED.some((pattern) => pattern.test(text));
@@ -207,10 +197,22 @@ function publicRank(point: TrackedPoint): number | null {
   return point.rank;
 }
 
+function earliestSignalDate(points: RankingPoint[]): string | null {
+  let earliest: string | null = null;
+  for (const point of points) {
+    const date = asIsoDay(point.date);
+    if (!date) continue;
+    if (!earliest || date < earliest) earliest = date;
+  }
+  return earliest;
+}
+
 export function buildMomentumSection(input: {
+  /** Ignored. This is repo creation on the project row, not the first 热度分 snapshot. */
   firstTrackedAt?: string | Date | null;
   points: RankingPoint[];
 }): MomentumSection | null {
+  void input.firstTrackedAt;
   const byDate = new Map<string, TrackedPoint>();
   for (const point of input.points) {
     const date = asIsoDay(point.date);
@@ -253,17 +255,27 @@ export function buildMomentumSection(input: {
 
   const publishedPlaces = series.map(publicRank).filter((rank): rank is number => rank != null);
   const bestRank = publishedPlaces.length ? Math.min(...publishedPlaces) : null;
-  const bestHeat = formatMomentum(Math.max(...series.map((point) => point.heatScore)));
+  const bestHeatValue = Math.max(...series.map((point) => point.heatScore));
+  const bestHeat = formatMomentum(bestHeatValue);
   const publishedDays = series.filter((point) => point.published).length;
-  const firstTracked = asIsoDay(input.firstTrackedAt) ?? series[0]!.date;
-  const latest = rowsChrono[rowsChrono.length - 1]!;
-  const latestChange = changeClause(latest.delta);
-  const publishedClause = publishedDays > 0 ? `，上榜 ${publishedDays} 天` : "";
-  const rankClause = bestRank != null ? `上榜记录里排到过第 ${bestRank} 名。` : "";
-  const summaryZh = `首次记录 ${firstTracked}。追踪 ${series.length} 天${publishedClause}。最近热度分 ${latest.heat}（${latestChange.zh}）。${rankClause}热度分到过 ${bestHeat}。`;
-  const publishedEn = publishedDays > 0 ? `, ${publishedDays} on the published ranking` : "";
-  const rankEn = bestRank != null ? ` Published rank in this record reached ${bestRank}.` : "";
-  const summaryEn = `First tracked ${firstTracked}. ${series.length} tracked days${publishedEn}. Latest momentum ${latest.heat} (${latestChange.en}).${rankEn} Momentum in this record reached ${bestHeat}.`;
+  const first = series[0]!;
+  const latestPoint = series[series.length - 1]!;
+  const firstTracked = earliestSignalDate(input.points) ?? first.date;
+  const firstHeat = formatMomentum(first.heatScore);
+  const latestHeat = formatMomentum(latestPoint.heatScore);
+  const net = formatMomentumDelta(latestPoint.heatScore - first.heatScore);
+  const peak = series.find((point) => point.heatScore === bestHeatValue)!;
+  const atRecordHigh = latestPoint.heatScore === bestHeatValue;
+  const placeZh = bestRank != null ? `，记录里排到过第 ${bestRank} 名` : "";
+  const placeEn = bestRank != null ? `, and published rank in this record reached ${bestRank}` : "";
+  const levelZh = atRecordHigh
+    ? "目前处于追踪以来的最高水平。"
+    : `峰值 ${bestHeat}，出现在 ${peak.date}。`;
+  const levelEn = atRecordHigh
+    ? "It is currently at its highest tracked level."
+    : `The peak was ${bestHeat} on ${peak.date}.`;
+  const summaryZh = `自 ${firstTracked} 起追踪 ${series.length} 天。热度分从 ${firstHeat} 到 ${latestHeat}，净变化 ${net}。${levelZh}上榜 ${publishedDays} 天${placeZh}。`;
+  const summaryEn = `Tracked ${series.length} days since ${firstTracked}. Momentum went from ${firstHeat} to ${latestHeat}, a net change of ${net}. ${levelEn} On the published ranking ${publishedDays} days${placeEn}.`;
   const visible = rowsChrono.slice(-LIST_MAX).reverse();
   const note = series.length > visible.length
     ? {
@@ -436,8 +448,6 @@ export type AudienceInput = {
   requiresDocker?: boolean | null;
 };
 
-type Bit = { zh: string; en: string };
-
 function cleanLicense(value: string | null | undefined): string | null {
   if (!value) return null;
   const text = value.trim();
@@ -447,77 +457,51 @@ function cleanLicense(value: string | null | undefined): string | null {
   return text;
 }
 
-function descriptionBit(description: string | null | undefined): Bit | null {
-  if (!description?.trim()) return null;
-  const rule = DESCRIPTION_RULES.find((item) => item.test.test(description));
-  return rule ? { zh: rule.zh, en: rule.en } : null;
-}
-
-function typeBits(input: AudienceInput): Bit[] {
-  const bits: Bit[] = [];
-  const skill = input.skillType ?? "unknown";
+function projectTypeSentence(input: AudienceInput): { zh: string; en: string } | null {
   if (input.projectKind === "product") {
-    bits.push({ zh: "在浏览器里使用这个网站产品", en: "using this website product in the browser" });
+    return { zh: "这是一个在浏览器里使用的网站产品。", en: "It is a website product used in the browser." };
   }
-  if (skill === "mcp") bits.push({ zh: "接入 MCP 服务", en: "connecting an MCP server" });
-  if (skill === "agent") bits.push({ zh: "配置 agent", en: "configuring an agent" });
-  if (skill === "library") bits.push({ zh: "引用代码库", en: "depending on a library" });
-  if (skill === "framework") bits.push({ zh: "采用这个框架", en: "adopting this framework" });
-  if (skill === "workflow") bits.push({ zh: "编排工作流", en: "running a workflow" });
-  if (skill === "prompt_pack") bits.push({ zh: "使用这套提示词", en: "using this prompt pack" });
-  if (skill === "template" || input.isTemplate) bits.push({ zh: "从这个模板开始", en: "starting from a template" });
-  if (skill === "skill" || input.hasSkillMd) bits.push({ zh: "安装带有 SKILL.md 的技能", en: "installing a skill that includes SKILL.md" });
-  return bits;
-}
-
-function requirementBit(input: AudienceInput): Bit | null {
-  const zh: string[] = [];
-  const en: string[] = [];
-  if (input.requiresLocalRuntime) {
-    zh.push("本机运行");
-    en.push("a local runtime");
-  }
-  if (input.requiresDocker) {
-    zh.push("Docker");
-    en.push("Docker");
-  }
-  if (input.requiresApiKey) {
-    zh.push("自备 API key");
-    en.push("your own API key");
-  }
-  if (!zh.length) return null;
-  return { zh: `需要${zh.join("、")}`, en: `requiring ${en.join(", ")}` };
+  const skill = input.skillType ?? "";
+  if (skill === "mcp") return { zh: "它提供 MCP 服务。", en: "It provides an MCP server." };
+  if (skill === "agent") return { zh: "它用来配置 agent。", en: "It is used to configure an agent." };
+  if (skill === "library") return { zh: "它是一个代码库。", en: "It is a library." };
+  if (skill === "framework") return { zh: "它是一个框架。", en: "It is a framework." };
+  if (skill === "workflow") return { zh: "它用来编排工作流。", en: "It runs a workflow." };
+  if (skill === "prompt_pack") return { zh: "它是一套提示词。", en: "It is a prompt pack." };
+  if (skill === "template" || input.isTemplate) return { zh: "它是一个模板。", en: "It is a template." };
+  if (skill === "skill") return { zh: "它是一个技能包。", en: "It is a skill package." };
+  return null;
 }
 
 export function buildAudienceSection(input: AudienceInput): { zh: string; en: string } | null {
-  const bits: Bit[] = [];
   const language = usableLanguage(input.language);
-  if (language) bits.push({ zh: `使用 ${language}`, en: `using ${language}` });
-  for (const bit of typeBits(input)) {
-    if (!bits.some((item) => item.zh === bit.zh)) bits.push(bit);
-  }
-  const described = descriptionBit(input.description);
-  if (described && !bits.some((item) => item.zh === described.zh)) bits.push(described);
   const topics = usableTopicList(input.topics).slice(0, 3);
-  if (topics.length) bits.push({ zh: `关注主题 ${topics.join("、")}`, en: `following the topics ${topics.join(", ")}` });
-  const requirements = requirementBit(input);
-  if (requirements) bits.push(requirements);
-
+  const type = projectTypeSentence(input);
   const license = cleanLicense(input.license);
-  if (bits.length < 1 || bits.length + (license ? 1 : 0) < 2) return null;
+  const factCount = [language, topics.length ? "topics" : null, type, license].filter(Boolean).length;
+  if (factCount < 2) return null;
 
+  const topicZh = topics.join("、");
+  const topicEn = topics.join(", ");
+  const lead = language && topics.length
+    ? { zh: `适合使用 ${language}、并且关注 ${topicZh} 的人。`, en: `For people using ${language} and following ${topicEn}.` }
+    : language
+      ? { zh: `适合使用 ${language} 的人。`, en: `For people using ${language}.` }
+      : topics.length
+        ? { zh: `适合关注 ${topicZh} 的人。`, en: `For people following ${topicEn}.` }
+        : null;
   const licenseZh = license
     ? input.projectKind === "product"
-      ? `资料里写明的许可是 ${license}。`
-      : `仓库写明的许可是 ${license}。`
+      ? `资料里的许可是 ${license}。`
+      : `仓库许可为 ${license}。`
     : "";
   const licenseEn = license
     ? input.projectKind === "product"
-      ? ` The listed license is ${license}.`
-      : ` The repository lists its license as ${license}.`
+      ? `The listed license is ${license}.`
+      : `The repository license is ${license}.`
     : "";
-  const zh = `适合${bits.map((bit) => bit.zh).join("、")}的人。${licenseZh}`.trim();
-  const en = `For people ${bits.map((bit) => bit.en).join(", ")}.${licenseEn}`.replace(/[ \t]+\n/g, "\n").replace(/ {2,}/g, " ").trim();
+  const zh = `${lead?.zh ?? ""}${type?.zh ?? ""}${licenseZh}`.trim();
+  const en = `${lead?.en ?? ""}${type ? ` ${type.en}` : ""}${licenseEn ? ` ${licenseEn}` : ""}`.replace(/ {2,}/g, " ").trim();
   if (containsSeoPilotBlocked(zh) || containsSeoPilotBlocked(en)) return null;
   return { zh, en };
 }

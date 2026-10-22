@@ -27,7 +27,7 @@ function walk(node: unknown, visit: (el: { type: unknown; props: Record<string, 
   walk(el.props.children, visit);
 }
 
-function renderSeo(node: unknown, acc: { text: string[]; hrefs: string[]; sections: string[]; polylines: string[] }) {
+function renderSeo(node: unknown, acc: { text: string[]; hrefs: string[]; sections: string[]; polylines: string[]; detailsOpen: boolean[] }) {
   if (node == null || typeof node === "boolean") return;
   if (typeof node === "string" || typeof node === "number") {
     acc.text.push(String(node));
@@ -40,6 +40,7 @@ function renderSeo(node: unknown, acc: { text: string[]; hrefs: string[]; sectio
   if (typeof node !== "object" || !("props" in node)) return;
   const el = node as { type: unknown; props?: Record<string, unknown> };
   if (!el.props) return;
+  if (el.type === "details") acc.detailsOpen.push(el.props.open === true);
   if (typeof el.props["data-seo-section"] === "string") acc.sections.push(el.props["data-seo-section"]);
   if (typeof el.props.points === "string") acc.polylines.push(el.props.points);
   if (typeof el.props.href === "string") {
@@ -205,8 +206,10 @@ test("pilot pages gain factual sections and every other project page stays as it
     const pilotMeta = await generateMetadata({ params: Promise.resolve({ slug: "pilot" }) });
     assert.match(String(pilotMeta.description), /pilot 的一句介绍。/);
     assert.match(String(pilotMeta.description), /热度分记录/);
-    assert.match(String(pilotMeta.description), /2025-12-01/);
+    assert.match(String(pilotMeta.description), /2025-12-20/);
+    assert.doesNotMatch(String(pilotMeta.description), /2025-12-01/);
     assert.match(String(pilotMeta.description), /第 2 名/);
+    assert.match(String(pilotMeta.description), /峰值 15/);
     for (const pattern of BLOCKED) assert.doesNotMatch(String(pilotMeta.description), pattern);
     assert.match(String(pilotMeta.alternates?.canonical), /\/p\/pilot$/);
 
@@ -221,7 +224,9 @@ test("pilot pages gain factual sections and every other project page stays as it
     const view = pilotView as SeoPilotView;
     assert.equal(view.momentum?.bestRank, 2);
     assert.equal(view.momentum?.bestHeat, "15");
-    assert.equal(view.momentum?.firstTracked, "2025-12-01");
+    assert.equal(view.momentum?.firstTracked, "2025-12-20");
+    assert.match(view.momentum?.summaryZh ?? "", /自 2025-12-20 起追踪 7 天/);
+    assert.match(view.momentum?.summaryZh ?? "", /峰值 15，出现在 2026-01-04/);
     assert.equal(view.momentum?.trackedDays, 7);
     assert.equal(view.momentum?.publishedDays, 5);
     assert.equal(view.momentum?.rows.length, 7);
@@ -230,14 +235,11 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.match(view.momentum?.rows.at(-1)?.lineZh ?? "", /2025-12-20/);
     assert.doesNotMatch(view.momentum?.rows.at(-1)?.lineZh ?? "", /上榜|名次/);
     assert.deepEqual(view.peers?.peers.map((peer) => peer.slug), ["rust-a", "rust-b", "rust-c", "rust-d", "topic-peer"]);
-    assert.match(view.audience?.zh ?? "", /Rust/);
-    assert.match(view.audience?.zh ?? "", /cli/);
-    assert.match(view.audience?.zh ?? "", /MIT/);
-    assert.match(view.audience?.zh ?? "", /命令行/);
-    assert.match(view.audience?.en ?? "", /local runtime/);
+    assert.equal(view.audience?.zh, "适合使用 Rust、并且关注 cli 的人。它是一个代码库。仓库许可为 MIT。");
+    assert.doesNotMatch(`${view.audience?.zh ?? ""}\n${view.audience?.en ?? ""}`, /命令行|local runtime|API key|SKILL\.md/i);
     for (const pattern of BLOCKED) assert.doesNotMatch(seoPilotPlainText(view), pattern);
 
-    const rendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[] };
+    const rendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[] };
     renderSeo(SeoPilotSections({ view }), rendered);
     const renderedText = rendered.text.join("\n");
     assert.deepEqual(rendered.sections, ["momentum", "peers", "audience"]);
@@ -246,6 +248,9 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.match(renderedText, /MOMENTUM/);
     assert.match(renderedText, /同类项目对比/);
     assert.match(renderedText, /适合谁用/);
+    assert.deepEqual(rendered.detailsOpen, [false]);
+    assert.match(renderedText, /每日记录/);
+    assert.match(renderedText, /Daily record/);
     assert.ok(rendered.polylines.some((points) => points.includes(" ")));
     for (const href of ["/p/rust-a", "/p/rust-b", "/p/rust-c", "/p/rust-d", "/p/topic-peer"]) {
       assert.ok(rendered.hrefs.includes(href), href);
@@ -286,9 +291,11 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.equal(shadowSeo.audience, null);
     const shadowText = seoPilotPlainText(shadowSeo);
     assert.match(shadowText, /追踪记录/);
-    assert.doesNotMatch(shadowText, /上榜|名次/);
+    assert.match(shadowText, /上榜 0 天/);
+    assert.match(shadowText, /最高水平/);
+    assert.doesNotMatch(shadowText, /名次|峰值/);
     for (const pattern of BLOCKED) assert.doesNotMatch(shadowText, pattern);
-    const bareRendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[] };
+    const bareRendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[] };
     renderSeo(SeoPilotSections({ view: bareSeo }), bareRendered);
     assert.deepEqual(bareRendered.sections, ["momentum"]);
     assert.equal(bareRendered.text.join("\n").includes("适合谁用"), false);

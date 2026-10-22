@@ -176,7 +176,7 @@ export async function loadSeoPilotView(row: SeoProjectFields, oneLinerZh?: strin
     getTrackedSignalHistory(row.id),
     getSeoPeerCandidates(row),
   ]);
-  const momentum = buildMomentumSection({ firstTrackedAt: row.firstTrackedAt, points });
+  const momentum = buildMomentumSection({ points });
   const peers = buildPeerSection(row, candidates);
   const audience = buildAudienceSection(row);
   return {
