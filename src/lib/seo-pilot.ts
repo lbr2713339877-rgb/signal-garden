@@ -163,6 +163,8 @@ export type MomentumSection = {
   captionEn: string;
   noteZh: string | null;
   noteEn: string | null;
+  dataNoteZh: string;
+  dataNoteEn: string;
   rows: MomentumRow[];
   sparkline: { x: number; y: number }[];
 };
@@ -244,7 +246,7 @@ export function buildMomentumSection(input: {
     const heat = formatMomentum(point.heatScore);
     const place = publicRank(point);
     const listedZh = point.published ? "上榜 · " : "";
-    const listedEn = point.published ? "on the ranking · " : "";
+    const listedEn = point.published ? "Ranked · " : "";
     const rankZh = place == null ? "" : `名次 ${place} · `;
     const rankEn = place == null ? "" : `rank ${place} · `;
     return {
@@ -291,6 +293,7 @@ export function buildMomentumSection(input: {
       }
     : null;
   const sparkline = momentumSparkline(series.slice(-SPARKLINE_MAX).map((point) => point.heatScore));
+  const dataNote = seoPilotDataNote(publishedDays);
   return {
     firstTracked,
     trackedDays: series.length,
@@ -303,9 +306,20 @@ export function buildMomentumSection(input: {
     captionEn: "The line reads left to right by tracked date and shows momentum.",
     noteZh: note?.zh ?? null,
     noteEn: note?.en ?? null,
+    dataNoteZh: dataNote.zh,
+    dataNoteEn: dataNote.en,
     rows: visible,
     sparkline,
   };
+}
+
+const DATA_NOTE_EN = "Data note: the trend uses Signal Garden\u2019s daily tracked momentum scores; only dates marked \u201cRanked\u201d appeared on the public daily list.";
+
+export function seoPilotDataNote(publishedDays: number): { zh: string; en: string } {
+  const zh = publishedDays > 0
+    ? "数据说明：走势来自 Signal Garden 每日追踪的热度分；只有标注「上榜」的日期出现在公开每日榜单上。"
+    : "数据说明：走势来自 Signal Garden 每日追踪的热度分；该项目尚未出现在公开每日榜单上。";
+  return { zh, en: DATA_NOTE_EN };
 }
 
 export type SeoPeerSelf = {
@@ -530,6 +544,8 @@ export function seoPilotPlainText(view: Pick<SeoPilotView, "momentum" | "peers" 
       view.momentum.summaryEn,
       view.momentum.captionZh,
       view.momentum.captionEn,
+      view.momentum.dataNoteZh,
+      view.momentum.dataNoteEn,
     );
     if (view.momentum.noteZh) parts.push(view.momentum.noteZh);
     if (view.momentum.noteEn) parts.push(view.momentum.noteEn);

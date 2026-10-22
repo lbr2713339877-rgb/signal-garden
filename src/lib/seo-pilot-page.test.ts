@@ -255,6 +255,8 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.deepEqual(rendered.detailsOpen, [false]);
     assert.match(renderedText, /每日记录/);
     assert.match(renderedText, /Daily record/);
+    assert.match(renderedText, /数据说明：走势来自 Signal Garden 每日追踪的热度分；只有标注「上榜」的日期出现在公开每日榜单上。/);
+    assert.match(renderedText, /Data note: the trend uses Signal Garden\u2019s daily tracked momentum scores; only dates marked \u201cRanked\u201d appeared on the public daily list\./);
     assert.ok(rendered.polylines.some((points) => points.includes(" ")));
     for (const href of ["/p/rust-a", "/p/rust-b", "/p/rust-c", "/p/rust-d", "/p/topic-peer"]) {
       assert.ok(rendered.hrefs.includes(href), href);
@@ -295,6 +297,8 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.equal(shadowSeo.audience, null);
     const shadowText = seoPilotPlainText(shadowSeo);
     assert.match(shadowText, /追踪记录/);
+    assert.match(shadowText, /该项目尚未出现在公开每日榜单上/);
+    assert.doesNotMatch(shadowText, /只有标注「上榜」/);
     assert.match(shadowText, /最高水平/);
     assert.match(shadowText, /Tracked 6 days since/);
     assert.doesNotMatch(shadowText, /上榜|名次|峰值|published ranking|\b1 days\b/);
