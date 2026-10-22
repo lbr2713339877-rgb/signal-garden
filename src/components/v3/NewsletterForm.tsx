@@ -11,6 +11,7 @@ import { mailboxUrl } from "@/lib/newsletter/mailbox";
 import { resendAnalytics, subscribeAck, subscribeAnalyticsProps, type SubscribeLocation } from "@/lib/newsletter/placement";
 import { resendCooldownRemaining, resendCooldownSeconds } from "@/lib/newsletter/resend-policy";
 import { currentUtmSource, trackEvent } from "@/components/analytics/track";
+import { readStoredAttribution } from "@/lib/newsletter/attribution";
 import { loadTurnstile, scheduleTurnstileRender } from "./turnstile-widget";
 import { SUBSCRIBE_ID, SUBSCRIBE_SCROLL_MARGIN_PX } from "@/lib/subscribe-scroll";
 
@@ -194,6 +195,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
           source: location,
           formStartedAt: started,
           turnstileToken: token,
+          ...readStoredAttribution(),
         }),
       });
       const analytics = subscribeAnalyticsProps(location, currentUtmSource());

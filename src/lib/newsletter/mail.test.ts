@@ -138,6 +138,11 @@ test("confirm, welcome and daily letters include an unsubscribe footer in both l
   assert.match(mails[0].text, /按近期 star 增长等热度信号排序/);
   assert.match(mails[1].text, /ranked by recent star growth and other momentum signals/);
   assert.doesNotMatch(mails[1].text, /star\/fork growth/);
+  assert.match(mails[2].text, /我们不追踪打开和点击。我们会记录这次订阅的来源页面和活动标签/);
+  assert.match(mails[3].text, /do not track opens or clicks\. We record the referring page and campaign tag/);
+  assert.match(mails[3].text, /does not include an IP address/);
+  assert.doesNotMatch(mails[3].text, /[\u4e00-\u9fff]/);
+  assert.doesNotMatch(mails[3].html, /[\u4e00-\u9fff]/);
 });
 
 test("a missing 7-day fork count is omitted from the digest", async () => {
@@ -168,6 +173,7 @@ test("privacy draft covers the digest and the page date moved", () => {
     "privacy.newsletterP3",
     "privacy.newsletterP4",
     "privacy.newsletterP5",
+    "privacy.newsletterP6",
     "privacy.share5",
   ] as const) {
     assert.match(DICT[key][0], /[\u4e00-\u9fff]/);
@@ -175,11 +181,17 @@ test("privacy draft covers the digest and the page date moved", () => {
   }
   assert.match(DICT["privacy.newsletterP1"][0], /哈希/);
   assert.match(DICT["privacy.newsletterP1"][1], /hash of the IP address/);
+  assert.match(DICT["privacy.newsletterP6"][0], /来源页面和活动标签/);
+  assert.match(DICT["privacy.newsletterP6"][0], /不包含 IP 地址/);
+  assert.match(DICT["privacy.newsletterP6"][1], /referring page and campaign tag/);
+  assert.match(DICT["privacy.newsletterP6"][1], /does not include an IP address/);
+  assert.match(DICT["newsletter.privacy"][0], /订阅即表示你同意我们按隐私政策发送每周一周刊。/);
+  assert.match(DICT["newsletter.privacy"][1], /Subscribing means you agree that we email the Monday weekly digest as described in the privacy policy\./);
   assert.match(DICT["privacy.newsletterP3"][1], /United States or Japan/);
   assert.match(DICT["privacy.newsletterP3"][1], /do not enable open tracking/);
   assert.match(DICT["privacy.newsletterP4"][1], /one click/i);
   assert.match(DICT["privacy.newsletterP5"][0], /30 天/);
   assert.match(DICT["privacy.newsletterP5"][1], /keep only a hash/);
   const page = readFileSync(new URL("../../app/(site)/privacy/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /updated="2026-10-17"/);
+  assert.match(page, /updated="2026-10-22"/);
 });

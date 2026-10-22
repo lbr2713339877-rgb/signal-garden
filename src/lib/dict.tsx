@@ -685,8 +685,8 @@ export const DICT = {
     'This address was emailed several times. Check those messages, or try again later.',
   ],
   'newsletter.privacy': [
-    '订阅即表示你同意我们按隐私政策发送每周一周刊。',
-    'Subscribing means you agree that we email the Monday weekly digest as described in the privacy policy.',
+    '订阅即表示你同意我们按隐私政策发送每周一周刊。我们会记录这次订阅的来源页面和活动标签，这条记录不包含 IP 地址。',
+    'Subscribing means you agree that we email the Monday weekly digest as described in the privacy policy. We record the referring page and campaign tag for the signup, and that record does not include an IP address.',
   ],
   'weekly.kicker': ['公开样刊', 'PUBLIC SAMPLE'],
   'weekly.title': ['第 1 期', 'Issue 1'],
@@ -845,6 +845,10 @@ export const DICT = {
   'privacy.newsletterP5': [
     '退订后 30 天内我们会删除邮箱地址，只保留邮箱的哈希，用来识别这个地址，避免在没有新的确认时再次把它加入发送名单。',
     'Within 30 days of unsubscribe we delete the email address and keep only a hash of it, so we can recognize the address and will not add it back to the send list without a new confirmation.',
+  ],
+  'privacy.newsletterP6': [
+    '我们会记录这次订阅的来源页面和活动标签，这条记录不包含 IP 地址。',
+    'We record the referring page and campaign tag for the signup, and that record does not include an IP address.',
   ],
   'privacy.contactTitle': ['10. 联系方式', '10. Contact'],
   'privacy.contactP1': [

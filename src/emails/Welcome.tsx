@@ -28,8 +28,8 @@ export function WelcomeDigestEmail({ locale, todayUrl, unsubscribeUrl, siteUrl }
       </Heading>
       <Text className="text-muted mt-4 text-[15px] leading-7">
         {en
-          ? "The Monday weekly digest arrives on Monday. Every letter has an unsubscribe link, and we do not track opens or clicks."
-          : "每周一周刊会在周一寄出。每封信都可以退订。我们不追踪打开和点击。"}
+          ? "The Monday weekly digest arrives on Monday. Every letter has an unsubscribe link, and we do not track opens or clicks. We record the referring page and campaign tag for the signup, and that record does not include an IP address."
+          : "每周一周刊会在周一寄出。每封信都可以退订。我们不追踪打开和点击。我们会记录这次订阅的来源页面和活动标签，这条记录不包含 IP 地址。"}
       </Text>
       <Button
         href={todayUrl}
