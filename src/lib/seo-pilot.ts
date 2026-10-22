@@ -1,12 +1,13 @@
 /**
  * SEO copy pilot for /p/[slug].
  *
- * The pilot set is the 50 public projects with the most published ranking
- * days, and at least 3 days. Ties break by slug, so the same database always
- * yields the same set. `isSeoPilot(slug, pilot)` is that membership check.
+ * The pilot set is the 50 non-hidden projects with the most distinct
+ * daily_signal days, published or not, and at least 3 days. Ties break by
+ * published days, then slug, so the same database always yields the same set.
+ * `isSeoPilot(slug, pilot)` is that membership check.
  *
- * Sections come from stored fields and published ranking rows. A section is
- * left out when those fields are not enough. Nothing here calls a model.
+ * Sections come from stored fields and those tracked rows. A section is left
+ * out when those fields are not enough. Nothing here calls a model.
  */
 
 import { categoryLabelEn, categoryLabelZh } from "@/components/v3/category-color";
@@ -28,7 +29,7 @@ const BLOCKED = [new RegExp(["fo", "rk"].join(""), "i"), new RegExp(["fast", "es
 
 export const SEO_PILOT_COPY = {
   momentumKicker: { zh: "热度分", en: "MOMENTUM" },
-  momentumTitle: { zh: "热度分走势", en: "Momentum" },
+  momentumTitle: { zh: "追踪记录", en: "Tracked record" },
   peerKicker: { zh: "同类", en: "RELATED" },
   peerTitle: { zh: "同类项目对比", en: "Similar ranked projects" },
   audienceKicker: { zh: "读者", en: "WHO IT'S FOR" },
@@ -77,22 +78,35 @@ export function isSeoPilot(slug: string, pilot: Iterable<string>): boolean {
   return false;
 }
 
-/** Highest published-day counts, then slug. Projects under the minimum are left out. */
+export type SeoPilotCount = {
+  slug: string;
+  /** Distinct daily_signal days, any publish state. */
+  tracked: number | string;
+  /** Distinct days that were on the published ranking. */
+  published?: number | string | null;
+};
+
+/** Most tracked days, then published days, then slug. Under the minimum is left out. */
 export function selectSeoPilotSlugs(
-  rows: readonly { slug: string; points: number | string }[],
+  rows: readonly SeoPilotCount[],
   size = SEO_PILOT_SIZE,
-  minPoints = SEO_PILOT_MIN_POINTS,
+  minTracked = SEO_PILOT_MIN_POINTS,
 ): string[] {
-  const bySlug = new Map<string, number>();
+  const bySlug = new Map<string, { tracked: number; published: number }>();
   for (const row of rows) {
     const slug = String(row.slug ?? "").trim();
-    const points = Number(row.points);
-    if (!slug || !Number.isFinite(points)) continue;
-    bySlug.set(slug, Math.max(bySlug.get(slug) ?? 0, points));
+    const tracked = Number(row.tracked);
+    const published = Number(row.published ?? 0);
+    if (!slug || !Number.isFinite(tracked)) continue;
+    const next = { tracked, published: Number.isFinite(published) ? published : 0 };
+    const prev = bySlug.get(slug);
+    if (!prev || next.tracked > prev.tracked || (next.tracked === prev.tracked && next.published > prev.published)) {
+      bySlug.set(slug, next);
+    }
   }
   return [...bySlug.entries()]
-    .filter(([, points]) => points >= minPoints)
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .filter(([, counts]) => counts.tracked >= minTracked)
+    .sort((a, b) => b[1].tracked - a[1].tracked || b[1].published - a[1].published || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
     .slice(0, Math.max(0, size))
     .map(([slug]) => slug);
 }
@@ -125,13 +139,17 @@ export function asIsoDay(value: string | Date | null | undefined): string | null
 
 export type RankingPoint = {
   date: string | Date;
-  rank: number;
-  heatScore: number;
+  /** Public place when the day was published. Unpublished and review rows may be 0 or null. */
+  rank?: number | null;
+  /** Stored 热度分. Unpublished rows have one; a missing value is skipped. */
+  heatScore?: number | null;
+  published?: boolean;
 };
 
 export type MomentumRow = {
   date: string;
-  rank: number;
+  rank: number | null;
+  published: boolean;
   heat: string;
   delta: number | null;
   lineZh: string;
@@ -140,8 +158,9 @@ export type MomentumRow = {
 
 export type MomentumSection = {
   firstTracked: string;
-  appearances: number;
-  bestRank: number;
+  trackedDays: number;
+  publishedDays: number;
+  bestRank: number | null;
   bestHeat: string;
   summaryZh: string;
   summaryEn: string;
@@ -174,24 +193,39 @@ export function momentumSparkline(
 }
 
 function changeClause(delta: number | null): { zh: string; en: string } {
-  if (delta == null) return { zh: "首次出现", en: "first appearance" };
+  if (delta == null) return { zh: "首次记录", en: "first tracked day" };
   const rounded = Math.round(delta * 10) / 10;
-  if (rounded === 0) return { zh: "较上次出现持平", en: "unchanged vs the previous appearance" };
+  if (rounded === 0) return { zh: "较上次记录持平", en: "unchanged vs the previous tracked day" };
   const label = formatMomentumDelta(rounded);
-  return { zh: `较上次出现 ${label}`, en: `${label} vs the previous appearance` };
+  return { zh: `较上次记录 ${label}`, en: `${label} vs the previous tracked day` };
+}
+
+type TrackedPoint = { date: string; heatScore: number; published: boolean; rank: number | null };
+
+function publicRank(point: TrackedPoint): number | null {
+  if (!point.published || point.rank == null || !Number.isInteger(point.rank) || point.rank < 1) return null;
+  return point.rank;
 }
 
 export function buildMomentumSection(input: {
   firstTrackedAt?: string | Date | null;
   points: RankingPoint[];
 }): MomentumSection | null {
-  const byDate = new Map<string, { date: string; rank: number; heatScore: number }>();
+  const byDate = new Map<string, TrackedPoint>();
   for (const point of input.points) {
     const date = asIsoDay(point.date);
-    const heatScore = Number(point.heatScore);
-    const rank = Number(point.rank);
-    if (!date || !Number.isFinite(heatScore) || !Number.isInteger(rank) || rank < 1) continue;
-    byDate.set(date, { date, rank, heatScore });
+    const heatScore = point.heatScore == null ? Number.NaN : Number(point.heatScore);
+    if (!date || !Number.isFinite(heatScore)) continue;
+    const published = point.published === true;
+    const rankNumber = point.rank == null ? Number.NaN : Number(point.rank);
+    const next: TrackedPoint = {
+      date,
+      heatScore,
+      published,
+      rank: Number.isInteger(rankNumber) ? rankNumber : null,
+    };
+    const prev = byDate.get(date);
+    if (!prev || (next.published && !prev.published)) byDate.set(date, next);
   }
   const series = [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   if (series.length < SEO_PILOT_MIN_POINTS) return null;
@@ -201,40 +235,53 @@ export function buildMomentumSection(input: {
     const delta = prev ? point.heatScore - prev.heatScore : null;
     const change = changeClause(delta);
     const heat = formatMomentum(point.heatScore);
+    const place = publicRank(point);
+    const listedZh = point.published ? "上榜 · " : "";
+    const listedEn = point.published ? "on the ranking · " : "";
+    const rankZh = place == null ? "" : `名次 ${place} · `;
+    const rankEn = place == null ? "" : `rank ${place} · `;
     return {
       date: point.date,
-      rank: point.rank,
+      rank: place,
+      published: point.published,
       heat,
       delta,
-      lineZh: `${point.date} · 名次 ${point.rank} · 热度分 ${heat} · ${change.zh}`,
-      lineEn: `${point.date} · rank ${point.rank} · momentum ${heat} · ${change.en}`,
+      lineZh: `${point.date} · ${listedZh}${rankZh}热度分 ${heat} · ${change.zh}`,
+      lineEn: `${point.date} · ${listedEn}${rankEn}momentum ${heat} · ${change.en}`,
     };
   });
 
-  const bestRank = Math.min(...series.map((point) => point.rank));
+  const publishedPlaces = series.map(publicRank).filter((rank): rank is number => rank != null);
+  const bestRank = publishedPlaces.length ? Math.min(...publishedPlaces) : null;
   const bestHeat = formatMomentum(Math.max(...series.map((point) => point.heatScore)));
+  const publishedDays = series.filter((point) => point.published).length;
   const firstTracked = asIsoDay(input.firstTrackedAt) ?? series[0]!.date;
   const latest = rowsChrono[rowsChrono.length - 1]!;
   const latestChange = changeClause(latest.delta);
-  const summaryZh = `首次记录 ${firstTracked}，上榜 ${series.length} 次。最近热度分 ${latest.heat}（${latestChange.zh}），记录里排到过第 ${bestRank} 名，热度分到过 ${bestHeat}。`;
-  const summaryEn = `First tracked ${firstTracked}. On the ranking ${series.length} times. Latest momentum ${latest.heat} (${latestChange.en}). Rank in this record reached ${bestRank}. Momentum in this record reached ${bestHeat}.`;
+  const publishedClause = publishedDays > 0 ? `，上榜 ${publishedDays} 天` : "";
+  const rankClause = bestRank != null ? `上榜记录里排到过第 ${bestRank} 名。` : "";
+  const summaryZh = `首次记录 ${firstTracked}。追踪 ${series.length} 天${publishedClause}。最近热度分 ${latest.heat}（${latestChange.zh}）。${rankClause}热度分到过 ${bestHeat}。`;
+  const publishedEn = publishedDays > 0 ? `, ${publishedDays} on the published ranking` : "";
+  const rankEn = bestRank != null ? ` Published rank in this record reached ${bestRank}.` : "";
+  const summaryEn = `First tracked ${firstTracked}. ${series.length} tracked days${publishedEn}. Latest momentum ${latest.heat} (${latestChange.en}).${rankEn} Momentum in this record reached ${bestHeat}.`;
   const visible = rowsChrono.slice(-LIST_MAX).reverse();
   const note = series.length > visible.length
     ? {
-        zh: `共 ${series.length} 次上榜，这里列出最近 ${visible.length} 次。`,
-        en: `${series.length} ranking appearances; the latest ${visible.length} are listed.`,
+        zh: `共 ${series.length} 天追踪记录，这里列出最近 ${visible.length} 天。`,
+        en: `${series.length} tracked days; the latest ${visible.length} are listed.`,
       }
     : null;
   const sparkline = momentumSparkline(series.slice(-SPARKLINE_MAX).map((point) => point.heatScore));
   return {
     firstTracked,
-    appearances: series.length,
+    trackedDays: series.length,
+    publishedDays,
     bestRank,
     bestHeat,
     summaryZh,
     summaryEn,
-    captionZh: "折线从左到右按上榜日期排列，表示热度分。",
-    captionEn: "The line reads left to right by ranking date and shows momentum.",
+    captionZh: "折线从左到右按追踪日期排列，表示热度分。",
+    captionEn: "The line reads left to right by tracked date and shows momentum.",
     noteZh: note?.zh ?? null,
     noteEn: note?.en ?? null,
     rows: visible,

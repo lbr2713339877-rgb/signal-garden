@@ -91,7 +91,7 @@ export async function generateMetadata({
     oneLinerZh: localized.oneLiner.zh,
     oneLinerEn: localized.oneLiner.en,
   };
-  // Membership is public ranking history, not the visitor. Non-members keep
+  // Membership is tracked-day length, not the visitor. Non-members keep
   // the same description this route already returned.
   if (!isSeoPilot(data.project.slug, pilot)) return projectPageMetadata(base);
   const seo = await loadSeoPilotView(data.project, localized.oneLiner.zh);

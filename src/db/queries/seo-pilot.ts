@@ -1,9 +1,12 @@
 /**
  * Pilot membership and the rows the project page turns into sections.
- * Published ranking days only. Hidden projects are not eligible.
+ * Tracked days are every daily_signal row. Hidden projects are not eligible.
+ * Unpublished rows still store heat_score (the column is required). Rank 0 is
+ * a review hold, not a public place.
  */
 
-import { and, asc, eq, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
+import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { dailySignal } from "@/db/schema";
 import {
@@ -61,38 +64,59 @@ function asTopics(value: unknown): string[] {
   return [];
 }
 
-export async function getSeoPilotSlugSet(): Promise<Set<string>> {
+async function querySeoPilotSlugs(): Promise<string[]> {
   const d = await db();
   const result = await d.execute(sql`
-    SELECT p.slug AS slug, count(*)::int AS points
+    SELECT p.slug AS slug,
+           count(DISTINCT s.signal_date)::int AS tracked,
+           count(DISTINCT CASE WHEN s.is_published THEN s.signal_date END)::int AS published
     FROM daily_signal s
     INNER JOIN project p ON p.id = s.project_id
-    WHERE s.is_published = true AND p.hidden = false
+    WHERE p.hidden = false
     GROUP BY p.slug
-    HAVING count(*) >= ${SEO_PILOT_MIN_POINTS}
+    HAVING count(DISTINCT s.signal_date) >= ${SEO_PILOT_MIN_POINTS}
   `);
   const rows = readRows(result).map((row) => ({
     slug: String(row.slug ?? ""),
-    points: Number(row.points ?? row.count),
+    tracked: Number(row.tracked),
+    published: Number(row.published),
   }));
-  return new Set(selectSeoPilotSlugs(rows));
+  return selectSeoPilotSlugs(rows);
 }
 
-export async function getPublishedRankingHistory(projectId: string): Promise<RankingPoint[]> {
+const loadSeoPilotSlugs = unstable_cache(querySeoPilotSlugs, ["seo-pilot-slugs"], { revalidate: 3600 });
+
+export async function getSeoPilotSlugSet(): Promise<Set<string>> {
+  try {
+    return new Set(await loadSeoPilotSlugs());
+  } catch (error) {
+    // The slug script and node:test have no Next incremental cache. The page
+    // does, so generateMetadata and the page share one hourly result.
+    if (error instanceof Error && error.message.includes("incrementalCache missing")) {
+      return new Set(await querySeoPilotSlugs());
+    }
+    throw error;
+  }
+}
+
+/** Every stored 热度分 snapshot. Days without a finite score are dropped later. */
+export async function getTrackedSignalHistory(projectId: string): Promise<RankingPoint[]> {
   const d = await db();
   const rows = await d
     .select({
       date: sql<string>`${dailySignal.signalDate}::text`,
       rank: dailySignal.rank,
       heatScore: dailySignal.heatScore,
+      published: dailySignal.isPublished,
     })
     .from(dailySignal)
-    .where(and(eq(dailySignal.projectId, projectId), eq(dailySignal.isPublished, true)))
+    .where(eq(dailySignal.projectId, projectId))
     .orderBy(asc(dailySignal.signalDate));
   return rows.map((row) => ({
     date: String(row.date),
     rank: row.rank,
     heatScore: row.heatScore,
+    published: row.published,
   }));
 }
 
@@ -149,7 +173,7 @@ export async function getSeoPeerCandidates(row: SeoProjectFields): Promise<SeoPe
 
 export async function loadSeoPilotView(row: SeoProjectFields, oneLinerZh?: string | null): Promise<SeoPilotView> {
   const [points, candidates] = await Promise.all([
-    getPublishedRankingHistory(row.id),
+    getTrackedSignalHistory(row.id),
     getSeoPeerCandidates(row),
   ]);
   const momentum = buildMomentumSection({ firstTrackedAt: row.firstTrackedAt, points });

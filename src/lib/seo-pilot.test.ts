@@ -33,13 +33,15 @@ function series(count: number, heatAt: (index: number) => number = (index) => in
     date: day(index),
     rank: rankAt(index),
     heatScore: heatAt(index),
+    published: true,
   }));
 }
 
-test("pilot membership is the longest published histories, capped and tied by slug", () => {
+test("pilot membership is the longest tracked histories, then published days, then slug", () => {
   const rows = Array.from({ length: 60 }, (_, index) => ({
     slug: `p${String(index + 1).padStart(2, "0")}`,
-    points: index + 1,
+    tracked: index + 1,
+    published: index % 3,
   }));
   const picked = selectSeoPilotSlugs(rows);
   assert.equal(picked.length, SEO_PILOT_SIZE);
@@ -53,14 +55,15 @@ test("pilot membership is the longest published histories, capped and tied by sl
   assert.equal(isSeoPilot("", picked), false);
 
   assert.deepEqual(selectSeoPilotSlugs([
-    { slug: "c", points: 5 },
-    { slug: "a", points: "5" },
-    { slug: "b", points: 4 },
-    { slug: "d", points: SEO_PILOT_MIN_POINTS - 1 },
-  ], 10), ["a", "c", "b"]);
+    { slug: "c", tracked: 5, published: 1 },
+    { slug: "a", tracked: "5", published: "4" },
+    { slug: "b", tracked: 5, published: 4 },
+    { slug: "e", tracked: 9, published: 0 },
+    { slug: "d", tracked: SEO_PILOT_MIN_POINTS - 1, published: 2 },
+  ], 10), ["e", "a", "b", "c"]);
 });
 
-test("momentum section needs three ranking days and states the record without a ranking claim", () => {
+test("momentum section needs three scored days and labels published days apart from tracked ones", () => {
   assert.equal(buildMomentumSection({ points: [] }), null);
   assert.equal(buildMomentumSection({ points: series(2) }), null);
   assert.equal(buildMomentumSection({
@@ -74,25 +77,29 @@ test("momentum section needs three ranking days and states the record without a 
   const section = buildMomentumSection({
     firstTrackedAt: "2025-12-01T00:00:00.000Z",
     points: [
-      { date: "2026-01-03", rank: 7, heatScore: 11 },
-      { date: "2026-01-01", rank: 8, heatScore: 10 },
-      { date: "2026-01-05", rank: 4, heatScore: 14 },
-      { date: "2026-01-02", rank: 6, heatScore: 12.5 },
-      { date: "2026-01-04", rank: 2, heatScore: 15 },
+      { date: "2026-01-03", rank: 7, heatScore: 11, published: true },
+      { date: "2026-01-01", rank: 8, heatScore: 10, published: true },
+      { date: "2026-01-05", rank: 4, heatScore: 14, published: true },
+      { date: "2026-01-02", rank: 6, heatScore: 12.5, published: true },
+      { date: "2026-01-04", rank: 2, heatScore: 15, published: true },
     ],
   });
   assert.ok(section);
   assert.equal(section!.firstTracked, "2025-12-01");
-  assert.equal(section!.appearances, 5);
+  assert.equal(section!.trackedDays, 5);
+  assert.equal(section!.publishedDays, 5);
   assert.equal(section!.bestRank, 2);
   assert.equal(section!.bestHeat, "15");
   assert.equal(section!.rows[0]?.date, "2026-01-05");
+  assert.match(section!.rows[0]!.lineZh, /上榜/);
+  assert.match(section!.rows[0]!.lineZh, /名次 4/);
   assert.match(section!.rows[0]!.lineZh, /热度分 14/);
-  assert.match(section!.rows[0]!.lineZh, /较上次出现 −1/);
+  assert.match(section!.rows[0]!.lineZh, /较上次记录 −1/);
   assert.match(section!.rows[0]!.lineEn, /momentum 14/);
-  assert.match(section!.rows[0]!.lineEn, /−1 vs the previous appearance/);
-  assert.match(section!.rows.at(-1)!.lineZh, /首次出现/);
+  assert.match(section!.rows[0]!.lineEn, /−1 vs the previous tracked day/);
+  assert.match(section!.rows.at(-1)!.lineZh, /首次记录/);
   assert.match(section!.summaryZh, /2025-12-01/);
+  assert.match(section!.summaryZh, /追踪 5 天，上榜 5 天/);
   assert.match(section!.summaryZh, /第 2 名/);
   assert.match(section!.summaryEn, /momentum/i);
   assert.equal(section!.sparkline.length, 5);
@@ -103,19 +110,60 @@ test("momentum section needs three ranking days and states the record without a 
   const flat = buildMomentumSection({ points: series(3, () => 8) });
   assert.ok(flat);
   assert.ok(flat!.sparkline.every((point) => point.y === flat!.sparkline[0]!.y));
-  assert.match(flat!.rows[0]!.lineZh, /较上次出现持平/);
+  assert.match(flat!.rows[0]!.lineZh, /较上次记录持平/);
 
   const long = buildMomentumSection({
     points: series(30, (index) => 5 + index, (index) => (index === 0 ? 1 : 9)),
   });
   assert.ok(long);
-  assert.equal(long!.appearances, 30);
+  assert.equal(long!.trackedDays, 30);
   assert.equal(long!.rows.length, 24);
   assert.equal(long!.bestRank, 1);
   assert.equal(long!.rows.some((row) => row.rank === 1), false);
   assert.match(long!.summaryZh, new RegExp(day(0)));
-  assert.match(long!.noteZh ?? "", /最近 24 次/);
+  assert.match(long!.noteZh ?? "", /最近 24 天/);
   assert.equal(long!.sparkline.length, 30);
+
+  assert.equal(buildMomentumSection({
+    points: [
+      { date: "2026-01-01", rank: 1, heatScore: null, published: true },
+      { date: "2026-01-02", rank: 1, heatScore: 10, published: true },
+      { date: "2026-01-03", rank: 1, heatScore: 11, published: false },
+    ],
+  }), null);
+
+  const mixed = buildMomentumSection({
+    firstTrackedAt: "2025-11-01",
+    points: [
+      { date: "2026-01-01", rank: 1, heatScore: 10, published: false },
+      { date: "2026-01-02", rank: 4, heatScore: 12, published: true },
+      { date: "2026-01-03", rank: 0, heatScore: 9, published: false },
+      { date: "2026-01-04", rank: null, heatScore: Number.NaN, published: true },
+    ],
+  });
+  assert.ok(mixed);
+  assert.equal(mixed!.trackedDays, 3);
+  assert.equal(mixed!.publishedDays, 1);
+  assert.equal(mixed!.bestRank, 4);
+  assert.equal(mixed!.bestHeat, "12");
+  assert.match(mixed!.rows[0]!.lineZh, /2026-01-03/);
+  assert.doesNotMatch(mixed!.rows[0]!.lineZh, /上榜|名次/);
+  assert.match(mixed!.rows[1]!.lineZh, /上榜/);
+  assert.match(mixed!.rows[1]!.lineZh, /名次 4/);
+  assert.match(mixed!.rows[2]!.lineZh, /首次记录/);
+  assert.doesNotMatch(mixed!.rows[2]!.lineZh, /上榜|名次/);
+  assert.match(mixed!.summaryZh, /追踪 3 天，上榜 1 天/);
+  assert.match(mixed!.summaryZh, /第 4 名/);
+  assertClear(seoPilotPlainText({ momentum: mixed, peers: null, audience: null, metaDescription: null }));
+
+  const quiet = buildMomentumSection({
+    points: series(3).map((point) => ({ ...point, published: false, rank: 1 })),
+  });
+  assert.ok(quiet);
+  assert.equal(quiet!.bestRank, null);
+  assert.equal(quiet!.publishedDays, 0);
+  assert.doesNotMatch(quiet!.summaryZh, /上榜/);
+  assert.doesNotMatch(seoPilotPlainText({ momentum: quiet, peers: null, audience: null, metaDescription: null }), /上榜|名次/);
 });
 
 test("peer section needs three real overlaps and does not sort by the score", () => {
@@ -297,9 +345,14 @@ test("non-pilot metadata stays the body summary, and sitemap plus classic stay o
   const page = readFileSync("src/app/p/[slug]/page.tsx", "utf8");
   const classic = readFileSync("src/app/p/[slug]/classic/page.tsx", "utf8");
   const sitemap = readFileSync("src/app/sitemap.ts", "utf8");
+  const query = readFileSync("src/db/queries/seo-pilot.ts", "utf8");
   assert.match(page, /export const revalidate = 3600/);
   assert.match(page, /isSeoPilot\(/);
   assert.doesNotMatch(page, /cookies\(|headers\(|getCurrentUser/);
   assert.doesNotMatch(classic, /isSeoPilot|SeoPilot/);
   assert.doesNotMatch(sitemap, /isSeoPilot|SeoPilot/);
+  assert.match(query, /unstable_cache\(/);
+  assert.match(query, /revalidate:\s*3600/);
+  assert.match(query, /count\(DISTINCT s\.signal_date\)/);
+  assert.doesNotMatch(query, /WHERE s\.is_published = true AND p\.hidden/);
 });

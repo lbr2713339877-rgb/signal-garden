@@ -110,12 +110,35 @@ test("pilot pages gain factual sections and every other project page stays as it
       firstTrackedAt: new Date("2025-12-01T00:00:00.000Z"),
     });
     await publish(pilot.id, [
+      { date: "2025-12-20", rank: 20, heat: 8 },
+      { date: "2025-12-21", rank: 11, heat: 9 },
+    ], false);
+    await publish(pilot.id, [
       { date: "2026-01-01", rank: 8, heat: 10 },
       { date: "2026-01-02", rank: 6, heat: 12.5 },
       { date: "2026-01-03", rank: 7, heat: 11 },
       { date: "2026-01-04", rank: 2, heat: 15 },
       { date: "2026-01-05", rank: 4, heat: 14 },
     ]);
+
+    const listed = await add("listed");
+    await publish(listed.id, [
+      { date: "2026-05-01", rank: 3, heat: 4 },
+      { date: "2026-05-02", rank: 2, heat: 5 },
+    ]);
+    await publish(listed.id, [
+      { date: "2026-05-03", rank: 8, heat: 4 },
+      { date: "2026-05-04", rank: 8, heat: 4 },
+      { date: "2026-05-05", rank: 8, heat: 4 },
+      { date: "2026-05-06", rank: 8, heat: 4 },
+    ], false);
+
+    const shadow = await add("shadow");
+    await publish(shadow.id, Array.from({ length: 6 }, (_, index) => ({
+      date: `2026-06-${String(index + 1).padStart(2, "0")}`,
+      rank: index + 1,
+      heat: index + 2,
+    })), false);
 
     const bare = await add("bare");
     await publish(bare.id, [
@@ -153,7 +176,7 @@ test("pilot pages gain factual sections and every other project page stays as it
     const draft = await add("draft-peer", { language: "Rust", primaryCategory: "dev-tools" });
     await publish(draft.id, [{ date: "2026-04-03", rank: 1, heat: 99 }], false);
 
-    assert.deepEqual([...(await getSeoPilotSlugSet())], ["pilot", "bare"]);
+    assert.deepEqual([...(await getSeoPilotSlugSet())], ["pilot", "listed", "shadow", "bare"]);
 
     const thinMeta = await generateMetadata({ params: Promise.resolve({ slug: "thin" }) });
     assert.equal(thinMeta.description, projectPageMetadata({
@@ -199,8 +222,13 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.equal(view.momentum?.bestRank, 2);
     assert.equal(view.momentum?.bestHeat, "15");
     assert.equal(view.momentum?.firstTracked, "2025-12-01");
-    assert.equal(view.momentum?.rows.length, 5);
-    assert.match(view.momentum?.rows[0]?.lineZh ?? "", /较上次出现 −1/);
+    assert.equal(view.momentum?.trackedDays, 7);
+    assert.equal(view.momentum?.publishedDays, 5);
+    assert.equal(view.momentum?.rows.length, 7);
+    assert.match(view.momentum?.rows[0]?.lineZh ?? "", /上榜/);
+    assert.match(view.momentum?.rows[0]?.lineZh ?? "", /较上次记录 −1/);
+    assert.match(view.momentum?.rows.at(-1)?.lineZh ?? "", /2025-12-20/);
+    assert.doesNotMatch(view.momentum?.rows.at(-1)?.lineZh ?? "", /上榜|名次/);
     assert.deepEqual(view.peers?.peers.map((peer) => peer.slug), ["rust-a", "rust-b", "rust-c", "rust-d", "topic-peer"]);
     assert.match(view.audience?.zh ?? "", /Rust/);
     assert.match(view.audience?.zh ?? "", /cli/);
@@ -213,8 +241,9 @@ test("pilot pages gain factual sections and every other project page stays as it
     renderSeo(SeoPilotSections({ view }), rendered);
     const renderedText = rendered.text.join("\n");
     assert.deepEqual(rendered.sections, ["momentum", "peers", "audience"]);
-    assert.match(renderedText, /热度分走势/);
-    assert.match(renderedText, /Momentum/);
+    assert.match(renderedText, /追踪记录/);
+    assert.match(renderedText, /Tracked record/);
+    assert.match(renderedText, /MOMENTUM/);
     assert.match(renderedText, /同类项目对比/);
     assert.match(renderedText, /适合谁用/);
     assert.ok(rendered.polylines.some((points) => points.includes(" ")));
@@ -242,6 +271,23 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.equal(bareSeo.audience, null);
     assert.equal(bareSeo.momentum?.firstTracked, "2026-02-01");
     assert.notEqual(bareSeo.momentum?.summaryZh, view.momentum?.summaryZh);
+
+    const shadowPage = await ProjectPage({ params: Promise.resolve({ slug: "shadow" }) });
+    let shadowView: SeoPilotView | null = null;
+    walk(shadowPage, (el) => {
+      if (el.type === SeoPilotSections) shadowView = el.props.view as SeoPilotView;
+    });
+    assert.ok(shadowView);
+    const shadowSeo = shadowView as SeoPilotView;
+    assert.ok(shadowSeo.momentum);
+    assert.equal(shadowSeo.momentum?.bestRank, null);
+    assert.equal(shadowSeo.momentum?.publishedDays, 0);
+    assert.equal(shadowSeo.peers, null);
+    assert.equal(shadowSeo.audience, null);
+    const shadowText = seoPilotPlainText(shadowSeo);
+    assert.match(shadowText, /追踪记录/);
+    assert.doesNotMatch(shadowText, /上榜|名次/);
+    for (const pattern of BLOCKED) assert.doesNotMatch(shadowText, pattern);
     const bareRendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[] };
     renderSeo(SeoPilotSections({ view: bareSeo }), bareRendered);
     assert.deepEqual(bareRendered.sections, ["momentum"]);
