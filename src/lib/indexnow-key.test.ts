@@ -10,8 +10,9 @@ test("the IndexNow key file is a next.config rewrite, not a middleware rewrite",
   const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
   assert.doesNotMatch(middleware, /indexnow/i);
   assert.doesNotMatch(middleware, /NextResponse\.rewrite/);
-  assert.match(middleware, /aliasRedirectPath/);
-  assert.match(middleware, /NextResponse\.redirect\(location, 308\)/);
+  assert.doesNotMatch(middleware, /slug-alias/);
+  assert.doesNotMatch(middleware, /NextResponse\.redirect/);
+  assert.match(middleware, /hasSupabaseAuthCookie/);
 
   const rewrites = await nextConfig.rewrites!();
   const rules = Array.isArray(rewrites)

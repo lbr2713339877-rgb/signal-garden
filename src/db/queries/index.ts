@@ -177,6 +177,18 @@ export async function getTodaysSignals(limit = TODAY_LIMIT): Promise<{ date: str
   return { date, cards: await withOneLiners(rows) };
 }
 
+/** Slugs on a published edition. Used to prerender and to drop stale /p HTML. */
+export async function publishedProjectSlugs(date: string): Promise<string[]> {
+  const d = await db();
+  const rows = await d
+    .select({ slug: project.slug })
+    .from(dailySignal)
+    .innerJoin(project, eq(project.id, dailySignal.projectId))
+    .where(and(eq(dailySignal.signalDate, date), eq(dailySignal.isPublished, true), eq(project.hidden, false)))
+    .orderBy(dailySignal.rank);
+  return rows.map((row) => row.slug);
+}
+
 /** Historical editions use their saved publication dates, ranks and scores. */
 export async function getArchiveEditions(limit = 14): Promise<{ date: string; cards: ProjectCard[] }[]> {
   const d = await db();

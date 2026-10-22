@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
-import { WEEKLY_ISSUE_1 } from "./weekly-sample";
+import { WEEKLY_ISSUE_1, publicWeeklyIssues } from "./weekly-sample";
 
 const BANNED = /unsubscribe|resend|subscriber|email_hash|@|List-Unsubscribe|\?t=/i;
 
@@ -30,10 +30,20 @@ test("issue 1 is a public 10-item week with no subscriber data", () => {
     assert.equal(item.href, `/p/${item.slug}`);
     assert.doesNotMatch(`${item.zh} ${item.en} ${item.href}`, BANNED);
   }
-  const page = readFileSync(new URL("../app/weekly/1/page.tsx", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../app/(site)/weekly/1/page.tsx", import.meta.url), "utf8");
   const sample = readFileSync(new URL("./weekly-sample.ts", import.meta.url), "utf8");
   assert.match(page, /WEEKLY_ISSUE_1/);
   assert.doesNotMatch(page, /newsletterSubscriber|resend|unsubscribe|getFeedEdition|@\/db/);
   assert.doesNotMatch(sample, /newsletterSubscriber|resend|unsubscribe|process\.env/);
   assert.doesNotMatch(JSON.stringify(WEEKLY_ISSUE_1), BANNED);
+});
+
+test("every public /weekly/<n> page is an IndexNow issue", () => {
+  const numbers = readdirSync(new URL("../app/(site)/weekly", import.meta.url), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name))
+    .map((entry) => Number(entry.name));
+  const known = new Set(publicWeeklyIssues().map((issue) => issue.number));
+  assert.deepEqual(numbers, [1]);
+  for (const number of numbers) assert.equal(known.has(number), true, String(number));
+  assert.equal(publicWeeklyIssues()[0]?.publishedOn, WEEKLY_ISSUE_1.to);
 });

@@ -7,7 +7,7 @@ import { SEARCH_ROUTE_EXISTS, siteJsonLd } from "@/lib/jsonld";
 import { RANKING_ZH_SHORT } from "@/lib/site";
 import { fontVariableClassName } from "./fonts";
 import "./globals.css";
-import "./v3/tokens.css";
+import "./(site)/v3/tokens.css";
 
 /**
  * Every face is self-hosted by next/font (see ./fonts.ts). The @font-face

@@ -1,3 +1,4 @@
+/** Outside `(site)` so this stays `/today/opengraph-image`. A route-group parent makes Next hash the filename. */
 import { getFeedEdition } from "@/db/queries";
 import { signalDate } from "@/lib/day";
 import { renderTodayOg } from "@/lib/og/render";

@@ -198,3 +198,14 @@ export const WEEKLY_ISSUE_1 = {
   to: "2026-10-19",
   items: pickWeeklySample(ISSUE_1_DAYS),
 };
+
+export interface PublicWeeklyIssue {
+  number: number;
+  /** Day the public /weekly/<n> page went live. IndexNow treats a match as a new issue. */
+  publishedOn: string;
+}
+
+/** Public issue pages. A new src/app/(site)/weekly/<n> page belongs in this list. */
+export function publicWeeklyIssues(): PublicWeeklyIssue[] {
+  return [{ number: WEEKLY_ISSUE_1.issue, publishedOn: WEEKLY_ISSUE_1.to }];
+}

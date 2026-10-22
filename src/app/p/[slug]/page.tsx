@@ -9,8 +9,9 @@ import { CapabilityList } from '@/components/v3/detail/CapabilityList';
 import { DetailInstall, type InstallCommand } from '@/components/v3/detail/DetailInstall';
 import { DetailLimits, type LimitItem } from '@/components/v3/detail/DetailLimits';
 import { categoryColor, categoryLabelEn, categoryLabelZh } from '@/components/v3/category-color';
-import { getProjectBySlug, getProjectCopy } from '@/db/queries';
+import { getProjectBySlug, getProjectCopy, publishedProjectSlugs } from '@/db/queries';
 import { canonicalProjectSlug } from '@/lib/slug-alias';
+import { signalDate } from '@/lib/day';
 import { redirectIfAlias } from '@/lib/slug-redirect';
 import {
   DIFFICULTY_LABEL,
@@ -36,7 +37,35 @@ import { ReadmeBadge } from '@/components/v3/ReadmeBadge';
 import { projectWasFeatured } from '@/db/queries/featured';
 import { ownerRepo } from '@/lib/badge';
 
-export const revalidate = 0;
+/**
+ * Shared HTML, refreshed at least hourly and again at the end of `pnpm job daily`.
+ * The hit path must not read cookies, headers, or searchParams: that would opt
+ * the route out of the cache and could bake a session into the HTML. Saves,
+ * follows, and the account menu live in client components and load after paint.
+ *
+ * A miss must not read them either. This route is in the prerender manifest, so
+ * awaiting searchParams during the on-demand static fill sets revalidate to 0
+ * and production responds 500 (`DYNAMIC_SERVER_USAGE` / app-static-to-dynamic).
+ * The alias 308 is therefore the canonical path with no query string. `/classic`
+ * and `/feedback` stay dynamic and still keep the query.
+ */
+export const revalidate = 3600;
+/** Unknown slugs, including aliases, still render on demand so a miss can 308. */
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  // Today's edition is a few rows. PGlite allows one process on its data
+  // directory, and `next build` prerenders pages in parallel, so a file-backed
+  // build leaves these to the first request. Postgres builds prerender them.
+  if (!process.env.DATABASE_URL) return [];
+  try {
+    const slugs = await publishedProjectSlugs(signalDate());
+    return slugs.map((slug) => ({ slug }));
+  } catch (error) {
+    console.error("[p] generateStaticParams skipped", error);
+    return [];
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -44,13 +73,14 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const current = await canonicalProjectSlug(slug);
-  const data = await getProjectBySlug(current);
+  const direct = await getProjectBySlug(slug);
+  const current = direct ? slug : await canonicalProjectSlug(slug);
+  const data = direct ?? (current === slug ? null : await getProjectBySlug(current));
   if (!data) return projectPageMetadata({ slug: current, name: current });
   const copy = await getProjectCopy(data.project.id);
   const localized = pickLocalizedCopy(copy, data.project.description ?? null);
   return projectPageMetadata({
-    slug: current,
+    slug: data.project.slug,
     name: data.project.name,
     oneLinerZh: localized.oneLiner.zh,
     oneLinerEn: localized.oneLiner.en,
@@ -80,15 +110,17 @@ function fmtStamp(v: string | Date | null | undefined): string {
 
 export default async function ProjectPageV3({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
-  await redirectIfAlias("/p", slug, await searchParams);
   const data = await getProjectBySlug(slug);
-  if (!data) notFound();
+  if (!data) {
+    // Alias lookup only on a miss, so a cached project page never waits on it.
+    // The query string is intentionally omitted. See the revalidate comment.
+    await redirectIfAlias("/p", slug, {});
+    notFound();
+  }
 
   const { project: p, skills, content, mentions, history } = data;
   const isWebsite = p.projectKind !== "repo";

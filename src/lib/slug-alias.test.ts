@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -229,7 +229,7 @@ test("renamed slugs redirect, occupied slugs stay, and public surfaces use the c
   }
 });
 
-test("pages redirect aliases and the open graph image does not", () => {
+test("pages redirect aliases only after a miss, and the open graph image does not", () => {
   const page = readFileSync("src/app/p/[slug]/page.tsx", "utf8");
   const classic = readFileSync("src/app/p/[slug]/classic/page.tsx", "utf8");
   const feedback = readFileSync("src/app/feedback/[slug]/page.tsx", "utf8");
@@ -237,11 +237,37 @@ test("pages redirect aliases and the open graph image does not", () => {
   const discover = readFileSync("src/jobs/discover.ts", "utf8");
   const cli = readFileSync("src/jobs/cli.ts", "utf8");
   const middleware = readFileSync("src/middleware.ts", "utf8");
-  assert.match(middleware, /fetch\(aliasLookupUrl\(target\.slug\)/);
-  assert.match(middleware, /request\.nextUrl\.search/);
+  assert.equal(middleware.includes("aliasLookupUrl"), false);
+  assert.equal(middleware.includes("slug-alias"), false);
+  assert.equal(middleware.includes("NextResponse.redirect"), false);
   assert.equal(middleware.includes("nextUrl.clone"), false);
+  // A root loading boundary turns page redirects into HTTP 200. /p and /feedback stay outside it.
+  assert.equal(existsSync("src/app/loading.tsx"), false);
+  assert.equal(existsSync("src/app/(site)/loading.tsx"), true);
+  assert.equal(existsSync("src/app/(site)/p"), false);
+  assert.equal(existsSync("src/app/(site)/feedback"), false);
+  assert.match(page, /revalidate = 3600/);
+  assert.match(page, /dynamicParams = true/);
+  assert.match(page, /generateStaticParams/);
+  for (const source of [page, classic, feedback]) {
+    const body = source.slice(source.indexOf("export default async function"));
+    const lookup = body.indexOf("getProjectBySlug(slug)");
+    const redirect = body.indexOf("redirectIfAlias(");
+    const missing = body.lastIndexOf("notFound()");
+    assert.ok(lookup !== -1 && redirect !== -1 && missing !== -1);
+    assert.ok(lookup < redirect && redirect < missing);
+    assert.equal(body.includes("cookies("), false);
+    assert.equal(body.includes("headers("), false);
+  }
+  // ISR cannot read searchParams (production 500). Dynamic pages still do, and only after a miss.
+  assert.equal(page.slice(page.indexOf("export default async function")).includes("await searchParams"), false);
+  assert.match(page, /redirectIfAlias\(\s*"\/p",\s*slug,\s*\{\}\s*\)/);
+  for (const source of [classic, feedback]) {
+    const body = source.slice(source.indexOf("export default async function"));
+    const search = body.indexOf("await searchParams");
+    assert.ok(search > body.indexOf("if (!data)"));
+  }
   assert.match(page, /redirectIfAlias\(\s*"\/p"/);
-  assert.match(page, /searchParams/);
   assert.match(classic, /redirectIfAlias\(\s*"\/p"/);
   assert.match(classic, /"\/classic"/);
   assert.match(feedback, /redirectIfAlias\(\s*"\/feedback"/);
@@ -252,4 +278,7 @@ test("pages redirect aliases and the open graph image does not", () => {
   assert.match(discover, /ensureCurrentSlug/);
   const steps = cli.slice(cli.indexOf("const DAILY_STEPS"), cli.indexOf("] as const"));
   assert.equal(steps.includes("slugs"), false);
+  const daily = cli.slice(cli.indexOf("daily:"));
+  assert.ok(daily.indexOf("submitIndexNow") !== -1);
+  assert.ok(daily.indexOf("submitIndexNow") < daily.indexOf("revalidatePublishedProjectPages"));
 });
