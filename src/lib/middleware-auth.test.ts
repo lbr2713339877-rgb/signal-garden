@@ -43,8 +43,10 @@ test("middleware does not fetch slug aliases and skips auth without an sb- cooki
       headers: { cookie: `sb-example-auth-token=base64-${session}` },
     }));
     assert.equal(authed.headers.get("location"), null);
-    assert.equal(calls.some((url) => url.includes("slug-alias")), false);
-    assert.equal(calls.some((url) => url.includes("example.supabase.co")), true);
+    // assert.deepEqual(calls, []) narrows the array to an empty tuple.
+    const fetched = calls as string[];
+    assert.equal(fetched.some((url) => url.includes("slug-alias")), false);
+    assert.equal(fetched.some((url) => url.includes("example.supabase.co")), true);
   } finally {
     globalThis.fetch = original;
     if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;

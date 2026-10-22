@@ -16,6 +16,7 @@ export const revalidate = 3600;
 const STATIC_PATHS = [
   '/',
   '/today',
+  '/en',
   '/trends',
   '/archive',
   '/c',

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { siteOrigin } from "@/lib/edition";
 import { firstSentence } from "@/lib/i18n";
-import { RANKING_ZH_SHORT } from "@/lib/site";
+import { RANKING_EN_SHORT, RANKING_ZH_SHORT } from "@/lib/site";
 
 /**
  * Root layout sets canonical and openGraph to "/". Next.js replaces those
@@ -99,4 +99,36 @@ export function todayPageMetadata(origin?: string): Metadata {
     path: "/today",
     origin,
   });
+}
+
+/** English share card for /en. Does not replace the Chinese site defaults. */
+export const EN_SHARE_TITLE = "Signal Garden — Today's signals";
+
+export const EN_SHARE_DESCRIPTION =
+  `Five minutes a day, the developer projects worth opening. ${RANKING_EN_SHORT.charAt(0).toUpperCase()}${RANKING_EN_SHORT.slice(1)}.`;
+
+export function enShareMetadata(origin?: string): Metadata {
+  const url = pageUrl("/en", origin);
+  return {
+    title: { absolute: EN_SHARE_TITLE },
+    description: EN_SHARE_DESCRIPTION,
+    alternates: {
+      canonical: url,
+      languages: { "zh-CN": pageUrl("/", origin), en: url },
+      types: RSS_TYPE,
+    },
+    openGraph: {
+      type: "website",
+      locale: "en_US",
+      siteName: "Signal Garden",
+      url,
+      title: EN_SHARE_TITLE,
+      description: EN_SHARE_DESCRIPTION,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: EN_SHARE_TITLE,
+      description: EN_SHARE_DESCRIPTION,
+    },
+  };
 }
