@@ -235,8 +235,12 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.match(view.momentum?.rows.at(-1)?.lineZh ?? "", /2025-12-20/);
     assert.doesNotMatch(view.momentum?.rows.at(-1)?.lineZh ?? "", /上榜|名次/);
     assert.deepEqual(view.peers?.peers.map((peer) => peer.slug), ["rust-a", "rust-b", "rust-c", "rust-d", "topic-peer"]);
-    assert.equal(view.audience?.zh, "适合使用 Rust、并且关注 cli 的人。它是一个代码库。仓库许可为 MIT。");
-    assert.doesNotMatch(`${view.audience?.zh ?? ""}\n${view.audience?.en ?? ""}`, /命令行|local runtime|API key|SKILL\.md/i);
+    assert.equal(view.audience?.zh, "适合使用 Rust、并且关注 cli 的人。仓库许可为 MIT。");
+    assert.equal(view.audience?.en, "For people using Rust and following cli. The repository license is MIT.");
+    assert.match(view.momentum?.summaryEn ?? "", /Tracked 7 days since/);
+    assert.match(view.momentum?.summaryEn ?? "", /On the published ranking 5 days/);
+    assert.doesNotMatch(view.momentum?.summaryEn ?? "", /\b1 days\b/);
+    assert.doesNotMatch(`${view.audience?.zh ?? ""}\n${view.audience?.en ?? ""}`, /命令行|local runtime|API key|SKILL\.md|技能包|代码库|skill package|library/i);
     for (const pattern of BLOCKED) assert.doesNotMatch(seoPilotPlainText(view), pattern);
 
     const rendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[] };
@@ -291,9 +295,9 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.equal(shadowSeo.audience, null);
     const shadowText = seoPilotPlainText(shadowSeo);
     assert.match(shadowText, /追踪记录/);
-    assert.match(shadowText, /上榜 0 天/);
     assert.match(shadowText, /最高水平/);
-    assert.doesNotMatch(shadowText, /名次|峰值/);
+    assert.match(shadowText, /Tracked 6 days since/);
+    assert.doesNotMatch(shadowText, /上榜|名次|峰值|published ranking|\b1 days\b/);
     for (const pattern of BLOCKED) assert.doesNotMatch(shadowText, pattern);
     const bareRendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[] };
     renderSeo(SeoPilotSections({ view: bareSeo }), bareRendered);

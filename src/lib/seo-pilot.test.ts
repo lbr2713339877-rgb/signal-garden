@@ -104,6 +104,9 @@ test("momentum section needs three scored days and labels published days apart f
   assert.match(section!.summaryZh, /峰值 15，出现在 2026-01-04/);
   assert.doesNotMatch(section!.summaryZh, /最高水平/);
   assert.match(section!.summaryZh, /上榜 5 天，记录里排到过第 2 名/);
+  assert.match(section!.summaryEn, /Tracked 5 days since/);
+  assert.match(section!.summaryEn, /On the published ranking 5 days/);
+  assert.doesNotMatch(section!.summaryEn, /\b1 days\b/);
   assert.match(section!.summaryEn, /The peak was 15 on 2026-01-04/);
   assert.doesNotMatch(section!.summaryEn, /highest tracked level/);
   assert.equal(section!.sparkline.length, 5);
@@ -130,6 +133,8 @@ test("momentum section needs three scored days and labels published days apart f
   assert.equal(long!.rows.some((row) => row.rank === 1), false);
   assert.match(long!.summaryZh, new RegExp(day(0)));
   assert.match(long!.noteZh ?? "", /最近 24 天/);
+  assert.match(long!.noteEn ?? "", /30 tracked days; the latest 24 days are listed/);
+  assert.doesNotMatch(long!.noteEn ?? "", /\b1 days\b/);
   assert.equal(long!.sparkline.length, 30);
 
   assert.equal(buildMomentumSection({
@@ -166,6 +171,9 @@ test("momentum section needs three scored days and labels published days apart f
   assert.match(mixed!.summaryZh, /热度分从 10 到 9，净变化 −1/);
   assert.match(mixed!.summaryZh, /峰值 12，出现在 2026-01-02/);
   assert.match(mixed!.summaryZh, /上榜 1 天，记录里排到过第 4 名/);
+  assert.match(mixed!.summaryEn, /Tracked 3 days since/);
+  assert.match(mixed!.summaryEn, /On the published ranking 1 day,/);
+  assert.doesNotMatch(mixed!.summaryEn, /\b1 days\b/);
   assertClear(seoPilotPlainText({ momentum: mixed, peers: null, audience: null, metaDescription: null }));
 
   const quiet = buildMomentumSection({
@@ -174,10 +182,14 @@ test("momentum section needs three scored days and labels published days apart f
   assert.ok(quiet);
   assert.equal(quiet!.bestRank, null);
   assert.equal(quiet!.publishedDays, 0);
-  assert.match(quiet!.summaryZh, /上榜 0 天/);
+  assert.doesNotMatch(quiet!.summaryZh, /上榜/);
+  assert.doesNotMatch(quiet!.summaryEn, /published ranking|1 days/);
   assert.doesNotMatch(quiet!.summaryZh, /名次|峰值/);
   assert.match(quiet!.summaryEn, /highest tracked level/);
-  assert.doesNotMatch(seoPilotPlainText({ momentum: quiet, peers: null, audience: null, metaDescription: null }), /名次/);
+  assert.match(quiet!.summaryEn, /Tracked 3 days since/);
+  const quietMeta = seoPilotMetaDescription({ name: "Quiet", momentum: quiet });
+  assert.doesNotMatch(quietMeta ?? "", /上榜/);
+  assert.doesNotMatch(seoPilotPlainText({ momentum: quiet, peers: null, audience: null, metaDescription: quietMeta }), /名次|上榜/);
 
   const dated = buildMomentumSection({
     firstTrackedAt: "2010-05-05T00:00:00.000Z",
@@ -251,6 +263,8 @@ test("audience copy is omitted when the fields are thin and differs when they ar
   assert.equal(buildAudienceSection({ language: "Go", license: "NOASSERTION" }), null);
   assert.equal(buildAudienceSection({ language: "Go", license: "Other" }), null);
   assert.equal(buildAudienceSection({ language: "JavaScript", hasSkillMd: true, requiresApiKey: true }), null);
+  assert.equal(buildAudienceSection({ language: "TypeScript", skillType: "skill" }), null);
+  assert.equal(buildAudienceSection({ skillType: "library", license: "MIT" }), null);
   assert.equal(buildAudienceSection({ requiresDocker: true, license: "GPL-3.0", requiresLocalRuntime: true }), null);
 
   const rust = buildAudienceSection({
@@ -275,10 +289,11 @@ test("audience copy is omitted when the fields are thin and differs when they ar
   });
   assert.ok(rust && typed);
   assert.notEqual(rust!.zh, typed!.zh);
-  assert.equal(rust!.zh, "适合使用 Rust、并且关注 cli 的人。它是一个代码库。仓库许可为 MIT。");
-  assert.equal(rust!.en, "For people using Rust and following cli. It is a library. The repository license is MIT.");
-  assert.equal(typed!.zh, "适合使用 TypeScript、并且关注 mcp 的人。它提供 MCP 服务。仓库许可为 Apache-2.0。");
-  assert.doesNotMatch(`${rust!.zh}\n${rust!.en}\n${typed!.zh}\n${typed!.en}`, /API key|SKILL\.md|命令行|本机运行|Docker/i);
+  assert.equal(rust!.zh, "适合使用 Rust、并且关注 cli 的人。仓库许可为 MIT。");
+  assert.equal(rust!.en, "For people using Rust and following cli. The repository license is MIT.");
+  assert.equal(typed!.zh, "适合使用 TypeScript、并且关注 mcp 的人。仓库许可为 Apache-2.0。");
+  assert.equal(typed!.en, "For people using TypeScript and following mcp. The repository license is Apache-2.0.");
+  assert.doesNotMatch(`${rust!.zh}\n${rust!.en}\n${typed!.zh}\n${typed!.en}`, /API key|SKILL\.md|命令行|本机运行|Docker|技能包|代码库|skill package|library/i);
   assert.equal((rust!.zh.split("。")[0]!.match(/、/g) ?? []).length, 1);
   assertClear(`${rust!.zh}\n${rust!.en}\n${typed!.zh}\n${typed!.en}`);
 });

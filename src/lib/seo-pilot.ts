@@ -114,6 +114,11 @@ export function formatMomentumDelta(delta: number): string {
   return rounded > 0 ? `+${abs}` : `−${abs}`;
 }
 
+function enDays(count: number, adjective?: string): string {
+  const noun = count === 1 ? "day" : "days";
+  return adjective ? `${count} ${adjective} ${noun}` : `${count} ${noun}`;
+}
+
 export function asIsoDay(value: string | Date | null | undefined): string | null {
   if (!value) return null;
   if (value instanceof Date) {
@@ -274,13 +279,15 @@ export function buildMomentumSection(input: {
   const levelEn = atRecordHigh
     ? "It is currently at its highest tracked level."
     : `The peak was ${bestHeat} on ${peak.date}.`;
-  const summaryZh = `自 ${firstTracked} 起追踪 ${series.length} 天。热度分从 ${firstHeat} 到 ${latestHeat}，净变化 ${net}。${levelZh}上榜 ${publishedDays} 天${placeZh}。`;
-  const summaryEn = `Tracked ${series.length} days since ${firstTracked}. Momentum went from ${firstHeat} to ${latestHeat}, a net change of ${net}. ${levelEn} On the published ranking ${publishedDays} days${placeEn}.`;
+  const listedZh = publishedDays > 0 ? `上榜 ${publishedDays} 天${placeZh}。` : "";
+  const listedEn = publishedDays > 0 ? ` On the published ranking ${enDays(publishedDays)}${placeEn}.` : "";
+  const summaryZh = `自 ${firstTracked} 起追踪 ${series.length} 天。热度分从 ${firstHeat} 到 ${latestHeat}，净变化 ${net}。${levelZh}${listedZh}`;
+  const summaryEn = `Tracked ${enDays(series.length)} since ${firstTracked}. Momentum went from ${firstHeat} to ${latestHeat}, a net change of ${net}. ${levelEn}${listedEn}`.replace(/ {2,}/g, " ").trim();
   const visible = rowsChrono.slice(-LIST_MAX).reverse();
   const note = series.length > visible.length
     ? {
         zh: `共 ${series.length} 天追踪记录，这里列出最近 ${visible.length} 天。`,
-        en: `${series.length} tracked days; the latest ${visible.length} are listed.`,
+        en: `${enDays(series.length, "tracked")}; the latest ${enDays(visible.length)} ${visible.length === 1 ? "is" : "are"} listed.`,
       }
     : null;
   const sparkline = momentumSparkline(series.slice(-SPARKLINE_MAX).map((point) => point.heatScore));
@@ -457,28 +464,11 @@ function cleanLicense(value: string | null | undefined): string | null {
   return text;
 }
 
-function projectTypeSentence(input: AudienceInput): { zh: string; en: string } | null {
-  if (input.projectKind === "product") {
-    return { zh: "这是一个在浏览器里使用的网站产品。", en: "It is a website product used in the browser." };
-  }
-  const skill = input.skillType ?? "";
-  if (skill === "mcp") return { zh: "它提供 MCP 服务。", en: "It provides an MCP server." };
-  if (skill === "agent") return { zh: "它用来配置 agent。", en: "It is used to configure an agent." };
-  if (skill === "library") return { zh: "它是一个代码库。", en: "It is a library." };
-  if (skill === "framework") return { zh: "它是一个框架。", en: "It is a framework." };
-  if (skill === "workflow") return { zh: "它用来编排工作流。", en: "It runs a workflow." };
-  if (skill === "prompt_pack") return { zh: "它是一套提示词。", en: "It is a prompt pack." };
-  if (skill === "template" || input.isTemplate) return { zh: "它是一个模板。", en: "It is a template." };
-  if (skill === "skill") return { zh: "它是一个技能包。", en: "It is a skill package." };
-  return null;
-}
-
 export function buildAudienceSection(input: AudienceInput): { zh: string; en: string } | null {
   const language = usableLanguage(input.language);
   const topics = usableTopicList(input.topics).slice(0, 3);
-  const type = projectTypeSentence(input);
   const license = cleanLicense(input.license);
-  const factCount = [language, topics.length ? "topics" : null, type, license].filter(Boolean).length;
+  const factCount = [language, topics.length ? "topics" : null, license].filter(Boolean).length;
   if (factCount < 2) return null;
 
   const topicZh = topics.join("、");
@@ -500,8 +490,8 @@ export function buildAudienceSection(input: AudienceInput): { zh: string; en: st
       ? `The listed license is ${license}.`
       : `The repository license is ${license}.`
     : "";
-  const zh = `${lead?.zh ?? ""}${type?.zh ?? ""}${licenseZh}`.trim();
-  const en = `${lead?.en ?? ""}${type ? ` ${type.en}` : ""}${licenseEn ? ` ${licenseEn}` : ""}`.replace(/ {2,}/g, " ").trim();
+  const zh = `${lead?.zh ?? ""}${licenseZh}`.trim();
+  const en = `${lead?.en ?? ""}${licenseEn ? ` ${licenseEn}` : ""}`.replace(/ {2,}/g, " ").trim();
   if (containsSeoPilotBlocked(zh) || containsSeoPilotBlocked(en)) return null;
   return { zh, en };
 }
