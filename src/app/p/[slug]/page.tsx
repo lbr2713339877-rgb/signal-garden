@@ -35,7 +35,10 @@ import { SubscribeLink } from '@/components/v3/SubscribeLink';
 import { snapshotStarGrowth } from '@/lib/star-growth';
 import { ReadmeBadge } from '@/components/v3/ReadmeBadge';
 import { projectWasFeatured } from '@/db/queries/featured';
+import { getSeoPilotSlugSet, loadSeoPilotView } from '@/db/queries/seo-pilot';
 import { ownerRepo } from '@/lib/badge';
+import { isSeoPilot } from '@/lib/seo-pilot';
+import { SeoPilotSections } from '@/components/v3/detail/SeoPilotSections';
 
 /**
  * Shared HTML, refreshed at least hourly and again at the end of `pnpm job daily`.
@@ -77,14 +80,23 @@ export async function generateMetadata({
   const current = direct ? slug : await canonicalProjectSlug(slug);
   const data = direct ?? (current === slug ? null : await getProjectBySlug(current));
   if (!data) return projectPageMetadata({ slug: current, name: current });
-  const copy = await getProjectCopy(data.project.id);
+  const [copy, pilot] = await Promise.all([
+    getProjectCopy(data.project.id),
+    getSeoPilotSlugSet(),
+  ]);
   const localized = pickLocalizedCopy(copy, data.project.description ?? null);
-  return projectPageMetadata({
+  const base = {
     slug: data.project.slug,
     name: data.project.name,
     oneLinerZh: localized.oneLiner.zh,
     oneLinerEn: localized.oneLiner.en,
-  });
+  };
+  // Membership is tracked-day length, not the visitor. Non-members keep
+  // the same description this route already returned.
+  if (!isSeoPilot(data.project.slug, pilot)) return projectPageMetadata(base);
+  const seo = await loadSeoPilotView(data.project, localized.oneLiner.zh);
+  if (!seo.metaDescription) return projectPageMetadata(base);
+  return projectPageMetadata({ ...base, description: seo.metaDescription });
 }
 
 /**
@@ -124,7 +136,11 @@ export default async function ProjectPageV3({
 
   const { project: p, skills, content, mentions, history } = data;
   const isWebsite = p.projectKind !== "repo";
-  const copy = await getProjectCopy(p.id);
+  const github = ownerRepo(p.fullName);
+  const copyPromise = getProjectCopy(p.id);
+  const pilotPromise = getSeoPilotSlugSet();
+  const featuredPromise = github ? projectWasFeatured(p.id) : Promise.resolve(false);
+  const copy = await copyPromise;
 
   const categoryKey = p.primaryCategory ?? p.category ?? 'dev-tools';
   const accent = categoryColor(categoryKey);
@@ -254,8 +270,10 @@ export default async function ProjectPageV3({
   /* ── 渲染 ──────────────────────────────────────────────────────────── */
 
   const repoUrl = githubCodeRepository(p.primaryUrl, p.fullName);
-  const github = ownerRepo(p.fullName);
-  const featured = github ? await projectWasFeatured(p.id) : false;
+  const [featured, pilot] = await Promise.all([featuredPromise, pilotPromise]);
+  const bodySummary = projectBodySummary({ name: p.name, oneLinerZh, oneLinerEn });
+  // Same public set as generateMetadata. No cookie, header, or session read.
+  const seo = isSeoPilot(p.slug, pilot) ? await loadSeoPilotView(p, oneLinerZh) : null;
   const githubAttrs = /github\.com\//i.test(p.primaryUrl ?? '')
     ? { 'data-umami-event': 'repo_outbound', 'data-umami-event-repo': p.fullName ?? p.slug }
     : {};
@@ -265,7 +283,7 @@ export default async function ProjectPageV3({
       <JsonLd
         data={projectJsonLd({
           name: p.name,
-          description: projectBodySummary({ name: p.name, oneLinerZh, oneLinerEn }),
+          description: seo?.metaDescription ?? bodySummary,
           slug: p.slug,
           codeRepository: repoUrl,
           origin: siteOrigin(),
@@ -433,6 +451,8 @@ export default async function ProjectPageV3({
           </div>
         </section>
       ) : null}
+
+      {seo && (seo.momentum || seo.peers || seo.audience) ? <SeoPilotSections view={seo} /> : null}
 
       {/* Real Hacker News discussions. Omitted entirely when none were found —
           never rendered as "暂无". */}
