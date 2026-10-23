@@ -12,7 +12,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:check": "tsx src/db/check.ts",
     "job": "tsx src/jobs/cli.ts",
-    "test": "tsx --test \"src/**/*.test.ts\""
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "warm-cache": "tsx scripts/warm-cache.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.3.16",

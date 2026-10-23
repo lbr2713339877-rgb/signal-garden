@@ -21,7 +21,9 @@ test("deploy.sh health check retries up to 10 times and stays valid bash", () =>
   const remote = remoteScript(source);
   const checked = spawnSync("bash", ["-n"], { input: remote });
   assert.equal(checked.status, 0, checked.stderr.toString());
-  const health = remote.slice(remote.indexOf("code=000"));
+  const gate = remote.lastIndexOf('[ "$code" = 200 ]');
+  assert.notEqual(gate, -1);
+  const health = remote.slice(remote.indexOf("code=000"), gate);
   assert.match(health, /attempt=1/);
   assert.match(health, /while \[ "\$attempt" -le 10 \]; do/);
   assert.match(health, /curl -s -o \/dev\/null -w '%\{http_code\}' --max-time 15 http:\/\/127\.0\.0\.1:3000\/ \|\| true/);
@@ -30,6 +32,16 @@ test("deploy.sh health check retries up to 10 times and stays valid bash", () =>
   assert.match(health, /if \[ "\$code" = 200 \]; then\n      break/);
   assert.match(health, /if \[ "\$attempt" -lt 10 \]; then\n      sleep 2/);
   assert.match(health, /attempt=\$\(\(attempt \+ 1\)\)/);
-  assert.match(health, /\[ "\$code" = 200 \]\s*$/);
+  assert.doesNotMatch(health, /warm-cache/);
   assert.doesNotMatch(health, /echo "    health: \$code"/);
+
+  const warm = remote.slice(gate);
+  assert.match(warm, /WARM_ORIGIN=http:\/\/127\.0\.0\.1:3000/);
+  assert.match(warm, /WARM_CONCURRENCY=2/);
+  assert.match(warm, /scripts\/warm-cache\.ts/);
+  assert.match(warm, /warm-up finished with failures; deploy continues/);
+  assert.match(warm, /warm-up skipped: tsx is not installed; deploy continues/);
+  assert.doesNotMatch(warm, /\bexit\s+1\b/);
+  const packed = source.slice(source.indexOf("tar czf"), source.indexOf("echo \"==> uploading"));
+  assert.match(packed, /scripts\/warm-cache\.ts/);
 });
