@@ -5,6 +5,7 @@ import { projectPageMetadata } from "./page-meta";
 import {
   SEO_PILOT_COPY,
   SEO_PILOT_MIN_POINTS,
+  SEO_PILOT_PINNED,
   SEO_PILOT_SIZE,
   buildAudienceSection,
   buildMomentumSection,
@@ -75,6 +76,82 @@ test("pilot membership is the longest tracked histories, then published days, th
     { slug: "e", tracked: 9, published: 0 },
     { slug: "d", tracked: SEO_PILOT_MIN_POINTS - 1, published: 2 },
   ], 10), ["e", "a", "b", "c"]);
+});
+
+test("a pinned slug that would rank 51 is swapped into the pilot set of 50", () => {
+  assert.equal(SEO_PILOT_SIZE, 50);
+  assert.deepEqual([...SEO_PILOT_PINNED], ["docusealco-docuseal"]);
+  const pin = SEO_PILOT_PINNED[0];
+
+  const tied = Array.from({ length: SEO_PILOT_SIZE }, (_, index) => ({
+    slug: `a${String(index).padStart(2, "0")}`,
+    tracked: 7,
+    published: 1,
+  }));
+  const tiedRows = [
+    { slug: "zzzz-after", tracked: 7, published: 1 },
+    { slug: pin, tracked: 7, published: 1 },
+    ...tied,
+  ];
+  const tiedRank = [...tiedRows].sort((a, b) => (
+    b.tracked - a.tracked || b.published - a.published || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0)
+  ));
+  assert.equal(tiedRank[49]?.slug, "a49");
+  assert.equal(tiedRank[50]?.slug, pin);
+  const tiedPicked = selectSeoPilotSlugs(tiedRows);
+  assert.equal(tiedPicked.length, 50);
+  assert.equal(tiedPicked.at(-1), pin);
+  assert.equal(tiedPicked.includes("a48"), true);
+  assert.equal(tiedPicked.includes("a49"), false);
+  assert.equal(tiedPicked.includes("zzzz-after"), false);
+  assert.equal(isSeoPilot(pin, new Set(tiedPicked)), true);
+
+  const scored = Array.from({ length: SEO_PILOT_SIZE }, (_, index) => ({
+    slug: `b${String(index).padStart(2, "0")}`,
+    tracked: 8,
+    published: 1,
+  }));
+  const scoredPicked = selectSeoPilotSlugs([
+    ...scored,
+    { slug: pin, tracked: SEO_PILOT_MIN_POINTS, published: 0 },
+  ]);
+  assert.equal(scoredPicked.length, 50);
+  assert.equal(scoredPicked.at(-1), pin);
+  assert.equal(scoredPicked.includes("b48"), true);
+  assert.equal(scoredPicked.includes("b49"), false);
+
+  const already = selectSeoPilotSlugs([
+    { slug: pin, tracked: 12, published: 4 },
+    ...Array.from({ length: 55 }, (_, index) => ({
+      slug: `d${String(index).padStart(2, "0")}`,
+      tracked: 9,
+      published: 1,
+    })),
+  ]);
+  assert.equal(already.length, 50);
+  assert.equal(already[0], pin);
+  assert.equal(already.includes("d48"), true);
+  assert.equal(already.includes("d49"), false);
+});
+
+test("a pinned slug under the tracked minimum is not forced into the pilot", () => {
+  const pin = SEO_PILOT_PINNED[0];
+  const ahead = Array.from({ length: SEO_PILOT_SIZE }, (_, index) => ({
+    slug: `c${String(index).padStart(2, "0")}`,
+    tracked: 7,
+    published: 1,
+  }));
+  const picked = selectSeoPilotSlugs([
+    ...ahead,
+    { slug: pin, tracked: SEO_PILOT_MIN_POINTS - 1, published: 9 },
+  ]);
+  assert.equal(picked.length, SEO_PILOT_SIZE);
+  assert.equal(picked.includes(pin), false);
+  assert.deepEqual(picked, ahead.map((row) => row.slug));
+
+  const absent = selectSeoPilotSlugs(ahead);
+  assert.equal(absent.length, SEO_PILOT_SIZE);
+  assert.equal(absent.includes(pin), false);
 });
 
 test("momentum section needs three scored days and labels published days apart from tracked ones", () => {
