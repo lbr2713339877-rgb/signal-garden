@@ -89,6 +89,7 @@ async function querySeoPilotSlugs(): Promise<string[]> {
     tracked: Number(row.tracked),
     published: Number(row.published),
   }));
+  // Pins in SEO_PILOT_PINNED are applied here when they still meet the minimum.
   return selectSeoPilotSlugs(rows);
 }
 

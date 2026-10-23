@@ -4,7 +4,10 @@
  * The pilot set is the 50 non-hidden projects with the most distinct
  * daily_signal days, published or not, and at least 3 days. Ties break by
  * published days, then slug, so the same database always yields the same set.
- * `isSeoPilot(slug, pilot)` is that membership check.
+ * A campaign pin that still has at least 3 tracked days stays in that set:
+ * if the rank slice left it out, it replaces the last selected slug and the
+ * size stays 50. A pin under the minimum, or missing from the rows, is left
+ * out. `isSeoPilot(slug, pilot)` is that membership check.
  *
  * Sections come from stored fields and those tracked rows. Momentum and peer
  * sections are left out when those fields are not enough. The audience section
@@ -18,6 +21,14 @@ import { projectPath } from "@/lib/page-meta";
 
 export const SEO_PILOT_SIZE = 50;
 export const SEO_PILOT_MIN_POINTS = 3;
+/**
+ * Campaign slugs that stay in the pilot while they still meet
+ * `SEO_PILOT_MIN_POINTS`. `docusealco-docuseal` is the 10/22 cohort page that
+ * ranked 51 on the tracked=7 / published=1 tie (slug order kept
+ * `datawhalechina-deepagents-in-action`). The page query calls
+ * `selectSeoPilotSlugs`, so this pin is what mounts「适合谁用」there.
+ */
+export const SEO_PILOT_PINNED = ["docusealco-docuseal"] as const;
 export const SEO_PEER_MIN = 3;
 export const SEO_PEER_MAX = 6;
 export const SPARK_WIDTH = 160;
@@ -80,6 +91,37 @@ export type SeoPilotCount = {
   published?: number | string | null;
 };
 
+/**
+ * Keep each campaign pin that still meets the minimum and was cut by the
+ * size slice. Pop the last selected slug, then push the pin, so the length
+ * stays at `size`. A pin already selected is left where it is. A pin under
+ * the minimum, or absent from `counts`, is not added.
+ */
+function applySeoPilotPins(
+  selected: readonly string[],
+  counts: ReadonlyMap<string, { tracked: number }>,
+  size: number,
+  minTracked: number,
+): string[] {
+  const limit = Math.max(0, size);
+  const next = selected.slice(0, limit);
+  const chosen = new Set(next);
+  for (const raw of SEO_PILOT_PINNED) {
+    const pin = raw.trim();
+    if (!pin || chosen.has(pin)) continue;
+    const tracked = counts.get(pin)?.tracked;
+    if (tracked == null || !Number.isFinite(tracked) || tracked < minTracked) continue;
+    if (next.length >= limit) {
+      const removed = next.pop();
+      if (removed) chosen.delete(removed);
+    }
+    if (next.length >= limit) continue;
+    next.push(pin);
+    chosen.add(pin);
+  }
+  return next;
+}
+
 /** Most tracked days, then published days, then slug. Under the minimum is left out. */
 export function selectSeoPilotSlugs(
   rows: readonly SeoPilotCount[],
@@ -98,11 +140,12 @@ export function selectSeoPilotSlugs(
       bySlug.set(slug, next);
     }
   }
-  return [...bySlug.entries()]
+  const selected = [...bySlug.entries()]
     .filter(([, counts]) => counts.tracked >= minTracked)
     .sort((a, b) => b[1].tracked - a[1].tracked || b[1].published - a[1].published || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
     .slice(0, Math.max(0, size))
     .map(([slug]) => slug);
+  return applySeoPilotPins(selected, bySlug, size, minTracked);
 }
 
 export function formatMomentum(value: number): string {
