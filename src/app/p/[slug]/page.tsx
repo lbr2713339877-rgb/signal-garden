@@ -37,6 +37,7 @@ import { ReadmeBadge } from '@/components/v3/ReadmeBadge';
 import { projectWasFeatured } from '@/db/queries/featured';
 import { getSeoPilotSlugSet, loadSeoPilotView } from '@/db/queries/seo-pilot';
 import { ownerRepo } from '@/lib/badge';
+import { unionPrerenderSlugs } from '@/lib/prerender-slugs';
 import { isSeoPilot } from '@/lib/seo-pilot';
 import { SeoPilotSections } from '@/components/v3/detail/SeoPilotSections';
 
@@ -57,17 +58,27 @@ export const revalidate = 3600;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  // Today's edition is a few rows. PGlite allows one process on its data
-  // directory, and `next build` prerenders pages in parallel, so a file-backed
-  // build leaves these to the first request. Postgres builds prerender them.
+  // Today's edition is a few rows, plus the SEO pilot set (longest tracked
+  // histories, same query the page already caches). PGlite allows one process
+  // on its data directory, and `next build` prerenders pages in parallel, so a
+  // file-backed build leaves these to the first request. Postgres builds
+  // prerender them. Every other slug stays on demand via dynamicParams.
   if (!process.env.DATABASE_URL) return [];
+  let edition: string[] = [];
+  let pilot: string[] = [];
   try {
-    const slugs = await publishedProjectSlugs(signalDate());
-    return slugs.map((slug) => ({ slug }));
+    edition = await publishedProjectSlugs(signalDate());
   } catch (error) {
-    console.error("[p] generateStaticParams skipped", error);
-    return [];
+    console.error("[p] generateStaticParams edition skipped", error);
   }
+  try {
+    pilot = [...await getSeoPilotSlugSet()];
+  } catch (error) {
+    console.error("[p] generateStaticParams pilot skipped", error);
+  }
+  const slugs = unionPrerenderSlugs(edition, pilot);
+  console.log(`[p] generateStaticParams edition=${edition.length} pilot=${pilot.length} prerender=${slugs.length}`);
+  return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({

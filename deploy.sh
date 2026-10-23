@@ -10,6 +10,11 @@
 #
 # The remote build stops pm2, rebuilds, and on failure restores the previous
 # src from a timestamped tarball — so a broken commit cannot take the site down.
+#
+# After the loopback health check passes, the remote shell runs
+# scripts/warm-cache.ts against http://127.0.0.1:3000. That script is part of
+# this sync. A few warm-up failures are logged and the deploy still finishes.
+# This does not edit the server's own /opt/signal-radar/deploy.sh.
 set -euo pipefail
 
 REMOTE_HOST="${REMOTE_HOST:?Set REMOTE_HOST e.g. export REMOTE_HOST=root@YOUR_VPS_HOST}"
@@ -25,7 +30,8 @@ tar czf "$TARBALL" \
   --exclude=node_modules --exclude=.next --exclude=.git \
   --exclude=data --exclude=tmp \
   src public package.json pnpm-lock.yaml next.config.ts \
-  drizzle.config.ts postcss.config.mjs tsconfig.json
+  drizzle.config.ts postcss.config.mjs tsconfig.json \
+  scripts/warm-cache.ts
 
 echo "==> uploading $(du -h "$TARBALL" | cut -f1)"
 scp -q "$TARBALL" "${REMOTE_HOST}:/tmp/$(basename "$TARBALL")"
@@ -62,6 +68,16 @@ ssh "$REMOTE_HOST" "set -euo pipefail
     fi
     attempt=\$((attempt + 1))
   done
-  [ \"\$code\" = 200 ]"
+  [ \"\$code\" = 200 ]
+  echo '==> warming loopback cache'
+  if [ -x ./node_modules/.bin/tsx ]; then
+    if WARM_ORIGIN=http://127.0.0.1:3000 WARM_CONCURRENCY=2 ./node_modules/.bin/tsx scripts/warm-cache.ts; then
+      echo '    warm-up ok'
+    else
+      echo '    warm-up finished with failures; deploy continues'
+    fi
+  else
+    echo '    warm-up skipped: tsx is not installed; deploy continues'
+  fi"
 
 echo "==> done. live check: https://signalgarden.site/pricing"
