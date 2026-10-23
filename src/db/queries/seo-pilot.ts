@@ -12,9 +12,12 @@ import { db } from "@/db/client";
 import { dailySignal } from "@/db/schema";
 import {
   SEO_PILOT_MIN_POINTS,
+  audiencePeerHints,
+  audienceReadmeExcerpt,
   buildAudienceSection,
   buildMomentumSection,
   buildPeerSection,
+  momentumShapeFromPoints,
   selectSeoPilotSlugs,
   seoPilotMetaDescription,
   type RankingPoint,
@@ -30,6 +33,10 @@ export type SeoProjectFields = {
   license?: string | null;
   language?: string | null;
   topics?: string[] | null;
+  tags?: string[] | null;
+  /** Full README. Only the first-paragraph excerpt is kept on the facts key. */
+  readmeText?: string | null;
+  readmeExcerpt?: string | null;
   projectKind?: string | null;
   skillType?: string | null;
   hasSkillMd?: boolean | null;
@@ -187,8 +194,11 @@ function seoPilotFactsKey(row: SeoProjectFields): string {
     category: row.category ?? null,
     primaryCategory: row.primaryCategory ?? null,
     topics: row.topics ?? null,
+    tags: row.tags ?? null,
     license: row.license ?? null,
     projectKind: row.projectKind ?? null,
+    description: row.description ?? null,
+    readmeExcerpt: audienceReadmeExcerpt(row.readmeText),
   });
 }
 
@@ -198,10 +208,16 @@ const loadSeoPilotFacts = cache(async function loadSeoPilotFacts(key: string) {
     getTrackedSignalHistory(row.id),
     getSeoPeerCandidates(row),
   ]);
+  const momentum = buildMomentumSection({ points });
+  const peers = buildPeerSection(row, candidates);
   return {
-    momentum: buildMomentumSection({ points }),
-    peers: buildPeerSection(row, candidates),
-    audience: buildAudienceSection(row),
+    momentum,
+    peers,
+    audience: buildAudienceSection({
+      ...row,
+      momentumShape: momentumShapeFromPoints(points),
+      peers: audiencePeerHints(peers, candidates),
+    }),
   };
 });
 

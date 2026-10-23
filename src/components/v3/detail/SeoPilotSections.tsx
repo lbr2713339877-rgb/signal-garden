@@ -96,9 +96,19 @@ export function SeoPilotSections({ view }: { view: SeoPilotView }) {
             <p className="system">
               <LANG zh={SEO_PILOT_COPY.audienceKicker.zh} en={SEO_PILOT_COPY.audienceKicker.en} />
             </p>
-            <h2 className="display-l mt-4">
-              <LANG zh={SEO_PILOT_COPY.audienceTitle.zh} en={SEO_PILOT_COPY.audienceTitle.en} />
-            </h2>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <h2 className="display-l">
+                <LANG zh={SEO_PILOT_COPY.audienceTitle.zh} en={SEO_PILOT_COPY.audienceTitle.en} />
+              </h2>
+              {view.audience.draft ? (
+                <span
+                  data-audience-draft=""
+                  className="inline-flex items-center border border-[var(--glass-1-border)] px-2 py-1 text-[11px] font-medium leading-none tracking-[0.14em] text-[var(--ink-3)] [font-family:var(--font-sans)] [text-transform:none]"
+                >
+                  <LANG zh={SEO_PILOT_COPY.audienceDraft.zh} en={SEO_PILOT_COPY.audienceDraft.en} />
+                </span>
+              ) : null}
+            </div>
             <LANG as="p" zh={view.audience.zh} en={view.audience.en} className="body mt-6 max-w-[62ch] text-[var(--ink-2)]" />
           </div>
         </section>

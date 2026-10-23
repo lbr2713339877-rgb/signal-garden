@@ -11,6 +11,7 @@ import {
   buildPeerSection,
   containsSeoPilotBlocked,
   isSeoPilot,
+  momentumShapeFromPoints,
   selectSeoPilotSlugs,
   seoPilotMetaDescription,
   seoPilotPlainText,
@@ -22,6 +23,19 @@ const BLOCKED = [/fork/i, /fastest/i, /涨得最快/, /最快/, /\bbest\b/i, /\b
 
 function assertClear(text: string) {
   for (const pattern of BLOCKED) assert.doesNotMatch(text, pattern);
+}
+
+function scenarioSentences(text: string): string[] {
+  return text.split(/[。！？.!?]+/).map((part) => part.trim()).filter(Boolean);
+}
+
+function assertTwoScenarios(section: { zh: string; en: string; draft: boolean } | null) {
+  assert.ok(section);
+  assert.ok(scenarioSentences(section.zh).length >= 2, section.zh);
+  assert.ok(scenarioSentences(section.en).length >= 2, section.en);
+  assert.equal(typeof section.draft, "boolean");
+  assert.doesNotMatch(`${section.zh}\n${section.en}`, /适合开发者|很好用/);
+  assertClear(`${section.zh}\n${section.en}`);
 }
 
 function day(offset: number): string {
@@ -260,19 +274,38 @@ test("peer section needs three real overlaps and does not sort by the score", ()
   assertClear(seoPilotPlainText({ momentum: null, peers: rust, audience: null, metaDescription: null }));
 });
 
-test("audience copy is omitted when the fields are thin and differs when they are not", () => {
-  assert.equal(buildAudienceSection({}), null);
-  assert.equal(buildAudienceSection({ language: "Python" }), null);
-  assert.equal(buildAudienceSection({ license: "MIT" }), null);
-  assert.equal(buildAudienceSection({ requiresDocker: true }), null);
-  assert.equal(buildAudienceSection({ description: "A command-line tool" }), null);
-  assert.equal(buildAudienceSection({ topics: ["tools", "hacktoberfest"], license: "MIT" }), null);
-  assert.equal(buildAudienceSection({ language: "Go", license: "NOASSERTION" }), null);
-  assert.equal(buildAudienceSection({ language: "Go", license: "Other" }), null);
-  assert.equal(buildAudienceSection({ language: "JavaScript", hasSkillMd: true, requiresApiKey: true }), null);
-  assert.equal(buildAudienceSection({ language: "TypeScript", skillType: "skill" }), null);
-  assert.equal(buildAudienceSection({ skillType: "library", license: "MIT" }), null);
-  assert.equal(buildAudienceSection({ requiresDocker: true, license: "GPL-3.0", requiresLocalRuntime: true }), null);
+test("momentum shape is rising, peak-then-fade, or flat from the tracked series", () => {
+  assert.equal(momentumShapeFromPoints(series(2, (index) => index + 1)), null);
+  assert.equal(momentumShapeFromPoints(series(3, () => 8)), "flat");
+  assert.equal(momentumShapeFromPoints(series(4, (index) => 3 + index * 2)), "rising");
+  assert.equal(momentumShapeFromPoints(series(4, (index) => [4, 9, 8, 5][index]!)), "peak-then-fade");
+});
+
+test("audience copy always has two scenario sentences and marks thin inputs as draft", () => {
+  const thinCases = [
+    {},
+    { language: "Python" },
+    { license: "MIT" },
+    { language: "Go", license: "MIT" },
+    { requiresDocker: true },
+    { description: "A command-line tool" },
+    { topics: ["tools", "hacktoberfest"], license: "MIT" },
+    { language: "Go", license: "NOASSERTION" },
+    { language: "Go", license: "Other" },
+    { language: "JavaScript", hasSkillMd: true, requiresApiKey: true },
+    { language: "TypeScript", skillType: "skill" },
+    { skillType: "library", license: "MIT" },
+    { requiresDocker: true, license: "GPL-3.0", requiresLocalRuntime: true },
+  ];
+  for (const input of thinCases) {
+    const section = buildAudienceSection(input);
+    assert.equal(section.draft, true, JSON.stringify(input));
+    assertTwoScenarios(section);
+    assert.doesNotMatch(`${section.zh}\n${section.en}`, /API key|SKILL\.md|Docker|local runtime|技能包|skill package|\blibrary\b/i);
+  }
+
+  const empty = buildAudienceSection({});
+  assert.doesNotMatch(`${empty.zh}\n${empty.en}`, /MIT|Rust|Python/);
 
   const rust = buildAudienceSection({
     language: "Rust",
@@ -283,6 +316,8 @@ test("audience copy is omitted when the fields are thin and differs when they ar
     requiresLocalRuntime: true,
     hasSkillMd: true,
     requiresApiKey: true,
+    momentumShape: "peak-then-fade",
+    peers: [{ name: "Go Topic", language: "Go", topics: ["cli"] }],
   });
   const typed = buildAudienceSection({
     language: "TypeScript",
@@ -294,15 +329,59 @@ test("audience copy is omitted when the fields are thin and differs when they ar
     hasSkillMd: true,
     projectKind: "repo",
   });
-  assert.ok(rust && typed);
-  assert.notEqual(rust!.zh, typed!.zh);
-  assert.equal(rust!.zh, "适合使用 Rust、并且关注 cli 的人。仓库许可为 MIT。");
-  assert.equal(rust!.en, "For people using Rust and following cli. The repository license is MIT.");
-  assert.equal(typed!.zh, "适合使用 TypeScript、并且关注 mcp 的人。仓库许可为 Apache-2.0。");
-  assert.equal(typed!.en, "For people using TypeScript and following mcp. The repository license is Apache-2.0.");
-  assert.doesNotMatch(`${rust!.zh}\n${rust!.en}\n${typed!.zh}\n${typed!.en}`, /API key|SKILL\.md|命令行|本机运行|Docker|技能包|代码库|skill package|library/i);
-  assert.equal((rust!.zh.split("。")[0]!.match(/、/g) ?? []).length, 1);
-  assertClear(`${rust!.zh}\n${rust!.en}\n${typed!.zh}\n${typed!.en}`);
+  assert.equal(rust.draft, false);
+  assert.equal(typed.draft, false);
+  assert.notEqual(rust.zh, typed.zh);
+  assertTwoScenarios(rust);
+  assertTwoScenarios(typed);
+  assert.match(rust.zh, /Rust/);
+  assert.match(rust.zh, /命令行/);
+  assert.match(rust.zh, /MIT/);
+  assert.match(rust.zh, /Go Topic/);
+  assert.match(rust.zh, /峰值回落/);
+  assert.match(rust.zh, /A command-line helper for logs/);
+  assert.match(rust.zh, /优先/);
+  assert.match(rust.en, /Prefer it over the in-site peer Go Topic/);
+  assert.match(rust.en, /peak-then-fade/);
+  assert.match(typed.zh, /TypeScript/);
+  assert.match(typed.zh, /MCP/);
+  assert.match(typed.zh, /Apache-2\.0/);
+  assert.match(typed.zh, /An MCP server for notes/);
+  assert.match(typed.en, /Prefer it over in-site peers/);
+  assert.doesNotMatch(`${rust.zh}\n${rust.en}\n${typed.zh}\n${typed.en}`, /API key|SKILL\.md|本机运行|Docker|技能包|代码库|skill package|\blibrary\b/i);
+
+  const fromReadme = buildAudienceSection({
+    language: "Go",
+    license: "MIT",
+    description: "Short vendor line that should lose.",
+    readmeText: "# Title\n\n![badge](https://img.example/badge.svg)\n\nKeeps subtitle files in sync for editors.\n\nSecond paragraph ignored.",
+  });
+  assert.equal(fromReadme.draft, false);
+  assert.match(fromReadme.zh, /Keeps subtitle files in sync for editors/);
+  assert.match(fromReadme.en, /Keeps subtitle files in sync for editors/);
+  assert.doesNotMatch(`${fromReadme.zh}\n${fromReadme.en}`, /Short vendor line|Second paragraph|Title/);
+
+  const dirty = buildAudienceSection({
+    language: "Rust",
+    topics: ["cli"],
+    license: "MIT",
+    description: "a fork and the fastest helper that 涨得最快 for logs",
+    peers: [{ name: "fork-tool", language: "Go" }, { name: "Go Topic", language: "Go" }],
+  });
+  assert.equal(dirty.draft, false);
+  assert.match(dirty.zh, /Go Topic/);
+  assert.doesNotMatch(`${dirty.zh}\n${dirty.en}`, /fork|fastest|涨得最快/i);
+  assertTwoScenarios(dirty);
+
+  const shaped = buildAudienceSection({
+    description: "Parses subtitle cues into a timeline for editors.",
+    momentumShape: "rising",
+  });
+  assert.equal(shaped.draft, false);
+  assert.match(shaped.zh, /上升/);
+  assert.match(shaped.en, /momentum shape is rising/);
+  assert.doesNotMatch(`${shaped.zh}\n${shaped.en}`, /名次|\brank\b/i);
+  assertTwoScenarios(shaped);
 });
 
 test("pilot meta description is the ranking record, and blocked or huge leads are left out", () => {

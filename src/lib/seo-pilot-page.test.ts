@@ -235,12 +235,23 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.match(view.momentum?.rows.at(-1)?.lineZh ?? "", /2025-12-20/);
     assert.doesNotMatch(view.momentum?.rows.at(-1)?.lineZh ?? "", /上榜|名次/);
     assert.deepEqual(view.peers?.peers.map((peer) => peer.slug), ["rust-a", "rust-b", "rust-c", "rust-d", "topic-peer"]);
-    assert.equal(view.audience?.zh, "适合使用 Rust、并且关注 cli 的人。仓库许可为 MIT。");
-    assert.equal(view.audience?.en, "For people using Rust and following cli. The repository license is MIT.");
+    assert.equal(view.audience?.draft, false);
+    assert.ok((view.audience?.zh.split(/[。！？.!?]+/).filter((part) => part.trim()).length ?? 0) >= 2);
+    assert.ok((view.audience?.en.split(/[。！？.!?]+/).filter((part) => part.trim()).length ?? 0) >= 2);
+    assert.match(view.audience?.zh ?? "", /Rust/);
+    assert.match(view.audience?.zh ?? "", /命令行/);
+    assert.match(view.audience?.zh ?? "", /MIT/);
+    assert.match(view.audience?.zh ?? "", /topic-peer/);
+    assert.match(view.audience?.zh ?? "", /Python/);
+    assert.match(view.audience?.zh ?? "", /A command-line helper for logs/);
+    assert.match(view.audience?.zh ?? "", /优先/);
+    assert.match(view.audience?.zh ?? "", /峰值回落/);
+    assert.match(view.audience?.en ?? "", /Prefer it over the in-site peer topic-peer/);
+    assert.match(view.audience?.en ?? "", /peak-then-fade/);
     assert.match(view.momentum?.summaryEn ?? "", /Tracked 7 days since/);
     assert.match(view.momentum?.summaryEn ?? "", /On the published ranking 5 days/);
     assert.doesNotMatch(view.momentum?.summaryEn ?? "", /\b1 days\b/);
-    assert.doesNotMatch(`${view.audience?.zh ?? ""}\n${view.audience?.en ?? ""}`, /命令行|local runtime|API key|SKILL\.md|技能包|代码库|skill package|library/i);
+    assert.doesNotMatch(`${view.audience?.zh ?? ""}\n${view.audience?.en ?? ""}`, /local runtime|API key|SKILL\.md|技能包|代码库|skill package|\blibrary\b|Docker|适合开发者|很好用/i);
     for (const pattern of BLOCKED) assert.doesNotMatch(seoPilotPlainText(view), pattern);
 
     const rendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[] };
@@ -252,6 +263,8 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.match(renderedText, /MOMENTUM/);
     assert.match(renderedText, /同类项目对比/);
     assert.match(renderedText, /适合谁用/);
+    assert.equal(renderedText.includes("草稿"), false);
+    assert.doesNotMatch(renderedText, /\bDraft\b/);
     assert.deepEqual(rendered.detailsOpen, [false]);
     assert.match(renderedText, /每日记录/);
     assert.match(renderedText, /Daily record/);
@@ -279,7 +292,9 @@ test("pilot pages gain factual sections and every other project page stays as it
     const bareSeo = bareView as SeoPilotView;
     assert.ok(bareSeo.momentum);
     assert.equal(bareSeo.peers, null);
-    assert.equal(bareSeo.audience, null);
+    assert.equal(bareSeo.audience?.draft, true);
+    assert.ok((bareSeo.audience?.zh.split(/[。！？.!?]+/).filter((part) => part.trim()).length ?? 0) >= 2);
+    assert.ok((bareSeo.audience?.en.split(/[。！？.!?]+/).filter((part) => part.trim()).length ?? 0) >= 2);
     assert.equal(bareSeo.momentum?.firstTracked, "2026-02-01");
     assert.notEqual(bareSeo.momentum?.summaryZh, view.momentum?.summaryZh);
 
@@ -294,7 +309,10 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.equal(shadowSeo.momentum?.bestRank, null);
     assert.equal(shadowSeo.momentum?.publishedDays, 0);
     assert.equal(shadowSeo.peers, null);
-    assert.equal(shadowSeo.audience, null);
+    assert.equal(shadowSeo.audience?.draft, true);
+    assert.ok((shadowSeo.audience?.zh.split(/[。！？.!?]+/).filter((part) => part.trim()).length ?? 0) >= 2);
+    assert.match(shadowSeo.audience?.zh ?? "", /上升/);
+    assert.doesNotMatch(`${shadowSeo.audience?.zh ?? ""}\n${shadowSeo.audience?.en ?? ""}`, /名次|\brank\b|峰值/);
     const shadowText = seoPilotPlainText(shadowSeo);
     assert.match(shadowText, /追踪记录/);
     assert.match(shadowText, /该项目尚未出现在公开每日榜单上/);
@@ -305,8 +323,10 @@ test("pilot pages gain factual sections and every other project page stays as it
     for (const pattern of BLOCKED) assert.doesNotMatch(shadowText, pattern);
     const bareRendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[] };
     renderSeo(SeoPilotSections({ view: bareSeo }), bareRendered);
-    assert.deepEqual(bareRendered.sections, ["momentum"]);
-    assert.equal(bareRendered.text.join("\n").includes("适合谁用"), false);
+    assert.deepEqual(bareRendered.sections, ["momentum", "audience"]);
+    assert.equal(bareRendered.text.join("\n").includes("适合谁用"), true);
+    assert.match(bareRendered.text.join("\n"), /草稿/);
+    assert.match(bareRendered.text.join("\n"), /\bDraft\b/);
     assert.equal(bareRendered.text.join("\n").includes("同类项目对比"), false);
     for (const pattern of BLOCKED) assert.doesNotMatch(bareRendered.text.join("\n"), pattern);
   } finally {
