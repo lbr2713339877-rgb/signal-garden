@@ -1,5 +1,13 @@
 -- Signal Garden V1 — Row Level Security
 -- Run in Supabase SQL editor after the Drizzle migrations have created the tables.
+--
+-- Newsletter and ops tables are not listed here. RLS with no policies for
+-- newsletter_subscriber, newsletter_send, newsletter_rate_event,
+-- indexnow_submission, api_request_daily, and project_slug_alias is
+-- drizzle/0019_enable_rls_newsletter_and_ops_tables.sql.
+-- Production already applied that SQL as Supabase migration
+-- enable_rls_newsletter_and_ops_tables. Re-running ENABLE ROW LEVEL SECURITY
+-- is safe; do not add policies for those tables in this file.
 
 alter table profiles enable row level security;
 alter table user_preferences enable row level security;
