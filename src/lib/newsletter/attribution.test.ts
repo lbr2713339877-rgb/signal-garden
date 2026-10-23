@@ -114,7 +114,7 @@ test("first landing in a session is kept and later params are not written over i
 
 test("attribution migration only adds nullable columns to newsletter subscribers", async () => {
   const files = migrationFiles();
-  assert.equal(files.at(-1), MIGRATION);
+  assert.ok(files.includes(MIGRATION));
   assert.equal(files.filter((name) => name.startsWith("0018_")).length, 1);
   const sql = readFileSync(`drizzle/${MIGRATION}`, "utf8");
   const added = [...sql.matchAll(/ADD COLUMN IF NOT EXISTS "([a-z_]+)" text/g)].map((match) => match[1]);
@@ -127,7 +127,7 @@ test("attribution migration only adds nullable columns to newsletter subscribers
   const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as {
     entries: { tag: string }[];
   };
-  assert.equal(journal.entries.at(-1)?.tag, "0018_subscriber_attribution");
+  assert.ok(journal.entries.some((entry) => entry.tag === "0018_subscriber_attribution"));
 
   const raw = new PGlite();
   const beforeFiles = files.filter((name) => name !== MIGRATION);

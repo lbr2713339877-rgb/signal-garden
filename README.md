@@ -92,6 +92,14 @@ pnpm job slugs --backfill
 
 `--dry-run` lists the rows it would change and writes nothing. `--backfill` stores each previous slug in `project_slug_alias` and moves `project.slug` to `toSlug(full_name)` when that name is free. Old `/p/<slug>` links then redirect with 308. Sitemap, IndexNow, `/api/today.json`, the feed, emails and cards keep using the current `project.slug`. This command is not part of `pnpm job daily`.
 
+## Database
+
+`pnpm db:migrate` applies `drizzle/*.sql` in filename order and records each tag in `_sg_migrations`. That table is separate from Supabase's migration history.
+
+`0019_enable_rls_newsletter_and_ops_tables` enables row level security and adds no policies on `newsletter_subscriber`, `newsletter_send`, `newsletter_rate_event`, `indexnow_submission`, `api_request_daily`, and `project_slug_alias`. The `anon` and `authenticated` roles are denied. Server code using `DATABASE_URL` (the table owner) and Supabase `service_role` still bypass RLS.
+
+Production already applied this SQL as Supabase migration `enable_rls_newsletter_and_ops_tables`. The first `pnpm db:migrate` against that database runs the statements again, then stores the Drizzle tag. Re-running `ENABLE ROW LEVEL SECURITY` is safe. Do not apply a second copy under another name.
+
 ## License
 
 MIT (see `LICENSE`).

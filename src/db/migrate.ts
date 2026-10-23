@@ -6,6 +6,13 @@
  *
  * This runs the same .sql files in both places, which is the entire reason
  * PGlite was chosen over SQLite: one set of migrations to trust.
+ *
+ * Applied tags live in `_sg_migrations`. That journal is separate from
+ * Supabase's schema_migrations. `0019_enable_rls_newsletter_and_ops_tables`
+ * mirrors production Supabase migration `enable_rls_newsletter_and_ops_tables`,
+ * which is already applied. The first migrate against that database runs
+ * ENABLE ROW LEVEL SECURITY again (idempotent; no policies) and then records
+ * the Drizzle tag. Do not apply a second copy under another name.
  */
 
 import { readFileSync, readdirSync } from "node:fs";
