@@ -6,8 +6,10 @@
  * published days, then slug, so the same database always yields the same set.
  * `isSeoPilot(slug, pilot)` is that membership check.
  *
- * Sections come from stored fields and those tracked rows. A section is left
- * out when those fields are not enough. Nothing here calls a model.
+ * Sections come from stored fields and those tracked rows. Momentum and peer
+ * sections are left out when those fields are not enough. The audience section
+ * is always two scenario sentences; thin inputs stay visible and are marked
+ * draft. Nothing here calls a model.
  */
 
 import { categoryLabelEn, categoryLabelZh } from "@/components/v3/category-color";
@@ -34,6 +36,7 @@ export const SEO_PILOT_COPY = {
   peerTitle: { zh: "同类项目对比", en: "Similar ranked projects" },
   audienceKicker: { zh: "读者", en: "WHO IT'S FOR" },
   audienceTitle: { zh: "适合谁用", en: "Who it's for" },
+  audienceDraft: { zh: "草稿", en: "Draft" },
   dailyToggle: { zh: "每日记录", en: "Daily record" },
 } as const;
 
@@ -199,6 +202,26 @@ function changeClause(delta: number | null): { zh: string; en: string } {
 
 type TrackedPoint = { date: string; heatScore: number; published: boolean; rank: number | null };
 
+function trackedSeries(points: RankingPoint[]): TrackedPoint[] {
+  const byDate = new Map<string, TrackedPoint>();
+  for (const point of points) {
+    const date = asIsoDay(point.date);
+    const heatScore = point.heatScore == null ? Number.NaN : Number(point.heatScore);
+    if (!date || !Number.isFinite(heatScore)) continue;
+    const published = point.published === true;
+    const rankNumber = point.rank == null ? Number.NaN : Number(point.rank);
+    const next: TrackedPoint = {
+      date,
+      heatScore,
+      published,
+      rank: Number.isInteger(rankNumber) ? rankNumber : null,
+    };
+    const prev = byDate.get(date);
+    if (!prev || (next.published && !prev.published)) byDate.set(date, next);
+  }
+  return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
 function publicRank(point: TrackedPoint): number | null {
   if (!point.published || point.rank == null || !Number.isInteger(point.rank) || point.rank < 1) return null;
   return point.rank;
@@ -220,23 +243,7 @@ export function buildMomentumSection(input: {
   points: RankingPoint[];
 }): MomentumSection | null {
   void input.firstTrackedAt;
-  const byDate = new Map<string, TrackedPoint>();
-  for (const point of input.points) {
-    const date = asIsoDay(point.date);
-    const heatScore = point.heatScore == null ? Number.NaN : Number(point.heatScore);
-    if (!date || !Number.isFinite(heatScore)) continue;
-    const published = point.published === true;
-    const rankNumber = point.rank == null ? Number.NaN : Number(point.rank);
-    const next: TrackedPoint = {
-      date,
-      heatScore,
-      published,
-      rank: Number.isInteger(rankNumber) ? rankNumber : null,
-    };
-    const prev = byDate.get(date);
-    if (!prev || (next.published && !prev.published)) byDate.set(date, next);
-  }
-  const series = [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const series = trackedSeries(input.points);
   if (series.length < SEO_PILOT_MIN_POINTS) return null;
 
   const rowsChrono: MomentumRow[] = series.map((point, index) => {
@@ -320,6 +327,24 @@ export function seoPilotDataNote(publishedDays: number): { zh: string; en: strin
     ? "数据说明：走势来自 Signal Garden 每日追踪的热度分；只有标注「上榜」的日期出现在公开每日榜单上。"
     : "数据说明：走势来自 Signal Garden 每日追踪的热度分；该项目尚未出现在公开每日榜单上。";
   return { zh, en: DATA_NOTE_EN };
+}
+
+export type MomentumShape = "rising" | "peak-then-fade" | "flat";
+
+/** Rising, peak-then-fade, or flat. Same tracked days as the momentum section. */
+export function momentumShapeFromPoints(points: RankingPoint[]): MomentumShape | null {
+  const series = trackedSeries(points);
+  if (series.length < SEO_PILOT_MIN_POINTS) return null;
+  const heats = series.map((point) => point.heatScore);
+  const first = heats[0]!;
+  const last = heats[heats.length - 1]!;
+  const max = Math.max(...heats);
+  const min = Math.min(...heats);
+  const band = Math.max(0.05, Math.abs(max) * 0.02);
+  if (max - min <= band) return "flat";
+  if (last < max - band) return "peak-then-fade";
+  if (last > first + band) return "rising";
+  return "flat";
 }
 
 export type SeoPeerSelf = {
@@ -455,10 +480,20 @@ export function buildPeerSection(
   };
 }
 
+export type AudiencePeerHint = {
+  name: string;
+  language?: string | null;
+  topics?: string[] | null;
+};
+
 export type AudienceInput = {
   language?: string | null;
   topics?: string[] | null;
+  tags?: string[] | null;
   description?: string | null;
+  /** First README paragraph, already clipped. Full README text is also accepted. */
+  readmeExcerpt?: string | null;
+  readmeText?: string | null;
   license?: string | null;
   projectKind?: string | null;
   skillType?: string | null;
@@ -467,6 +502,15 @@ export type AudienceInput = {
   requiresApiKey?: boolean | null;
   requiresLocalRuntime?: boolean | null;
   requiresDocker?: boolean | null;
+  momentumShape?: MomentumShape | null;
+  peers?: AudiencePeerHint[] | null;
+};
+
+export type AudienceSection = {
+  zh: string;
+  en: string;
+  /** True when a problem fact and a difference fact are not both present. */
+  draft: boolean;
 };
 
 function cleanLicense(value: string | null | undefined): string | null {
@@ -478,36 +522,358 @@ function cleanLicense(value: string | null | undefined): string | null {
   return text;
 }
 
-export function buildAudienceSection(input: AudienceInput): { zh: string; en: string } | null {
-  const language = usableLanguage(input.language);
-  const topics = usableTopicList(input.topics).slice(0, 3);
-  const license = cleanLicense(input.license);
-  const factCount = [language, topics.length ? "topics" : null, license].filter(Boolean).length;
-  if (factCount < 2) return null;
+const AUDIENCE_NOISE = [/\bbest\b/i, /\btop\b/i, new RegExp(["最", "快"].join("")), /名次/, /\brank\b/i, /适合开发者/, /很好用/];
 
-  const topicZh = topics.join("、");
-  const topicEn = topics.join(", ");
-  const lead = language && topics.length
-    ? { zh: `适合使用 ${language}、并且关注 ${topicZh} 的人。`, en: `For people using ${language} and following ${topicEn}.` }
-    : language
-      ? { zh: `适合使用 ${language} 的人。`, en: `For people using ${language}.` }
-      : topics.length
-        ? { zh: `适合关注 ${topicZh} 的人。`, en: `For people following ${topicEn}.` }
-        : null;
-  const licenseZh = license
-    ? input.projectKind === "product"
-      ? `资料里的许可是 ${license}。`
-      : `仓库许可为 ${license}。`
-    : "";
-  const licenseEn = license
-    ? input.projectKind === "product"
-      ? `The listed license is ${license}.`
-      : `The repository license is ${license}.`
-    : "";
-  const zh = `${lead?.zh ?? ""}${licenseZh}`.trim();
-  const en = `${lead?.en ?? ""}${licenseEn ? ` ${licenseEn}` : ""}`.replace(/ {2,}/g, " ").trim();
-  if (containsSeoPilotBlocked(zh) || containsSeoPilotBlocked(en)) return null;
-  return { zh, en };
+function audienceNoise(text: string): boolean {
+  return containsSeoPilotBlocked(text) || AUDIENCE_NOISE.some((pattern) => pattern.test(text));
+}
+
+function normalizeInline(text: string): string {
+  return text
+    .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)]\([^)]*\)/g, "$1")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[#>*_`~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function clipSummarySentence(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const normalized = normalizeInline(text);
+  if (!normalized) return null;
+  const cut = normalized.split(/[。！？]|\.(?=\s|$)|\?(?=\s|$)|\!(?=\s|$)/)[0]?.trim() ?? "";
+  if (!cut) return null;
+  const sentence = cut.length <= 160 ? cut : cut.slice(0, 160).replace(/\s+\S*$/, "").trim();
+  if (sentence.length < 12) return null;
+  const words = sentence.split(/\s+/).filter(Boolean);
+  const cjk = /[\u3400-\u9fff]/.test(sentence);
+  if (!cjk && words.length < 3) return null;
+  if (audienceNoise(sentence)) return null;
+  return sentence;
+}
+
+/** First readable README paragraph, clipped to one sentence. Null when it is too thin. */
+export function audienceReadmeExcerpt(readmeText: string | null | undefined): string | null {
+  if (!readmeText) return null;
+  const head = readmeText.replace(/\r\n/g, "\n").slice(0, 5000);
+  const buf: string[] = [];
+  for (const line of head.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (buf.length) break;
+      continue;
+    }
+    if (!buf.length && (trimmed.startsWith("#") || trimmed.startsWith("<!--") || trimmed.startsWith("[![") || /^!\[[^\]]*]\(/.test(trimmed))) {
+      continue;
+    }
+    if (trimmed.startsWith("<!--")) continue;
+    buf.push(trimmed);
+    if (buf.join(" ").length > 500) break;
+  }
+  if (!buf.length) return null;
+  return clipSummarySentence(buf.join(" "));
+}
+
+function cleanPeerName(name: string): string | null {
+  const text = name.replace(/\s+/g, " ").trim();
+  if (!text || text.length > 80 || /[。！？.!?]/.test(text)) return null;
+  if (audienceNoise(text)) return null;
+  return text;
+}
+
+export function audiencePeerHints(
+  section: PeerSection | null,
+  candidates: readonly SeoPeerCandidate[],
+): AudiencePeerHint[] {
+  if (!section) return [];
+  const bySlug = new Map(candidates.map((candidate) => [candidate.slug, candidate]));
+  const hints: AudiencePeerHint[] = [];
+  for (const peer of section.peers) {
+    const candidate = bySlug.get(peer.slug);
+    const name = cleanPeerName(peer.name);
+    if (!candidate || !name) continue;
+    hints.push({ name, language: candidate.language ?? null, topics: candidate.topics ?? null });
+  }
+  return hints;
+}
+
+type TopicRole = { zh: string; en: string };
+
+const TOPIC_ROLES: { keys: readonly string[]; role: (language: string | null) => TopicRole }[] = [
+  {
+    keys: ["cli", "terminal", "shell", "command-line"],
+    role: (language) => language
+      ? { zh: `维护 ${language} 命令行流程的团队`, en: `teams maintaining ${language} command-line workflows` }
+      : { zh: "维护命令行流程的团队", en: "teams maintaining command-line workflows" },
+  },
+  {
+    keys: ["mcp"],
+    role: (language) => language
+      ? { zh: `把 MCP 接到 ${language} 工程里的团队`, en: `teams wiring MCP into a ${language} project` }
+      : { zh: "把 MCP 接到现有工程里的团队", en: "teams wiring MCP into an existing project" },
+  },
+  {
+    keys: ["ui", "components", "component", "design-system"],
+    role: (language) => language
+      ? { zh: `用 ${language} 做界面组件的团队`, en: `teams building interface components in ${language}` }
+      : { zh: "做界面组件的团队", en: "teams building interface components" },
+  },
+  {
+    keys: ["docs", "documentation", "markdown"],
+    role: (language) => language
+      ? { zh: `用 ${language} 写文档的团队`, en: `teams writing documentation in ${language}` }
+      : { zh: "写文档的团队", en: "teams writing documentation" },
+  },
+  {
+    keys: ["editor"],
+    role: (language) => language
+      ? { zh: `用 ${language} 做编辑器的团队`, en: `teams building an editor in ${language}` }
+      : { zh: "做编辑器的团队", en: "teams building an editor" },
+  },
+  {
+    keys: ["animation", "motion"],
+    role: (language) => language
+      ? { zh: `用 ${language} 做动画的团队`, en: `teams building animation in ${language}` }
+      : { zh: "做动画的团队", en: "teams building animation" },
+  },
+  {
+    keys: ["video"],
+    role: (language) => language
+      ? { zh: `用 ${language} 做视频流程的团队`, en: `teams building a video workflow in ${language}` }
+      : { zh: "做视频流程的团队", en: "teams building a video workflow" },
+  },
+  {
+    keys: ["agent", "llm", "ai"],
+    role: (language) => language
+      ? { zh: `用 ${language} 做智能体流程的团队`, en: `teams building an agent workflow in ${language}` }
+      : { zh: "做智能体流程的团队", en: "teams building an agent workflow" },
+  },
+];
+
+const SHAPE_COPY: Record<MomentumShape, { zh: string; en: string }> = {
+  rising: { zh: "上升", en: "rising" },
+  "peak-then-fade": { zh: "峰值回落", en: "peak-then-fade" },
+  flat: { zh: "平稳", en: "flat" },
+};
+
+function capSentence(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+type AudiencePeerDiff = {
+  name: string;
+  kind: "language" | "topic";
+  detailZh: string;
+  detailEn: string;
+};
+
+type AudienceFacts = {
+  language: string | null;
+  topics: string[];
+  license: string | null;
+  product: boolean;
+  summary: string | null;
+  shape: MomentumShape | null;
+  peer: AudiencePeerDiff | null;
+};
+
+function topicRole(topics: string[], language: string | null): TopicRole | null {
+  const keys = new Set(topics.map((topic) => topic.toLowerCase()));
+  for (const entry of TOPIC_ROLES) {
+    if (entry.keys.some((key) => keys.has(key))) return entry.role(language);
+  }
+  return null;
+}
+
+function whoPhrase(facts: AudienceFacts): TopicRole {
+  const role = topicRole(facts.topics, facts.language);
+  if (role) return role;
+  const topicZh = facts.topics.join("、");
+  const topicEn = facts.topics.join(", ");
+  if (facts.topics.length && facts.language) {
+    return { zh: `用 ${facts.language} 做 ${topicZh} 的团队`, en: `teams using ${facts.language} on ${topicEn}` };
+  }
+  if (facts.topics.length) {
+    return { zh: `做 ${topicZh} 的团队`, en: `teams working on ${topicEn}` };
+  }
+  if (facts.summary && facts.language) {
+    return { zh: `以 ${facts.language} 落地仓库说明的团队`, en: `teams using ${facts.language} for the repository summary` };
+  }
+  if (facts.language) {
+    return { zh: `技术栈为 ${facts.language} 的团队`, en: `teams whose stack is ${facts.language}` };
+  }
+  if (facts.license) {
+    return { zh: `需要按 ${facts.license} 许可接入的团队`, en: `teams that need a ${facts.license} license` };
+  }
+  return { zh: "准备把仓库接进现有工程的团队", en: "teams deciding whether to adopt the repository" };
+}
+
+function sentenceOne(facts: AudienceFacts): TopicRole {
+  const who = whoPhrase(facts);
+  if (facts.summary) {
+    return {
+      zh: `${who.zh}会用它处理这件事：${facts.summary}。`,
+      en: `${capSentence(who.en)} use it for this problem: ${facts.summary}.`,
+    };
+  }
+  if (facts.topics.length) {
+    return {
+      zh: `${who.zh}会在要把这项工作接进现有流程时用它。`,
+      en: `${capSentence(who.en)} use it when that work has to fit an existing workflow.`,
+    };
+  }
+  if (facts.language) {
+    return {
+      zh: `${who.zh}会在要把这个仓库接进现有流程时用它。`,
+      en: `${capSentence(who.en)} use it when they are trying to fit the repository into an existing workflow.`,
+    };
+  }
+  if (facts.license) {
+    return {
+      zh: `${who.zh}会在确认许可能否进现有工程时用它。`,
+      en: `${capSentence(who.en)} use it when the question is whether that license can enter an existing project.`,
+    };
+  }
+  return {
+    zh: `${who.zh}会在只能对照公开字段时用它判断要不要继续。`,
+    en: `${capSentence(who.en)} use it when the public fields are all they can check.`,
+  };
+}
+
+function licenseClause(facts: AudienceFacts): TopicRole | null {
+  if (!facts.license) return null;
+  return facts.product
+    ? { zh: `资料里的许可是 ${facts.license}`, en: `the listed license is ${facts.license}` }
+    : { zh: `仓库许可为 ${facts.license}`, en: `the repository license is ${facts.license}` };
+}
+
+function shapeClause(facts: AudienceFacts): TopicRole | null {
+  if (!facts.shape) return null;
+  const label = SHAPE_COPY[facts.shape];
+  return { zh: `热度走势为${label.zh}`, en: `the momentum shape is ${label.en}` };
+}
+
+function sentenceTwo(facts: AudienceFacts): TopicRole {
+  const license = licenseClause(facts);
+  const shape = shapeClause(facts);
+  const extrasZh = [license?.zh, shape?.zh].filter((part): part is string => Boolean(part));
+  const extrasEn = [license?.en, shape?.en].filter((part): part is string => Boolean(part));
+  const extraZh = extrasZh.length ? `，${extrasZh.join("，")}` : "";
+  const extraEn = extrasEn.length ? `, ${extrasEn.join(", and ")}` : "";
+
+  if (facts.peer?.kind === "language" && facts.language) {
+    return {
+      zh: `需要留在 ${facts.language} 而不是站内同类 ${facts.peer.name} 所用的 ${facts.peer.detailZh} 时优先选它${extraZh}。`,
+      en: `Prefer it over the in-site peer ${facts.peer.name} when the stack stays ${facts.language} rather than ${facts.peer.detailEn}${extraEn}.`,
+    };
+  }
+  if (facts.peer?.kind === "topic") {
+    const useZh = facts.topics[0] ?? facts.peer.detailZh;
+    const useEn = facts.topics[0] ?? facts.peer.detailEn;
+    return {
+      zh: `用途要落在 ${useZh} 而不是站内同类 ${facts.peer.name} 更偏向的 ${facts.peer.detailZh} 时优先选它${extraZh}。`,
+      en: `Prefer it over the in-site peer ${facts.peer.name} when the use stays on ${useEn} rather than ${facts.peer.detailEn}${extraEn}.`,
+    };
+  }
+
+  const diffsZh: string[] = [];
+  const diffsEn: string[] = [];
+  if (facts.language) {
+    diffsZh.push(`技术栈是 ${facts.language}`);
+    diffsEn.push(`the stack stays ${facts.language}`);
+  }
+  if (facts.topics.length && !facts.language) {
+    diffsZh.push(`用途集中在 ${facts.topics.join("、")}`);
+    diffsEn.push(`the use stays on ${facts.topics.join(", ")}`);
+  }
+  if (license) {
+    diffsZh.push(license.zh);
+    diffsEn.push(license.en);
+  }
+  if (shape) {
+    diffsZh.push(shape.zh);
+    diffsEn.push(shape.en);
+  }
+  if (!diffsZh.length) {
+    return {
+      zh: "和站内同类相比，要等仓库原文写明语言栈、许可或用途上的差别，才谈得上优先选它。",
+      en: "Prefer it over in-site peers only after the repository shows a language-stack, license, or use difference these fields do not name.",
+    };
+  }
+  return {
+    zh: `和站内同类相比，优先选它是因为${diffsZh.join("，")}。`,
+    en: `Prefer it over in-site peers when ${diffsEn.join(", and ")}.`,
+  };
+}
+
+function pickAudiencePeer(language: string | null, topics: string[], peers: AudiencePeerHint[] | null | undefined): AudiencePeerDiff | null {
+  const hints = peers ?? [];
+  for (const peer of hints) {
+    const name = cleanPeerName(peer.name);
+    const other = usableLanguage(peer.language);
+    if (!name || !language || !other || other.toLowerCase() === language.toLowerCase()) continue;
+    return { name, kind: "language", detailZh: other, detailEn: other };
+  }
+  const mine = new Set(topics.map((topic) => topic.toLowerCase()));
+  for (const peer of hints) {
+    const name = cleanPeerName(peer.name);
+    if (!name) continue;
+    const different = usableTopicList(peer.topics).find((topic) => !mine.has(topic.toLowerCase()));
+    if (!different) continue;
+    return { name, kind: "topic", detailZh: different, detailEn: different };
+  }
+  return null;
+}
+
+function audienceSummary(input: AudienceInput): string | null {
+  return clipSummarySentence(input.readmeExcerpt) ?? audienceReadmeExcerpt(input.readmeText) ?? clipSummarySentence(input.description);
+}
+
+function draftFallback(): AudienceSection {
+  return {
+    zh: "准备把仓库接进现有工程的团队会在只能对照公开字段时用它判断要不要继续。和站内同类相比，要等仓库原文写明语言栈、许可或用途上的差别，才谈得上优先选它。",
+    en: "Teams deciding whether to adopt the repository use it when the public fields are all they can check. Prefer it over in-site peers only after the repository shows a language-stack, license, or use difference these fields do not name.",
+    draft: true,
+  };
+}
+
+/**
+ * Two scenario sentences for the pilot audience block.
+ *
+ * Draft is true unless a problem fact and a difference fact are both present.
+ * A problem fact is a specific topic or tag, or a usable README or description
+ * summary. A difference fact is a language, a license, a named peer with a
+ * different language or topic, or a momentum shape. Thin inputs still return
+ * two sentences. Skill flags are ignored. This never returns null.
+ */
+export function buildAudienceSection(input: AudienceInput): AudienceSection {
+  const languageRaw = usableLanguage(input.language);
+  const language = languageRaw && !audienceNoise(languageRaw) ? languageRaw : null;
+  const topics = usableTopicList([...(input.topics ?? []), ...(input.tags ?? [])]).filter((topic) => !audienceNoise(topic)).slice(0, 3);
+  const license = cleanLicense(input.license);
+  const summary = audienceSummary(input);
+  const shape = input.momentumShape ?? null;
+  const peer = pickAudiencePeer(language, topics, input.peers);
+  const facts: AudienceFacts = {
+    language,
+    topics,
+    license,
+    product: input.projectKind === "product",
+    summary,
+    shape,
+    peer,
+  };
+  const problem = Boolean(summary || topics.length);
+  const difference = Boolean(language || license || peer || shape);
+  const first = sentenceOne(facts);
+  const second = sentenceTwo(facts);
+  const zh = `${first.zh}${second.zh}`;
+  const en = `${first.en} ${second.en}`.replace(/ {2,}/g, " ").trim();
+  if (audienceNoise(zh) || audienceNoise(en)) return draftFallback();
+  return { zh, en, draft: !(problem && difference) };
 }
 
 export function seoPilotMetaDescription(input: {
@@ -527,7 +893,7 @@ export function seoPilotMetaDescription(input: {
 export type SeoPilotView = {
   momentum: MomentumSection | null;
   peers: PeerSection | null;
-  audience: { zh: string; en: string } | null;
+  audience: AudienceSection | null;
   metaDescription: string | null;
 };
 
@@ -571,6 +937,9 @@ export function seoPilotPlainText(view: Pick<SeoPilotView, "momentum" | "peers" 
       view.audience.zh,
       view.audience.en,
     );
+    if (view.audience.draft) {
+      parts.push(SEO_PILOT_COPY.audienceDraft.zh, SEO_PILOT_COPY.audienceDraft.en);
+    }
   }
   return parts.join("\n");
 }
