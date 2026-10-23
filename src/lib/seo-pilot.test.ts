@@ -330,7 +330,7 @@ test("audience copy always has two scenario sentences and marks thin inputs as d
     projectKind: "repo",
   });
   assert.equal(rust.draft, false);
-  assert.equal(typed.draft, false);
+  assert.equal(typed.draft, true);
   assert.notEqual(rust.zh, typed.zh);
   assertTwoScenarios(rust);
   assertTwoScenarios(typed);
@@ -356,7 +356,7 @@ test("audience copy always has two scenario sentences and marks thin inputs as d
     description: "Short vendor line that should lose.",
     readmeText: "# Title\n\n![badge](https://img.example/badge.svg)\n\nKeeps subtitle files in sync for editors.\n\nSecond paragraph ignored.",
   });
-  assert.equal(fromReadme.draft, false);
+  assert.equal(fromReadme.draft, true);
   assert.match(fromReadme.zh, /Keeps subtitle files in sync for editors/);
   assert.match(fromReadme.en, /Keeps subtitle files in sync for editors/);
   assert.doesNotMatch(`${fromReadme.zh}\n${fromReadme.en}`, /Short vendor line|Second paragraph|Title/);
@@ -368,7 +368,7 @@ test("audience copy always has two scenario sentences and marks thin inputs as d
     description: "a fork and the fastest helper that 涨得最快 for logs",
     peers: [{ name: "fork-tool", language: "Go" }, { name: "Go Topic", language: "Go" }],
   });
-  assert.equal(dirty.draft, false);
+  assert.equal(dirty.draft, true);
   assert.match(dirty.zh, /Go Topic/);
   assert.doesNotMatch(`${dirty.zh}\n${dirty.en}`, /fork|fastest|涨得最快/i);
   assertTwoScenarios(dirty);
@@ -377,11 +377,56 @@ test("audience copy always has two scenario sentences and marks thin inputs as d
     description: "Parses subtitle cues into a timeline for editors.",
     momentumShape: "rising",
   });
-  assert.equal(shaped.draft, false);
+  assert.equal(shaped.draft, true);
   assert.match(shaped.zh, /上升/);
   assert.match(shaped.en, /momentum shape is rising/);
   assert.doesNotMatch(`${shaped.zh}\n${shaped.en}`, /名次|\brank\b/i);
   assertTwoScenarios(shaped);
+
+  const topicPeerOnly = buildAudienceSection({
+    language: "Ruby",
+    topics: ["pdf"],
+    license: "AGPL-3.0",
+    description: "Open source document filling and signing for teams.",
+    momentumShape: "flat",
+    peers: [{ name: "Same Stack", language: "Ruby", topics: ["vue"] }],
+  });
+  assert.equal(topicPeerOnly.draft, true);
+  assert.match(topicPeerOnly.zh, /Same Stack/);
+  assert.match(topicPeerOnly.zh, /vue/);
+  assert.match(topicPeerOnly.zh, /AGPL-3\.0/);
+  assert.match(topicPeerOnly.zh, /平稳/);
+  assertTwoScenarios(topicPeerOnly);
+
+  const languagePeer = buildAudienceSection({
+    language: "Ruby",
+    description: "Open source document filling and signing for teams.",
+    license: "MIT",
+    momentumShape: "rising",
+    peers: [{ name: "Vue Kit", language: "TypeScript", topics: ["vue"] }],
+  });
+  assert.equal(languagePeer.draft, false);
+  assert.match(languagePeer.zh, /Vue Kit/);
+  assert.match(languagePeer.zh, /TypeScript/);
+  assert.match(languagePeer.zh, /Open source document filling and signing for teams/);
+  assertTwoScenarios(languagePeer);
+
+  const htmlReadme = buildAudienceSection({
+    language: "Ruby",
+    license: "AGPL-3.0",
+    momentumShape: "flat",
+    readmeText: [
+      '<h1 align="center"><a href="https://example.com/docs"><img alt="Widget" src="https://example.com/a.png"></a> Widget</h1>',
+      '<h3 align="center">Open source document filling and signing</h3>',
+      '<p align="center"><a href="https://example.com/hub"><img alt="Container releases" src="https://example.com/b.png"></a></p>',
+      "<p>Keeps signed documents in one place for editors.</p>",
+    ].join("\n"),
+    peers: [{ name: "Same Stack", language: "Ruby", topics: ["pdf"] }],
+  });
+  assert.equal(htmlReadme.draft, true);
+  assert.match(htmlReadme.zh, /Keeps signed documents in one place for editors|Open source document filling and signing/);
+  assert.doesNotMatch(`${htmlReadme.zh}\n${htmlReadme.en}`, /<a|href=|src=/);
+  assertTwoScenarios(htmlReadme);
 });
 
 test("pilot meta description is the ranking record, and blocked or huge leads are left out", () => {

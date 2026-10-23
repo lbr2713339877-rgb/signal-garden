@@ -8,8 +8,9 @@
  *
  * Sections come from stored fields and those tracked rows. Momentum and peer
  * sections are left out when those fields are not enough. The audience section
- * is always two scenario sentences; thin inputs stay visible and are marked
- * draft. Nothing here calls a model.
+ * is always two scenario sentences. It is a draft unless a usable summary and
+ * an in-site peer with a different language are both present. Nothing here
+ * calls a model.
  */
 
 import { categoryLabelEn, categoryLabelZh } from "@/components/v3/category-color";
@@ -509,7 +510,7 @@ export type AudienceInput = {
 export type AudienceSection = {
   zh: string;
   en: string;
-  /** True when a problem fact and a difference fact are not both present. */
+  /** True unless a usable summary and a language-different in-site peer are both present. */
   draft: boolean;
 };
 
@@ -533,7 +534,8 @@ function normalizeInline(text: string): string {
     .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
     .replace(/\[([^\]]*)]\([^)]*\)/g, "$1")
     .replace(/https?:\/\/\S+/g, " ")
-    .replace(/<[^>]+>/g, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/<[^>]*$/g, " ")
     .replace(/[#>*_`~]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -550,13 +552,13 @@ function clipSummarySentence(text: string | null | undefined): string | null {
   const words = sentence.split(/\s+/).filter(Boolean);
   const cjk = /[\u3400-\u9fff]/.test(sentence);
   if (!cjk && words.length < 3) return null;
-  if (audienceNoise(sentence)) return null;
+  if (/[<>]/.test(sentence) || audienceNoise(sentence)) return null;
   return sentence;
 }
 
 /** First readable README paragraph, clipped to one sentence. Null when it is too thin. */
 export function audienceReadmeExcerpt(readmeText: string | null | undefined): string | null {
-  if (!readmeText) return null;
+  if (typeof readmeText !== "string" || !readmeText) return null;
   const head = readmeText.replace(/\r\n/g, "\n").slice(0, 5000);
   const buf: string[] = [];
   for (const line of head.split("\n")) {
@@ -569,7 +571,9 @@ export function audienceReadmeExcerpt(readmeText: string | null | undefined): st
       continue;
     }
     if (trimmed.startsWith("<!--")) continue;
-    buf.push(trimmed);
+    const visible = normalizeInline(trimmed);
+    if (!visible) continue;
+    buf.push(visible);
     if (buf.join(" ").length > 500) break;
   }
   if (!buf.length) return null;
@@ -843,11 +847,13 @@ function draftFallback(): AudienceSection {
 /**
  * Two scenario sentences for the pilot audience block.
  *
- * Draft is true unless a problem fact and a difference fact are both present.
- * A problem fact is a specific topic or tag, or a usable README or description
- * summary. A difference fact is a language, a license, a named peer with a
- * different language or topic, or a momentum shape. Thin inputs still return
- * two sentences. Skill flags are ignored. This never returns null.
+ * Draft is false only when both of these are present:
+ * - a usable README or description summary (topics alone do not count)
+ * - a named in-site peer with a different language, and this repository's language
+ *
+ * License, momentum shape, and a topic-only peer diff can still be named in
+ * the sentences. They do not clear draft. Thin inputs still return two
+ * sentences. Skill flags are ignored. This never returns null.
  */
 export function buildAudienceSection(input: AudienceInput): AudienceSection {
   const languageRaw = usableLanguage(input.language);
@@ -866,8 +872,8 @@ export function buildAudienceSection(input: AudienceInput): AudienceSection {
     shape,
     peer,
   };
-  const problem = Boolean(summary || topics.length);
-  const difference = Boolean(language || license || peer || shape);
+  const problem = Boolean(summary);
+  const difference = Boolean(peer?.kind === "language" && language);
   const first = sentenceOne(facts);
   const second = sentenceTwo(facts);
   const zh = `${first.zh}${second.zh}`;

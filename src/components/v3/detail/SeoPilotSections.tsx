@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LANG } from "@/lib/i18n";
-import { SEO_PILOT_COPY, SPARK_HEIGHT, SPARK_WIDTH, type SeoPilotView } from "@/lib/seo-pilot";
+import { SEO_PILOT_COPY, SPARK_HEIGHT, SPARK_WIDTH, buildAudienceSection, type SeoPilotView } from "@/lib/seo-pilot";
 
 function MomentumSparkline({ points }: { points: { x: number; y: number }[] }) {
   if (points.length < 2) return null;
@@ -26,9 +26,10 @@ function MomentumSparkline({ points }: { points: { x: number; y: number }[] }) {
   );
 }
 
-/** Server-rendered pilot sections. Omitted blocks are not mounted. */
+/** Server-rendered pilot sections. Momentum and peers are omitted when empty. Audience always mounts. */
 export function SeoPilotSections({ view }: { view: SeoPilotView }) {
-  if (!view.momentum && !view.peers && !view.audience) return null;
+  const audience = view.audience ?? buildAudienceSection({});
+  if (!view.momentum && !view.peers && !audience) return null;
   return (
     <div data-seo-pilot="">
       {view.momentum ? (
@@ -90,29 +91,27 @@ export function SeoPilotSections({ view }: { view: SeoPilotView }) {
         </section>
       ) : null}
 
-      {view.audience ? (
-        <section id="seo-audience" data-seo-section="audience" className="px-[var(--gutter)] py-10">
-          <div className="mx-auto max-w-[var(--container)]">
-            <p className="system">
-              <LANG zh={SEO_PILOT_COPY.audienceKicker.zh} en={SEO_PILOT_COPY.audienceKicker.en} />
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <h2 className="display-l">
-                <LANG zh={SEO_PILOT_COPY.audienceTitle.zh} en={SEO_PILOT_COPY.audienceTitle.en} />
-              </h2>
-              {view.audience.draft ? (
-                <span
-                  data-audience-draft=""
-                  className="inline-flex items-center border border-[var(--glass-1-border)] px-2 py-1 text-[11px] font-medium leading-none tracking-[0.14em] text-[var(--ink-3)] [font-family:var(--font-sans)] [text-transform:none]"
-                >
-                  <LANG zh={SEO_PILOT_COPY.audienceDraft.zh} en={SEO_PILOT_COPY.audienceDraft.en} />
-                </span>
-              ) : null}
-            </div>
-            <LANG as="p" zh={view.audience.zh} en={view.audience.en} className="body mt-6 max-w-[62ch] text-[var(--ink-2)]" />
+      <section id="seo-audience" data-seo-section="audience" className="px-[var(--gutter)] py-10">
+        <div className="mx-auto max-w-[var(--container)]">
+          <p className="system">
+            <LANG zh={SEO_PILOT_COPY.audienceKicker.zh} en={SEO_PILOT_COPY.audienceKicker.en} />
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <h2 className="display-l">
+              <LANG zh={SEO_PILOT_COPY.audienceTitle.zh} en={SEO_PILOT_COPY.audienceTitle.en} />
+            </h2>
+            {audience.draft ? (
+              <span
+                data-audience-draft=""
+                className="inline-flex items-center border border-[var(--glass-1-border)] px-2 py-1 text-[11px] font-medium leading-none tracking-[0.14em] text-[var(--ink-3)] [font-family:var(--font-sans)] [text-transform:none]"
+              >
+                <LANG zh={SEO_PILOT_COPY.audienceDraft.zh} en={SEO_PILOT_COPY.audienceDraft.en} />
+              </span>
+            ) : null}
           </div>
-        </section>
-      ) : null}
+          <LANG as="p" zh={audience.zh} en={audience.en} className="body mt-6 max-w-[62ch] text-[var(--ink-2)]" />
+        </div>
+      </section>
     </div>
   );
 }

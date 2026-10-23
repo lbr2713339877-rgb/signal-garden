@@ -202,28 +202,59 @@ function seoPilotFactsKey(row: SeoProjectFields): string {
   });
 }
 
+async function loadOrEmpty<T>(slug: string, label: string, run: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    // A history or peer failure must not drop the audience block. The page
+    // keeps the last good HTML when this function throws.
+    console.error(`[seo-pilot] ${label} failed`, slug, error);
+    return fallback;
+  }
+}
+
 const loadSeoPilotFacts = cache(async function loadSeoPilotFacts(key: string) {
   const row = JSON.parse(key) as SeoProjectFields;
   const [points, candidates] = await Promise.all([
-    getTrackedSignalHistory(row.id),
-    getSeoPeerCandidates(row),
+    loadOrEmpty(row.slug, "history", () => getTrackedSignalHistory(row.id), []),
+    loadOrEmpty(row.slug, "peers", () => getSeoPeerCandidates(row), []),
   ]);
   const momentum = buildMomentumSection({ points });
   const peers = buildPeerSection(row, candidates);
-  return {
-    momentum,
-    peers,
-    audience: buildAudienceSection({
+  let audience = buildAudienceSection({});
+  try {
+    audience = buildAudienceSection({
       ...row,
       momentumShape: momentumShapeFromPoints(points),
       peers: audiencePeerHints(peers, candidates),
-    }),
-  };
+    });
+  } catch (error) {
+    console.error("[seo-pilot] audience failed", row.slug, error);
+  }
+  return { momentum, peers, audience };
 });
 
 /** Starts history + peers before the one-liner is ready. Same cache as the view. */
 export function startSeoPilotFacts(row: SeoProjectFields) {
-  return loadSeoPilotFacts(seoPilotFactsKey(row));
+  try {
+    return loadSeoPilotFacts(seoPilotFactsKey(row));
+  } catch (error) {
+    console.error("[seo-pilot] facts key failed", row.slug, error);
+    const topics = Array.isArray(row.topics) ? row.topics : [];
+    const tags = Array.isArray(row.tags) ? row.tags : [];
+    return Promise.resolve({
+      momentum: null,
+      peers: null,
+      audience: buildAudienceSection({
+        language: row.language ?? null,
+        topics,
+        tags,
+        description: row.description ?? null,
+        license: row.license ?? null,
+        projectKind: row.projectKind ?? null,
+      }),
+    });
+  }
 }
 
 export const loadSeoPilotView = cache(async function loadSeoPilotView(row: SeoProjectFields, oneLinerZh?: string | null): Promise<SeoPilotView> {
