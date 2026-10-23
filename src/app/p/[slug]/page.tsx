@@ -475,7 +475,7 @@ export default async function ProjectPageV3({
         </section>
       ) : null}
 
-      {seo && (seo.momentum || seo.peers || seo.audience) ? <SeoPilotSections view={seo} /> : null}
+      {seo ? <SeoPilotSections view={seo} /> : null}
 
       {/* Real Hacker News discussions. Omitted entirely when none were found —
           never rendered as "暂无". */}

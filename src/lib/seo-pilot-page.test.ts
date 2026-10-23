@@ -27,7 +27,7 @@ function walk(node: unknown, visit: (el: { type: unknown; props: Record<string, 
   walk(el.props.children, visit);
 }
 
-function renderSeo(node: unknown, acc: { text: string[]; hrefs: string[]; sections: string[]; polylines: string[]; detailsOpen: boolean[] }) {
+function renderSeo(node: unknown, acc: { text: string[]; hrefs: string[]; sections: string[]; polylines: string[]; detailsOpen: boolean[]; drafts: number }) {
   if (node == null || typeof node === "boolean") return;
   if (typeof node === "string" || typeof node === "number") {
     acc.text.push(String(node));
@@ -42,6 +42,7 @@ function renderSeo(node: unknown, acc: { text: string[]; hrefs: string[]; sectio
   if (!el.props) return;
   if (el.type === "details") acc.detailsOpen.push(el.props.open === true);
   if (typeof el.props["data-seo-section"] === "string") acc.sections.push(el.props["data-seo-section"]);
+  if ("data-audience-draft" in el.props) acc.drafts += 1;
   if (typeof el.props.points === "string") acc.polylines.push(el.props.points);
   if (typeof el.props.href === "string") {
     acc.hrefs.push(el.props.href);
@@ -254,7 +255,7 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.doesNotMatch(`${view.audience?.zh ?? ""}\n${view.audience?.en ?? ""}`, /local runtime|API key|SKILL\.md|技能包|代码库|skill package|\blibrary\b|Docker|适合开发者|很好用/i);
     for (const pattern of BLOCKED) assert.doesNotMatch(seoPilotPlainText(view), pattern);
 
-    const rendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[] };
+    const rendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[], drafts: 0 };
     renderSeo(SeoPilotSections({ view }), rendered);
     const renderedText = rendered.text.join("\n");
     assert.deepEqual(rendered.sections, ["momentum", "peers", "audience"]);
@@ -265,6 +266,7 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.match(renderedText, /适合谁用/);
     assert.equal(renderedText.includes("草稿"), false);
     assert.doesNotMatch(renderedText, /\bDraft\b/);
+    assert.equal(rendered.drafts, 0);
     assert.deepEqual(rendered.detailsOpen, [false]);
     assert.match(renderedText, /每日记录/);
     assert.match(renderedText, /Daily record/);
@@ -321,14 +323,24 @@ test("pilot pages gain factual sections and every other project page stays as it
     assert.match(shadowText, /Tracked 6 days since/);
     assert.doesNotMatch(shadowText, /上榜|名次|峰值|published ranking|\b1 days\b/);
     for (const pattern of BLOCKED) assert.doesNotMatch(shadowText, pattern);
-    const bareRendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[] };
+    const bareRendered = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[], drafts: 0 };
     renderSeo(SeoPilotSections({ view: bareSeo }), bareRendered);
     assert.deepEqual(bareRendered.sections, ["momentum", "audience"]);
     assert.equal(bareRendered.text.join("\n").includes("适合谁用"), true);
     assert.match(bareRendered.text.join("\n"), /草稿/);
     assert.match(bareRendered.text.join("\n"), /\bDraft\b/);
+    assert.equal(bareRendered.drafts, 1);
     assert.equal(bareRendered.text.join("\n").includes("同类项目对比"), false);
     for (const pattern of BLOCKED) assert.doesNotMatch(bareRendered.text.join("\n"), pattern);
+
+    const missingAudience = { text: [] as string[], hrefs: [] as string[], sections: [] as string[], polylines: [] as string[], detailsOpen: [] as boolean[], drafts: 0 };
+    renderSeo(SeoPilotSections({
+      view: { momentum: bareSeo.momentum, peers: null, audience: null, metaDescription: null },
+    }), missingAudience);
+    assert.deepEqual(missingAudience.sections, ["momentum", "audience"]);
+    assert.match(missingAudience.text.join("\n"), /适合谁用/);
+    assert.equal(missingAudience.drafts, 1);
+    assert.ok((missingAudience.text.join("\n").match(/[。！？.!?]/g) ?? []).length >= 2);
   } finally {
     store.__sgDb = previous;
     await raw.close();
