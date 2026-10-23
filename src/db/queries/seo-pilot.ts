@@ -5,6 +5,7 @@
  * a review hold, not a public place.
  */
 
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -86,18 +87,20 @@ async function querySeoPilotSlugs(): Promise<string[]> {
 
 const loadSeoPilotSlugs = unstable_cache(querySeoPilotSlugs, ["seo-pilot-slugs"], { revalidate: 3600 });
 
-export async function getSeoPilotSlugSet(): Promise<Set<string>> {
+export const getSeoPilotSlugSet = cache(async function getSeoPilotSlugSet(): Promise<Set<string>> {
   try {
     return new Set(await loadSeoPilotSlugs());
   } catch (error) {
     // The slug script and node:test have no Next incremental cache. The page
-    // does, so generateMetadata and the page share one hourly result.
+    // does, so the list is reused for an hour. React cache also collapses the
+    // generateMetadata call and the page call into one read per render.
+    // Callers only read the set.
     if (error instanceof Error && error.message.includes("incrementalCache missing")) {
       return new Set(await querySeoPilotSlugs());
     }
     throw error;
   }
-}
+});
 
 /** Every stored 热度分 snapshot. Days without a finite score are dropped later. */
 export async function getTrackedSignalHistory(projectId: string): Promise<RankingPoint[]> {
@@ -171,18 +174,46 @@ export async function getSeoPeerCandidates(row: SeoProjectFields): Promise<SeoPe
   }));
 }
 
-export async function loadSeoPilotView(row: SeoProjectFields, oneLinerZh?: string | null): Promise<SeoPilotView> {
+/**
+ * Fields that change the history query, the peer query, or the section text.
+ * A string key so metadata and the page share one read even when each holds
+ * its own copy of the project row. The one-liner is applied later.
+ */
+function seoPilotFactsKey(row: SeoProjectFields): string {
+  return JSON.stringify({
+    id: row.id,
+    slug: row.slug,
+    language: row.language ?? null,
+    category: row.category ?? null,
+    primaryCategory: row.primaryCategory ?? null,
+    topics: row.topics ?? null,
+    license: row.license ?? null,
+    projectKind: row.projectKind ?? null,
+  });
+}
+
+const loadSeoPilotFacts = cache(async function loadSeoPilotFacts(key: string) {
+  const row = JSON.parse(key) as SeoProjectFields;
   const [points, candidates] = await Promise.all([
     getTrackedSignalHistory(row.id),
     getSeoPeerCandidates(row),
   ]);
-  const momentum = buildMomentumSection({ points });
-  const peers = buildPeerSection(row, candidates);
-  const audience = buildAudienceSection(row);
   return {
-    momentum,
-    peers,
-    audience,
-    metaDescription: seoPilotMetaDescription({ name: row.name, oneLiner: oneLinerZh, momentum }),
+    momentum: buildMomentumSection({ points }),
+    peers: buildPeerSection(row, candidates),
+    audience: buildAudienceSection(row),
   };
+});
+
+/** Starts history + peers before the one-liner is ready. Same cache as the view. */
+export function startSeoPilotFacts(row: SeoProjectFields) {
+  return loadSeoPilotFacts(seoPilotFactsKey(row));
 }
+
+export const loadSeoPilotView = cache(async function loadSeoPilotView(row: SeoProjectFields, oneLinerZh?: string | null): Promise<SeoPilotView> {
+  const facts = await startSeoPilotFacts(row);
+  return {
+    ...facts,
+    metaDescription: seoPilotMetaDescription({ name: row.name, oneLiner: oneLinerZh, momentum: facts.momentum }),
+  };
+});
