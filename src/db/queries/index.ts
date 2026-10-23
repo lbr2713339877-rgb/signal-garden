@@ -7,6 +7,7 @@
  * forget them.
  */
 
+import { cache } from "react";
 import { and, asc, desc, eq, gte, isNotNull, isNull, ne, or, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { aiContent, dailySignal, externalMention, project, repoSnapshot, skill, userFeedback } from "@/db/schema";
@@ -260,30 +261,38 @@ export async function getProjectsByIds(ids: string[]) {
     .where(and(inArray(project.id, ids), rankable()));
 }
 
-export async function getProjectBySlug(slug: string) {
+/**
+ * Project payload for `/p/[slug]`. The row has to land first. Skills, the
+ * single content row, mentions, and star history only need that id, so they
+ * share one round trip. `cache()` lets `generateMetadata` and the page reuse
+ * the same promise for a slug during one render.
+ */
+export const getProjectBySlug = cache(async function getProjectBySlug(slug: string) {
   const d = await db();
   const [row] = await d.select().from(project).where(eq(project.slug, slug)).limit(1);
   if (!row || row.hidden) return null;
-  const skills = await d
-    .select()
-    .from(skill)
-    .where(eq(skill.projectId, row.id))
-    .orderBy(desc(skill.isVerifiedSkill), skill.name);
-  const [content] = await d.select().from(aiContent).where(eq(aiContent.projectId, row.id)).limit(1);
-  const mentions = await d
-    .select()
-    .from(externalMention)
-    .where(eq(externalMention.projectId, row.id))
-    .orderBy(desc(externalMention.publishedAt))
-    .limit(10);
-  const history = await d
-    .select({ capturedAt: repoSnapshot.capturedAt, stars: repoSnapshot.stars, forks: repoSnapshot.forks })
-    .from(repoSnapshot)
-    .where(eq(repoSnapshot.projectId, row.id))
-    .orderBy(repoSnapshot.capturedAt)
-    .limit(180);
-  return { project: row, skills, content: content ?? null, mentions, history };
-}
+  const [skills, contentRows, mentions, history] = await Promise.all([
+    d
+      .select()
+      .from(skill)
+      .where(eq(skill.projectId, row.id))
+      .orderBy(desc(skill.isVerifiedSkill), skill.name),
+    d.select().from(aiContent).where(eq(aiContent.projectId, row.id)).limit(1),
+    d
+      .select()
+      .from(externalMention)
+      .where(eq(externalMention.projectId, row.id))
+      .orderBy(desc(externalMention.publishedAt))
+      .limit(10),
+    d
+      .select({ capturedAt: repoSnapshot.capturedAt, stars: repoSnapshot.stars, forks: repoSnapshot.forks })
+      .from(repoSnapshot)
+      .where(eq(repoSnapshot.projectId, row.id))
+      .orderBy(repoSnapshot.capturedAt)
+      .limit(180),
+  ]);
+  return { project: row, skills, content: contentRows[0] ?? null, mentions, history };
+});
 
 export async function getFocusCounts(): Promise<Record<string, number>> {
   const d = await db();
@@ -483,15 +492,15 @@ export async function getRising(limit = 12): Promise<ProjectCard[]> {
   return withOneLiners(rows);
 }
 
-/** Bilingual copy for one project, used by the detail page. */
-export async function getProjectCopy(projectId: string) {
+/** Bilingual copy for one project, used by the detail page. Shared with metadata for this render. */
+export const getProjectCopy = cache(async function getProjectCopy(projectId: string) {
   const d = await db();
   const rows = await d.select().from(aiContent).where(eq(aiContent.projectId, projectId));
   return {
     zh: (rows as any[]).find((r) => r.locale === "zh") ?? null,
     en: (rows as any[]).find((r) => r.locale === "en") ?? null,
   };
-}
+});
 
 
 export type FeedbackKind =

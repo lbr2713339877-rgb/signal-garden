@@ -35,7 +35,7 @@ import { SubscribeLink } from '@/components/v3/SubscribeLink';
 import { snapshotStarGrowth } from '@/lib/star-growth';
 import { ReadmeBadge } from '@/components/v3/ReadmeBadge';
 import { projectWasFeatured } from '@/db/queries/featured';
-import { getSeoPilotSlugSet, loadSeoPilotView } from '@/db/queries/seo-pilot';
+import { getSeoPilotSlugSet, loadSeoPilotView, startSeoPilotFacts } from '@/db/queries/seo-pilot';
 import { ownerRepo } from '@/lib/badge';
 import { unionPrerenderSlugs } from '@/lib/prerender-slugs';
 import { isSeoPilot } from '@/lib/seo-pilot';
@@ -87,13 +87,21 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  // Membership does not depend on this slug, so it overlaps the project read.
+  // React cache shares that read, the copy, and the pilot view with the page.
+  const pilotPromise = getSeoPilotSlugSet();
   const direct = await getProjectBySlug(slug);
   const current = direct ? slug : await canonicalProjectSlug(slug);
   const data = direct ?? (current === slug ? null : await getProjectBySlug(current));
   if (!data) return projectPageMetadata({ slug: current, name: current });
-  const [copy, pilot] = await Promise.all([
-    getProjectCopy(data.project.id),
-    getSeoPilotSlugSet(),
+  const copyPromise = getProjectCopy(data.project.id);
+  // History and peers do not need the one-liner. They run with the copy read.
+  const factsPromise = pilotPromise.then((pilot) =>
+    isSeoPilot(data.project.slug, pilot) ? startSeoPilotFacts(data.project) : null,
+  );
+  const [copy, facts] = await Promise.all([
+    copyPromise,
+    factsPromise,
   ]);
   const localized = pickLocalizedCopy(copy, data.project.description ?? null);
   const base = {
@@ -104,7 +112,7 @@ export async function generateMetadata({
   };
   // Membership is tracked-day length, not the visitor. Non-members keep
   // the same description this route already returned.
-  if (!isSeoPilot(data.project.slug, pilot)) return projectPageMetadata(base);
+  if (!facts) return projectPageMetadata(base);
   const seo = await loadSeoPilotView(data.project, localized.oneLiner.zh);
   if (!seo.metaDescription) return projectPageMetadata(base);
   return projectPageMetadata({ ...base, description: seo.metaDescription });
@@ -137,6 +145,9 @@ export default async function ProjectPageV3({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  // Same public set as generateMetadata, started before the project read so
+  // the two round trips overlap. No cookie, header, or session read.
+  const pilotPromise = getSeoPilotSlugSet();
   const data = await getProjectBySlug(slug);
   if (!data) {
     // Alias lookup only on a miss, so a cached project page never waits on it.
@@ -149,8 +160,10 @@ export default async function ProjectPageV3({
   const isWebsite = p.projectKind !== "repo";
   const github = ownerRepo(p.fullName);
   const copyPromise = getProjectCopy(p.id);
-  const pilotPromise = getSeoPilotSlugSet();
   const featuredPromise = github ? projectWasFeatured(p.id) : Promise.resolve(false);
+  const factsPromise = pilotPromise.then((pilot) =>
+    isSeoPilot(p.slug, pilot) ? startSeoPilotFacts(p) : null,
+  );
   const copy = await copyPromise;
 
   const categoryKey = p.primaryCategory ?? p.category ?? 'dev-tools';
@@ -281,10 +294,9 @@ export default async function ProjectPageV3({
   /* ── 渲染 ──────────────────────────────────────────────────────────── */
 
   const repoUrl = githubCodeRepository(p.primaryUrl, p.fullName);
-  const [featured, pilot] = await Promise.all([featuredPromise, pilotPromise]);
+  const [featured, facts] = await Promise.all([featuredPromise, factsPromise]);
   const bodySummary = projectBodySummary({ name: p.name, oneLinerZh, oneLinerEn });
-  // Same public set as generateMetadata. No cookie, header, or session read.
-  const seo = isSeoPilot(p.slug, pilot) ? await loadSeoPilotView(p, oneLinerZh) : null;
+  const seo = facts ? await loadSeoPilotView(p, oneLinerZh) : null;
   const githubAttrs = /github\.com\//i.test(p.primaryUrl ?? '')
     ? { 'data-umami-event': 'repo_outbound', 'data-umami-event-repo': p.fullName ?? p.slug }
     : {};
