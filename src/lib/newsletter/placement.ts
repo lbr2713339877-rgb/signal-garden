@@ -2,18 +2,18 @@
  * Where a Monday-digest signup started.
  * `today` is the older today-page value and maps to the inline placement.
  */
-export const SUBSCRIBE_LOCATIONS = ["home", "today_inline", "project_bottom", "project_cta", "footer"] as const;
+export const SUBSCRIBE_LOCATIONS = ["home", "today_inline", "project_bottom", "project_cta", "footer", "weekly"] as const;
 
 export type SubscribeLocation = (typeof SUBSCRIBE_LOCATIONS)[number];
 
 export function normalizeSubscribeLocation(value: unknown): SubscribeLocation | null {
   if (value === "today" || value === "today_inline") return "today_inline";
-  if (value === "home" || value === "project_bottom" || value === "project_cta" || value === "footer") return value;
+  if (value === "home" || value === "project_bottom" || value === "project_cta" || value === "footer" || value === "weekly") return value;
   return null;
 }
 
-/** Coarser page name kept for existing Umami filters. */
-export function subscribeAnalyticsPage(location: SubscribeLocation): "home" | "today" | "project" | "footer" {
+/** Coarser page name kept for existing Umami filters. Weekly issues keep their own page name. */
+export function subscribeAnalyticsPage(location: SubscribeLocation): "home" | "today" | "project" | "footer" | "weekly" {
   if (location === "today_inline") return "today";
   if (location === "project_bottom" || location === "project_cta") return "project";
   return location;

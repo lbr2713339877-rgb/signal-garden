@@ -19,6 +19,8 @@ test("signup placements stay on the allowlist and today maps to the inline box",
   assert.equal(normalizeSubscribeLocation("project_cta"), "project_cta");
   assert.equal(normalizeSubscribeLocation("footer"), "footer");
   assert.equal(normalizeSubscribeLocation("home"), "home");
+  assert.equal(normalizeSubscribeLocation("weekly"), "weekly");
+  assert.equal(subscribeAnalyticsProps("weekly", "direct").page, "weekly");
   assert.equal(normalizeSubscribeLocation("reader@example.com"), null);
   assert.equal(normalizeSubscribeLocation("javascript:alert(1)"), null);
   assert.deepEqual(subscribeAnalyticsProps("project_bottom", "direct"), {

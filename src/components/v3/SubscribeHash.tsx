@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { browserSubscribeDom, runSubscribeScroll } from "@/lib/subscribe-scroll";
 
-/** Homepage only. Retries #subscribe after client navigations and full loads. */
+/** Pages with the #subscribe form. Retries after client navigations and full loads. */
 export function SubscribeHash() {
   useEffect(() => {
     let stop = runSubscribeScroll(browserSubscribeDom());

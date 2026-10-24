@@ -706,6 +706,14 @@ export const DICT = {
     'This is a public sample of the weekly digest: projects and public summaries only. No subscribers, confirm links, or unsubscribe data.',
   ],
   'weekly.today': ['看今天的榜单', 'See today’s list'],
+  'weekly.heat': ['热度分 {n}', 'Heat {n}'],
+  'weekly.peak': ['峰值 {d}', 'Peak {d}'],
+  'weekly.editorPick': ['本周之最', 'Editor’s pick'],
+  'weekly.editorPickAside': ['编辑推荐，不在 Top 10', 'An editor’s pick, outside the Top 10'],
+  'weekly.sponsor': [
+    '想在这里介绍你的开发者工具？写信给我们',
+    'Want to introduce your developer tool here? Write to us',
+  ],
 
   'nl.kicker': ['每周一周刊', 'Monday weekly digest'],
   'nl.confirmTitle': ['确认订阅', 'Confirm subscription'],
