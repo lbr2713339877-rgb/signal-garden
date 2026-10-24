@@ -72,6 +72,17 @@ export const DICT = {
   'home.byTask': ['今天想做什么？', 'What are you making?'],
   'home.catalogueCount': ['{n} 个项目可浏览', '{n} projects to explore'],
   'home.seeSelection': ['看本期精选', 'Explore the picks'],
+  'home.weekly.kicker': ['每周一周刊', 'Monday weekly digest'],
+  'home.weekly.title': ['本周热度 Top 10', 'This week’s heat · Top 10'],
+  'home.weekly.note': [
+    '最近 7 个已发布日榜：每天的榜首优先，再补第 2 名，直到 10 个。和周一邮件是同一套排序。',
+    'The last 7 published daily editions: each day’s #1, then the #2s, until 10. Same order as the Monday email.',
+  ],
+  'home.weekly.empty': [
+    '这一周还没有已发布的日榜。可以先看公开样刊，或订阅后等周一的信。',
+    'No daily edition is in this window yet. Read the public sample, or subscribe for Monday.',
+  ],
+  'home.weekly.issue': ['看第 {n} 期', 'Read issue {n}'],
   'home.findTool': ['按用途找工具', 'Find tools by purpose'],
   'home.latestEdition': ['最近一期', 'LATEST PUBLISHED EDITION'],
   'home.selection': ['这一期，先看这个。', 'Start with this one.'],
@@ -689,7 +700,7 @@ export const DICT = {
     'Subscribing means you agree that we email the Monday weekly digest as described in the privacy policy. We record the referring page and campaign tag for the signup, and that record does not include an IP address.',
   ],
   'weekly.kicker': ['公开样刊', 'PUBLIC SAMPLE'],
-  'weekly.title': ['第 1 期', 'Issue 1'],
+  'weekly.title': ['第 {n} 期', 'Issue {n}'],
   'weekly.note': [
     '这是每周精选的公开样刊，只收录项目和公开简介。没有订阅者、确认链接或退订信息。',
     'This is a public sample of the weekly digest: projects and public summaries only. No subscribers, confirm links, or unsubscribe data.',

@@ -16,6 +16,8 @@ test("sitemap revalidates hourly and does not force a per-request render", () =>
   assert.match(source, /isNull\(project\.junkReason\)/);
   assert.match(source, /eq\(project\.isSkillCollection, false\)/);
   assert.match(source, /isNull\(project\.duplicateOf\)/);
+  assert.match(source, /publicWeeklyIssues/);
+  assert.doesNotMatch(source, /'\/weekly\/1'/);
 });
 
 test("the public feed stays dynamic and is not on the sitemap cache window", () => {

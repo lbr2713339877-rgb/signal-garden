@@ -3,7 +3,7 @@ import { ogFont } from '@/lib/og/font';
 
 export const runtime = 'nodejs';
 export const revalidate = 86400;
-export const alt = 'Signal Garden — 每天 5 分钟，从全网噪音里筛出值得打开的开发者项目。';
+export const alt = 'Signal Garden — 本周热度 Top 10';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -46,7 +46,7 @@ export default async function Image() {
               letterSpacing: '-0.02em',
             }}
           >
-            每天 5 分钟，从全网噪音里筛出值得打开的开发者项目。
+            本周热度 Top 10
           </div>
         </div>
         <div
@@ -58,7 +58,7 @@ export default async function Image() {
           }}
         >
           <span>signalgarden.site</span>
-          <span>Developer discovery, daily.</span>
+          <span>Monday weekly digest</span>
         </div>
       </div>
     ),

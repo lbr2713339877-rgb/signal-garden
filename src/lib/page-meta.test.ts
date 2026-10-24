@@ -4,12 +4,16 @@ import { test } from "node:test";
 import {
   EN_SHARE_DESCRIPTION,
   EN_SHARE_TITLE,
+  HOME_DESCRIPTION,
+  HOME_TITLE,
   TODAY_DESCRIPTION,
   enShareMetadata,
+  homePageMetadata,
   pageUrl,
   projectBodySummary,
   projectPageMetadata,
   todayPageMetadata,
+  weeklyIssueMetadata,
 } from "./page-meta";
 
 const ORIGIN = "https://signalgarden.site";
@@ -64,7 +68,17 @@ test("home metadata stays Chinese and /en share metadata is English", () => {
   assert.match(layout, /card: "summary_large_image"/);
   assert.doesNotMatch(layout, /Today's signals|Five minutes a day/);
   assert.match(layout, /alternateLocale: \["en_US"\]/);
-  assert.doesNotMatch(home, /export const metadata/);
+  assert.match(home, /homePageMetadata/);
+  assert.match(home, /WeeklyHeatTop/);
+  const homeMeta = homePageMetadata(ORIGIN);
+  assert.equal(homeMeta.title, HOME_TITLE);
+  assert.equal(homeMeta.description, HOME_DESCRIPTION);
+  assert.equal(homeMeta.alternates?.canonical, `${ORIGIN}/`);
+  assert.equal(homeMeta.openGraph?.locale, "zh_CN");
+  assert.equal(homeMeta.openGraph?.url, `${ORIGIN}/`);
+  assert.match(String(homeMeta.openGraph?.title), /本周热度 Top 10/);
+  assert.match(String(homeMeta.openGraph?.description), /周一邮件/);
+  assert.equal(homeMeta.twitter && "card" in homeMeta.twitter ? homeMeta.twitter.card : undefined, "summary_large_image");
 
   const meta = enShareMetadata(ORIGIN);
   assert.deepEqual(meta.title, { absolute: EN_SHARE_TITLE });
@@ -110,6 +124,31 @@ test("home metadata stays Chinese and /en share metadata is English", () => {
   assert.doesNotMatch(image, /[\u4e00-\u9fff]/);
   assert.match(twitter, /export \{ default \} from "\.\/opengraph-image"/);
   assert.match(twitter, /width: 1200, height: 630/);
+});
+
+test("each weekly issue has its own canonical, description, and share image", () => {
+  const one = weeklyIssueMetadata({ issue: 1, from: "2026-10-13", to: "2026-10-19" }, ORIGIN);
+  const two = weeklyIssueMetadata({ issue: 2, from: "2026-10-20", to: "2026-10-26" }, ORIGIN);
+  assert.equal(one.title, "第 1 期");
+  assert.match(String(one.description), /第 1 期/);
+  assert.match(String(one.description), /2026-10-13 – 2026-10-19/);
+  assert.equal(one.alternates?.canonical, `${ORIGIN}/weekly/1`);
+  assert.equal(one.openGraph?.locale, "zh_CN");
+  assert.equal(one.openGraph?.url, `${ORIGIN}/weekly/1`);
+  assert.match(String(one.openGraph?.title), /第 1 期/);
+  assert.equal(one.openGraph?.description, one.description);
+  assert.equal(one.twitter?.description, one.description);
+  assert.equal(one.twitter && "card" in one.twitter ? one.twitter.card : undefined, "summary_large_image");
+  const ogImage = Array.isArray(one.openGraph?.images) ? one.openGraph.images[0] : one.openGraph?.images;
+  const ogUrl = typeof ogImage === "string" ? ogImage : ogImage && typeof ogImage === "object" && "url" in ogImage ? String(ogImage.url) : "";
+  assert.equal(ogUrl, `${ORIGIN}/weekly/1/opengraph-image`);
+  const twImage = one.twitter && "images" in one.twitter ? one.twitter.images : undefined;
+  const twUrl = Array.isArray(twImage) ? twImage[0] : twImage;
+  assert.equal(typeof twUrl === "string" ? twUrl : "", `${ORIGIN}/weekly/1/opengraph-image`);
+  assert.equal(two.alternates?.canonical, `${ORIGIN}/weekly/2`);
+  assert.notEqual(one.description, two.description);
+  assert.match(String(two.openGraph?.title), /第 2 期/);
+  assert.equal(String(two.description).includes("2026-10-13"), false);
 });
 
 test("today has its own description, canonical, and og:url", () => {

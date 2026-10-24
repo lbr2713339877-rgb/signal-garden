@@ -5,6 +5,7 @@ import { connection } from 'next/server';
 import { db } from '@/db/client';
 import { project } from '@/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
+import { publicWeeklyIssues } from '@/lib/weekly-sample';
 
 /* PGlite allows a single process to hold the data directory. Prerendering the
    sitemap alongside other DB-reading pages makes two build workers fight over
@@ -26,8 +27,14 @@ const STATIC_PATHS = [
   '/terms',
   '/refund',
   '/cookies',
-  '/weekly/1',
 ] as const;
+
+function sitemapPaths(): string[] {
+  return [
+    ...STATIC_PATHS,
+    ...publicWeeklyIssues().map((issue) => `/weekly/${issue.number}`),
+  ];
+}
 
 function siteUrl(): string {
   const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
@@ -76,11 +83,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const base = siteUrl();
 
-  const statics = STATIC_PATHS.map((path) => ({
+  const statics = sitemapPaths().map((path) => ({
     url: `${base}${path}`,
     lastModified: new Date(),
-    changeFrequency: path === '/' || path === '/today' ? ('daily' as const) : ('monthly' as const),
-    priority: path === '/' ? 1 : path === '/today' ? 0.9 : 0.6,
+    changeFrequency: path === '/' || path === '/today' ? ('daily' as const) : path.startsWith('/weekly/') ? ('weekly' as const) : ('monthly' as const),
+    priority: path === '/' ? 1 : path === '/today' ? 0.9 : path.startsWith('/weekly/') ? 0.8 : 0.6,
   }));
 
   try {

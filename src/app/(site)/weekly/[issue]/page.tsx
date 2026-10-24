@@ -1,28 +1,49 @@
 /**
- * Public sample of weekly issue 1.
- * Static project names and summaries. No mailing-list rows or personal links.
+ * Public weekly issue. Frozen project names and summaries only.
+ * Issue 2+ is another entry in PUBLISHED_WEEKLY_ISSUES; this route stays put.
  */
 
 import Link from "next/link";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { V3Shell } from "@/components/v3/V3Shell";
+import { SubscribeLink } from "@/components/v3/SubscribeLink";
 import { T } from "@/lib/dict";
 import { Fallback } from "@/lib/i18n";
-import { pageMetadata } from "@/lib/page-meta";
-import { WEEKLY_ISSUE_1 } from "@/lib/weekly-sample";
+import { weeklyIssueMetadata } from "@/lib/page-meta";
+import { publicWeeklyIssues, weeklyIssueByNumber } from "@/lib/weekly-sample";
 
-export const metadata = pageMetadata({
-  title: "第 1 期",
-  description: `Signal Garden 每周精选公开样刊（${WEEKLY_ISSUE_1.from} – ${WEEKLY_ISSUE_1.to}）：本周热度最高的 10 个 GitHub 新项目。`,
-  path: "/weekly/1",
-});
+export function generateStaticParams() {
+  return publicWeeklyIssues().map((issue) => ({ issue: String(issue.number) }));
+}
 
-export default function WeeklyIssueOnePage() {
-  const issue = WEEKLY_ISSUE_1;
+export const dynamicParams = false;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ issue: string }>;
+}): Promise<Metadata> {
+  const { issue: raw } = await params;
+  const issue = weeklyIssueByNumber(Number(raw));
+  if (!issue) return { title: "周刊" };
+  return weeklyIssueMetadata(issue);
+}
+
+export default async function WeeklyIssuePage({
+  params,
+}: {
+  params: Promise<{ issue: string }>;
+}) {
+  const { issue: raw } = await params;
+  const issue = weeklyIssueByNumber(Number(raw));
+  if (!issue) notFound();
+
   return (
     <V3Shell>
       <article className="mx-auto max-w-[var(--container)] px-[var(--gutter)] pt-28 pb-[var(--section-gap)]">
         <T k="weekly.kicker" as="p" className="system" fade={false} />
-        <T k="weekly.title" as="h1" className="page-title mt-4 max-w-[12ch]" />
+        <T k="weekly.title" as="h1" className="page-title mt-4 max-w-[12ch]" vars={{ n: issue.issue }} />
         <p className="data mt-6 text-[var(--ink-2)]">
           {issue.from} – {issue.to}
         </p>
@@ -44,7 +65,13 @@ export default function WeeklyIssueOnePage() {
           ))}
         </ol>
 
-        <div className="mt-10 border-t border-[var(--glass-1-border)] pt-8">
+        <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-[var(--glass-1-border)] pt-8">
+          <SubscribeLink
+            medium="weekly_issue"
+            className="system text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-2)]"
+          >
+            <T k="pd.subscribe.cta" as="span" fade={false} /> <span aria-hidden>→</span>
+          </SubscribeLink>
           <Link
             href="/today"
             className="system text-[var(--ink-3)] transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]"
