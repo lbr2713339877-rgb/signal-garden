@@ -20,6 +20,7 @@ The email newsletter is the Monday weekly digest (每周一周刊).
 - [Today JSON](${base}/api/today.json): the current edition as JSON (rank, repository, descriptions, stars, 24-hour and 7-day star growth, heat score, 7-day new forks when present). Project links may take an optional \`utm_source\`.
 - [Project](${base}/p/{slug}): one project. Replace {slug} with the project slug
 - [Weekly issue 1](${base}/weekly/1): sample of the Monday weekly digest (每周一周刊): the 10 hottest new GitHub projects of the week. Static page, no subscriber data
+- [Weekly issue 2](${base}/weekly/2): Monday weekly digest for 2026-10-20 – 2026-10-26. Ten projects by momentum, plus one editor pick. Static page, no subscriber data
 - [Sponsor](${base}/sponsor): sponsorships for the daily list and the Monday weekly digest (每周一周刊). No rate card
 
 ## Contact

@@ -22,23 +22,29 @@ function subscribeErrorCode(value: unknown): string {
 
 function signupFrame(location: SubscribeLocation): string {
   if (location === "home") return "mx-auto max-w-[var(--container)] px-[var(--gutter)] pb-[clamp(48px,8vh,96px)]";
+  if (location === "weekly") return "mt-12 max-w-[640px] border-t border-[var(--glass-1-border)] pt-10";
   if (location === "today_inline") return "my-2 max-w-[640px] border-y border-[var(--glass-1-border)] py-10";
   if (location === "project_bottom") return "max-w-[520px]";
   if (location === "project_cta") return "w-full min-w-0 lg:max-w-[520px] lg:flex-1";
   return "mt-8 max-w-[360px]";
 }
 
+function subscribeAnchor(location: SubscribeLocation): boolean {
+  return location === "home" || location === "weekly";
+}
+
 export function NewsletterSignup({ location }: { location: SubscribeLocation }) {
   const enabled = newsletterFormEnabled();
-  if (!enabled && location !== "home") return null;
+  const anchor = subscribeAnchor(location);
+  if (!enabled && !anchor) return null;
   const frame = signupFrame(location);
   const inline = location === "project_cta";
   const Region = inline ? "div" : "section";
   return (
     <Region
-      id={location === "home" ? SUBSCRIBE_ID : undefined}
+      id={anchor ? SUBSCRIBE_ID : undefined}
       className={frame}
-      style={location === "home" ? { scrollMarginTop: SUBSCRIBE_SCROLL_MARGIN_PX } : undefined}
+      style={anchor ? { scrollMarginTop: SUBSCRIBE_SCROLL_MARGIN_PX } : undefined}
     >
       {enabled ? <NewsletterForm location={location} /> : null}
     </Region>
@@ -301,9 +307,11 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
             <>
               <T k="newsletter.title" as="h2" className="system" fade={false} />
               <T k="newsletter.body" as="p" className="body mt-3 text-[var(--ink-2)]" />
-              <Link href="/weekly/1" className="data mt-3 inline-flex text-[var(--ink-2)] underline decoration-[var(--glass-2-border)] underline-offset-4 transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]">
-                <T k="newsletter.sample" as="span" fade={false} />
-              </Link>
+              {location === "weekly" ? null : (
+                <Link href="/weekly/1" className="data mt-3 inline-flex text-[var(--ink-2)] underline decoration-[var(--glass-2-border)] underline-offset-4 transition-colors duration-[var(--d-micro)] hover:text-[var(--ink-1)]">
+                  <T k="newsletter.sample" as="span" fade={false} />
+                </Link>
+              )}
             </>
           )}
           <div className="absolute left-[-10000px] h-0 overflow-hidden" aria-hidden="true">

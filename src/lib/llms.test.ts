@@ -24,5 +24,7 @@ test("llms.txt names the site, the daily URLs, momentum ranking, languages, and 
 });
 
 test("links the sample weekly issue", () => {
-  assert.ok(llmsTxt("https://signalgarden.site").includes("https://signalgarden.site/weekly/1"));
+  const text = llmsTxt("https://signalgarden.site");
+  assert.ok(text.includes("https://signalgarden.site/weekly/1"));
+  assert.ok(text.includes("https://signalgarden.site/weekly/2"));
 });

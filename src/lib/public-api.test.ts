@@ -41,7 +41,7 @@ test("IndexNow payload lists today, new project pages, weekly issues, home and t
     "https://signalgarden.site/today",
     "https://signalgarden.site/p/widget",
     "https://signalgarden.site/p/old-library",
-    "https://signalgarden.site/weekly/1",
+    "https://signalgarden.site/weekly/2",
     "https://signalgarden.site/",
     "https://signalgarden.site/feed.xml",
   ]);
@@ -183,7 +183,7 @@ test("badge, today.json and indexnow use published editions only", async () => {
     assert.deepEqual(calls[0].body.urlList, [
       "https://signalgarden.site/today",
       "https://signalgarden.site/p/widget",
-      "https://signalgarden.site/weekly/1",
+      "https://signalgarden.site/weekly/2",
       "https://signalgarden.site/",
       "https://signalgarden.site/feed.xml",
     ]);
