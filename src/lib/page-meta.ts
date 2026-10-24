@@ -103,6 +103,62 @@ export function todayPageMetadata(origin?: string): Metadata {
   });
 }
 
+export const HOME_TITLE = "本周热度 Top 10";
+
+export const HOME_DESCRIPTION =
+  "Signal Garden 每周一周刊：最近 7 个已发布日榜里，按当天热度取榜首再补第 2 名，直到 10 个。和周一邮件是同一套排序。免费订阅，周一寄到邮箱。";
+
+const SHARE_IMAGE = { width: 1200, height: 630 } as const;
+
+function shareImage(path: string, alt: string, origin?: string) {
+  return { url: pageUrl(path, origin), alt, ...SHARE_IMAGE };
+}
+
+/** Homepage share card. Weekly product, Chinese. `/en` stays the English today card. */
+export function homePageMetadata(origin?: string): Metadata {
+  const meta = pageMetadata({
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    path: "/",
+    origin,
+  });
+  const image = shareImage("/opengraph-image", `Signal Garden — ${HOME_TITLE}`, origin);
+  return {
+    ...meta,
+    openGraph: { ...meta.openGraph, images: [image] },
+    twitter: { ...meta.twitter, images: [image.url] },
+  };
+}
+
+export function weeklyIssueDescription(input: { issue: number; from: string; to: string }): string {
+  return `Signal Garden 每周精选第 ${input.issue} 期（${input.from} – ${input.to}）：本周热度最高的 10 个 GitHub 新项目。`;
+}
+
+/** Per-issue share card. Issue 2+ reuse this with their own number and dates. */
+export function weeklyIssueMetadata(
+  input: { issue: number; from: string; to: string },
+  origin?: string,
+): Metadata {
+  const path = `/weekly/${input.issue}`;
+  const description = weeklyIssueDescription(input);
+  const meta = pageMetadata({
+    title: `第 ${input.issue} 期`,
+    description,
+    path,
+    origin,
+  });
+  const image = shareImage(
+    `${path}/opengraph-image`,
+    `Signal Garden — 第 ${input.issue} 期`,
+    origin,
+  );
+  return {
+    ...meta,
+    openGraph: { ...meta.openGraph, images: [image] },
+    twitter: { ...meta.twitter, images: [image.url] },
+  };
+}
+
 /** English share card for /en. Does not replace the Chinese site defaults. */
 export const EN_SHARE_TITLE = "Signal Garden — Today's signals";
 

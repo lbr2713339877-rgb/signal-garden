@@ -205,7 +205,20 @@ export interface PublicWeeklyIssue {
   publishedOn: string;
 }
 
-/** Public issue pages. A new src/app/(site)/weekly/<n> page belongs in this list. */
+/**
+ * Public issue pages. Add the next frozen issue here.
+ * `/weekly/[issue]`, its Open Graph card, the sitemap, and IndexNow all read this list.
+ */
+const PUBLISHED_WEEKLY_ISSUES = [WEEKLY_ISSUE_1];
+
+export function weeklyIssueByNumber(number: number): (typeof PUBLISHED_WEEKLY_ISSUES)[number] | null {
+  if (!Number.isInteger(number) || number < 1) return null;
+  return PUBLISHED_WEEKLY_ISSUES.find((issue) => issue.issue === number) ?? null;
+}
+
 export function publicWeeklyIssues(): PublicWeeklyIssue[] {
-  return [{ number: WEEKLY_ISSUE_1.issue, publishedOn: WEEKLY_ISSUE_1.to }];
+  return PUBLISHED_WEEKLY_ISSUES.map((issue) => ({
+    number: issue.issue,
+    publishedOn: issue.to,
+  }));
 }

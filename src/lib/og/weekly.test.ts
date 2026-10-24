@@ -17,10 +17,10 @@ test("weekly issue 1 share card uses the public sample and the site card style",
   assert.deepEqual(content.names, ["ascii", "animate", "herk-edit-kit", "dsh-ops", "filmcraft"]);
   assert.equal(JSON.stringify(content).includes("unsubscribe"), false);
 
-  const image = readFileSync(new URL("../../app/weekly/1/opengraph-image.tsx", import.meta.url), "utf8");
-  const twitter = readFileSync(new URL("../../app/weekly/1/twitter-image.tsx", import.meta.url), "utf8");
+  const image = readFileSync(new URL("../../app/weekly/[issue]/opengraph-image.tsx", import.meta.url), "utf8");
+  const twitter = readFileSync(new URL("../../app/weekly/[issue]/twitter-image.tsx", import.meta.url), "utf8");
   assert.match(image, /renderWeeklyOg/);
-  assert.match(image, /WEEKLY_ISSUE_1/);
+  assert.match(image, /weeklyIssueByNumber/);
   assert.match(image, /contentType = "image\/png"/);
   assert.match(twitter, /export \{ default \} from "\.\/opengraph-image"/);
   assert.doesNotMatch(`${image}\n${twitter}`, /newsletterSubscriber|unsubscribe|getFeedEdition|@\/db/);

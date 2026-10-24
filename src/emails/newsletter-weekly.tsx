@@ -6,10 +6,13 @@
  *   tsx scripts/newsletter-weekly.tsx --all                     # all active subscribers (needs NEWSLETTER_WEEKLY_ENABLED=true)
  *
  * Content: the last 7 published daily editions. Each day's #1, then #2s (newest
- * day first) until 10 items, listed by date. On-site links carry utm_source=email&utm_campaign=weekly.
+ * day first) until 10 items, listed by date. The window and order live in
+ * src/lib/weekly-ranking.ts, shared with the homepage. On-site links carry
+ * utm_source=email&utm_campaign=weekly.
  */
 import React from "react";
 import { loadLocalEnv } from "@/lib/env";
+import { editionDay, selectWeeklyEditions, weeklyHeatRanking, WEEKLY_HEAT_TOP, WEEKLY_WINDOW_DAYS } from "@/lib/weekly-ranking";
 loadLocalEnv();
 
 const { Heading, Link, Section, Text, render } = await import("react-email");
@@ -25,42 +28,42 @@ const { unsubTokenFor } = await import("@/lib/newsletter/tokens");
 const { newsletterSendMode, newsletterTransport } = await import("@/lib/newsletter/transport");
 
 const SAMPLE_ALLOWLIST = new Set(["lbr2713339877@gmail.com"]);
-const DAYS = 7;
-const TOP = 10;
 
 type Card = { name: string; slug: string; oneLiner: string | null; oneLinerEn: string | null };
 interface WeeklyItem { date: string; dayRank: number; label: string; name: string; oneLiner: string; href: string }
 
-function dayLabel(date: string, rank: number): string {
-  const [, m, d] = date.split("-");
-  const md = `${Number(m)}/${Number(d)}`;
-  return rank === 1 ? `${md} 榜首` : `${md} 第 ${rank} 名`;
-}
-
-/** Each day's #1 first (newest day first), then #2s, until TOP items; shown grouped by day. */
+/** Each day's #1 first (newest day first), then #2s, until 10 items; shown grouped by day. */
 async function weeklyRanking() {
-  const editions: { date: string; cards: Card[] }[] = [];
-  const today = await getFeedEdition(TOP);
-  if (!today.isPrevious && today.cards.length) editions.push({ date: String(today.date), cards: today.cards });
-  for (const ed of await getArchiveEditions(DAYS)) {
-    if (editions.length >= DAYS) break;
-    if (!editions.some((e) => e.date === String(ed.date))) editions.push({ date: String(ed.date), cards: ed.cards });
-  }
-  editions.sort((a, b) => (a.date < b.date ? 1 : -1));
-  const picked: { date: string; rank: number; card: Card }[] = [];
-  const seen = new Set<string>();
-  for (let rank = 1; rank <= TOP && picked.length < TOP; rank++) {
-    for (const ed of editions) {
-      if (picked.length >= TOP) break;
-      const card = ed.cards[rank - 1];
-      if (!card || seen.has(card.slug)) continue;
-      seen.add(card.slug);
-      picked.push({ date: ed.date, rank, card });
-    }
-  }
-  picked.sort((a, b) => (a.date === b.date ? a.rank - b.rank : a.date < b.date ? 1 : -1));
-  const dates = editions.map((e) => e.date).sort();
-  return { from: dates[0], to: dates[dates.length - 1], editions: editions.length, picked };
+  const today = await getFeedEdition(WEEKLY_HEAT_TOP);
+  const archive = await getArchiveEditions(WEEKLY_WINDOW_DAYS);
+  const selected = selectWeeklyEditions({
+    today: { date: editionDay(today.date), isPrevious: today.isPrevious, cards: today.cards },
+    archive: archive.map((edition) => ({ date: editionDay(edition.date), cards: edition.cards })),
+    days: WEEKLY_WINDOW_DAYS,
+  });
+  const ranked = weeklyHeatRanking(
+    selected.map((edition) => ({
+      date: edition.date,
+      cards: edition.cards.map((card) => ({
+        name: card.name,
+        slug: card.slug,
+        zh: card.oneLiner || card.name,
+        en: card.oneLinerEn || card.name,
+      })),
+    })),
+    WEEKLY_HEAT_TOP,
+  );
+  return {
+    from: ranked.from,
+    to: ranked.to,
+    editions: ranked.editionCount,
+    picked: ranked.items.map((item) => ({
+      date: item.date,
+      rank: item.rank,
+      label: item.labelZh,
+      card: { name: item.name, slug: item.slug, oneLiner: item.zh, oneLinerEn: item.en } satisfies Card,
+    })),
+  };
 }
 
 function WeeklyEmail(p: { from: string; to: string; items: WeeklyItem[]; siteUrl: string; unsubscribeUrl: string }) {
@@ -113,7 +116,7 @@ const dry = args.includes("--dry-run");
 const siteUrl = emailSiteUrl(process.env.NEXT_PUBLIC_SITE_URL ?? "");
 const week = await weeklyRanking();
 const items: WeeklyItem[] = week.picked.map((r) => ({
-  date: r.date, dayRank: r.rank, label: dayLabel(r.date, r.rank), name: r.card.name, oneLiner: r.card.oneLiner || r.card.name,
+  date: r.date, dayRank: r.rank, label: r.label, name: r.card.name, oneLiner: r.card.oneLiner || r.card.name,
   href: `${siteUrl}/p/${encodeURIComponent(r.card.slug)}`,
 }));
 console.log(JSON.stringify({ from: week.from, to: week.to, editions: week.editions, items: items.map((i) => `${i.label} ${i.name}`) }));
@@ -125,7 +128,7 @@ if (args.includes("--preview")) {
   await closeDb(); process.exit(0);
 }
 const stamp = () => new Date().toISOString();
-if (items.length < TOP) { console.log(`${stamp()} [weekly] SKIP only ${items.length} items, need ${TOP}; sent=0 failed=0`); await closeDb(); process.exit(dry ? 0 : 2); }
+if (items.length < WEEKLY_HEAT_TOP) { console.log(`${stamp()} [weekly] SKIP only ${items.length} items, need ${WEEKLY_HEAT_TOP}; sent=0 failed=0`); await closeDb(); process.exit(dry ? 0 : 2); }
 
 if (dry && !all) { await closeDb(); process.exit(0); }
 const transport = newsletterTransport();
