@@ -68,7 +68,7 @@ test("every public issue is one /weekly/[issue] route", () => {
   assert.match(page, /SubscribeHash/);
 });
 
-test("issue 2 is the frozen max-heat Top 10 plus doop", () => {
+test("issue 2 is the locked max-heat Top 10 plus doop", () => {
   assert.equal(WEEKLY_ISSUE_2.issue, 2);
   assert.equal(WEEKLY_ISSUE_2.from, "2026-10-20");
   assert.equal(WEEKLY_ISSUE_2.to, "2026-10-26");
@@ -79,14 +79,14 @@ test("issue 2 is the frozen max-heat Top 10 plus doop", () => {
     [
       "1 jetbrains-thinkrail 89 504 → 1.0k stars（+102.4%）",
       "2 cosmictaserdev-creator-convx 88 539 → 921 stars（+70.9%）",
-      "3 juliobsz-skills 86 187 → 913 stars（+388.2%）",
-      "4 lucasmarkes-hairline 86 317 → 2.7k stars（+761.5%）",
-      "5 insane0777-awwwards-mcp 82 94 → 308 stars（+227.7%）",
-      "6 leonxlnx-cinetic 82 78 → 813 stars（+942.3%）",
-      "7 imskyleen-animate-ui 80 4.4k → 4.6k stars（+5.5%）",
-      "8 axiomcodeai-axiomcodegraph 77 61 → 270 stars（+342.6%）",
-      "9 el4cteo-blender-skills 76 11 → 450 stars（+3990.9%）",
-      "10 activeing123-mcptoon 75 207 → 380 stars（+83.6%）",
+      "3 zipengwu365-tomc 88 20 → 229 stars（+1045.0%）",
+      "4 juliobsz-skills 86 187 → 913 stars（+388.2%）",
+      "5 lucasmarkes-hairline 86 317 → 2.7k stars（+761.5%）",
+      "6 insane0777-awwwards-mcp 82 94 → 308 stars（+227.7%）",
+      "7 leonxlnx-cinetic 82 78 → 813 stars（+942.3%）",
+      "8 imskyleen-animate-ui 80 4.4k → 4.6k stars（+5.5%）",
+      "9 axiomcodeai-axiomcodegraph 77 61 → 270 stars（+342.6%）",
+      "10 el4cteo-blender-skills 76 11 → 450 stars（+3990.9%）",
     ],
   );
   assert.equal(WEEKLY_ISSUE_2.items[0]?.zh, "一个能根据你的工作习惯自动调整的轻量级IDE，专为AI编程助手设计。");
@@ -94,8 +94,16 @@ test("issue 2 is the frozen max-heat Top 10 plus doop", () => {
     WEEKLY_ISSUE_2.items[0]?.en,
     "ThinkRail is a lightweight IDE that adapts to your workflow and helps you code with AI through natural conversation, designed for Cursor users.",
   );
-  assert.match(WEEKLY_ISSUE_2.editorNote?.zh ?? "", /AI coding skills \/ MCP \/ 动效与创意视频技能/);
-  assert.match(WEEKLY_ISSUE_2.editorNote?.en ?? "", /motion\/creative-video skills/);
+  assert.equal(WEEKLY_ISSUE_2.items[2]?.name, "TOMC");
+  assert.equal(WEEKLY_ISSUE_2.items[2]?.zh, "在本地压缩上下文，为编码助手保留任务记忆，跨会话保持项目状态。");
+  assert.equal(
+    WEEKLY_ISSUE_2.items[2]?.en,
+    "CPU context compression that keeps your project memory intact when switching AI coding assistants.",
+  );
+  assert.equal(WEEKLY_ISSUE_2.items.some((item) => item.slug === "activeing123-mcptoon"), false);
+  assert.match(WEEKLY_ISSUE_2.editorNote?.zh ?? "", /AI coding skills \/ MCP \/ 上下文与动效技能/);
+  assert.match(WEEKLY_ISSUE_2.editorNote?.en ?? "", /context compression/);
+  assert.match(WEEKLY_ISSUE_2.editorNote?.zh ?? "", /TOMC/);
   assert.match(WEEKLY_ISSUE_2.editorNote?.zh ?? "", /Convx/);
   const pick = WEEKLY_ISSUE_2.editorPick;
   assert.ok(pick);
