@@ -2,12 +2,11 @@
  * Public sample of the Monday weekly digest.
  *
  * Issue 1 mirrors the 2026-10-13 – 2026-10-19 edition: each day's #1, then #2s,
- * the same order as the weekly mailer. Issue 2 is the Gio-approved freeze from
- * 2026-10-24 20:45 SGT (window labeled 10/20–10/26): max heat in that window,
- * not the daily #1/#2 sampler. doop is the editor pick and is not in the Top 10.
- * Names and summaries are the public archive copy. This module does not read
- * the mailing list. Re-lock issue 2 here if the post-2026-10-26 review changes
- * the numbers.
+ * the same order as the weekly mailer. Issue 2 is the locked Top 10 from
+ * 2026-10-26 00:21 SGT (window 10/20–10/26): max heat in that window, not the
+ * daily #1/#2 sampler. The 2026-10-24 freeze was revised at lock: TOMC entered
+ * at #3 and mcptoon dropped out. doop is the editor pick and is not in the Top 10.
+ * Names and summaries are the locked copy. This module does not read the mailing list.
  */
 
 export interface WeeklySampleCard {
@@ -278,15 +277,15 @@ function frozenHeatItem(input: {
   };
 }
 
-/** Gio PASS 2026-10-24. Order and numbers are the attached freeze, not a live query. */
+/** Locked 2026-10-26 00:21 SGT. Order and numbers are the lock, not a live query. */
 export const WEEKLY_ISSUE_2: WeeklyIssue = {
   issue: 2,
   from: "2026-10-20",
   to: "2026-10-26",
   sponsor: true,
   editorNote: {
-    zh: "本周热度分榜上，**AI coding skills / MCP / 动效与创意视频技能**扎堆：ThinkRail、mcptoon、Awwwards-mcp、cinetic、blender-skills、juliobsz/skills 都在用「给助手装技能」的方式扩能力；中间夹着一个高热度的开源音乐客户端 Convx，提醒我们日榜并不只围着 agent 转。",
-    en: "This week's momentum board clustered around **AI coding skills, MCP, and motion/creative-video skills**—ThinkRail, mcptoon, Awwwards-mcp, cinetic, blender-skills, and juliobsz/skills all extend assistants with installable skills. A high-momentum open-source music client (Convx) still broke into the Top 10, a reminder the board is not only agents.",
+    zh: "本周热度分榜上，**AI coding skills / MCP / 上下文与动效技能**扎堆：ThinkRail、TOMC、Awwwards-mcp、cinetic、blender-skills、juliobsz/skills 都在用「给助手装技能 / 压缩上下文」的方式扩能力；中间夹着一个高热度的开源音乐客户端 Convx，提醒我们日榜并不只围着 agent 转。",
+    en: "This week's momentum board clustered around **AI coding skills, MCP, context compression, and motion skills**—ThinkRail, TOMC, Awwwards-mcp, cinetic, blender-skills, and juliobsz/skills all extend assistants with installable skills or leaner context. A high-momentum open-source music client (Convx) still broke into the Top 10, a reminder the board is not only agents.",
   },
   items: [
     frozenHeatItem({
@@ -311,6 +310,16 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
     }),
     frozenHeatItem({
       rank: 3,
+      name: "TOMC",
+      slug: "zipengwu365-tomc",
+      heat: 88,
+      peakDate: "2026-10-25",
+      zh: "在本地压缩上下文，为编码助手保留任务记忆，跨会话保持项目状态。",
+      en: "CPU context compression that keeps your project memory intact when switching AI coding assistants.",
+      starsLine: "20 → 229 stars（+1045.0%）",
+    }),
+    frozenHeatItem({
+      rank: 4,
       name: "skills",
       slug: "juliobsz-skills",
       heat: 86,
@@ -320,7 +329,7 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
       starsLine: "187 → 913 stars（+388.2%）",
     }),
     frozenHeatItem({
-      rank: 4,
+      rank: 5,
       name: "hairline",
       slug: "lucasmarkes-hairline",
       heat: 86,
@@ -330,7 +339,7 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
       starsLine: "317 → 2.7k stars（+761.5%）",
     }),
     frozenHeatItem({
-      rank: 5,
+      rank: 6,
       name: "Awwwards-mcp",
       slug: "insane0777-awwwards-mcp",
       heat: 82,
@@ -340,7 +349,7 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
       starsLine: "94 → 308 stars（+227.7%）",
     }),
     frozenHeatItem({
-      rank: 6,
+      rank: 7,
       name: "cinetic",
       slug: "leonxlnx-cinetic",
       heat: 82,
@@ -350,7 +359,7 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
       starsLine: "78 → 813 stars（+942.3%）",
     }),
     frozenHeatItem({
-      rank: 7,
+      rank: 8,
       name: "animate-ui",
       slug: "imskyleen-animate-ui",
       heat: 80,
@@ -360,7 +369,7 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
       starsLine: "4.4k → 4.6k stars（+5.5%）",
     }),
     frozenHeatItem({
-      rank: 8,
+      rank: 9,
       name: "axiomcodegraph",
       slug: "axiomcodeai-axiomcodegraph",
       heat: 77,
@@ -370,7 +379,7 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
       starsLine: "61 → 270 stars（+342.6%）",
     }),
     frozenHeatItem({
-      rank: 9,
+      rank: 10,
       name: "blender-skills",
       slug: "el4cteo-blender-skills",
       heat: 76,
@@ -378,16 +387,6 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
       zh: "给AI编程助手装上一套Blender 5.2的专业操作流程，让它们能直接建模、烘焙、导出游戏资产。",
       en: "22 Blender 5.2 skills that let AI agents handle professional 3D tasks from modeling to export.",
       starsLine: "11 → 450 stars（+3990.9%）",
-    }),
-    frozenHeatItem({
-      rank: 10,
-      name: "mcptoon",
-      slug: "activeing123-mcptoon",
-      heat: 75,
-      peakDate: "2026-10-20",
-      zh: "零依赖CLI，统一管理MCP工具与技能，压缩工具清单省99.2% token。",
-      en: "One zero-dependency CLI for every MCP server and agent skill—tool discovery and context compression that cut tokens by ~99%.",
-      starsLine: "207 → 380 stars（+83.6%）",
     }),
   ],
   editorPick: {

@@ -33,5 +33,5 @@ test("weekly issue 1 share card uses the public sample and the site card style",
   });
   assert.equal(issue2.title, "第 2 期");
   assert.equal(issue2.range, "2026-10-20 – 2026-10-26");
-  assert.deepEqual(issue2.names, ["thinkrail", "Convx", "skills", "hairline", "Awwwards-mcp"]);
+  assert.deepEqual(issue2.names, ["thinkrail", "Convx", "TOMC", "skills", "hairline"]);
 });
