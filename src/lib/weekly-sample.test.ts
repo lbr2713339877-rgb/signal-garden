@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
+import nextConfig from "../../next.config";
 import { weeklyIssueMetadata } from "./page-meta";
-import { WEEKLY_ISSUE_1, WEEKLY_ISSUE_2, publicWeeklyIssues, weeklyIssueByNumber } from "./weekly-sample";
+import {
+  WEEKLY_ISSUE_1,
+  WEEKLY_ISSUE_2,
+  latestPublishedWeeklyIssue,
+  publicWeeklyIssues,
+  weeklyIssueByNumber,
+} from "./weekly-sample";
 
 const BANNED = /unsubscribe|resend|subscriber|email_hash|@|List-Unsubscribe|\?t=/i;
 
@@ -66,6 +73,29 @@ test("every public issue is one /weekly/[issue] route", () => {
   assert.match(page, /editorPick/);
   assert.match(page, /weekly\.heat/);
   assert.match(page, /SubscribeHash/);
+});
+
+test("/weekly 301s to the latest published issue", async () => {
+  const numbers = publicWeeklyIssues().map((issue) => issue.number);
+  const latest = latestPublishedWeeklyIssue();
+  assert.equal(latest, Math.max(...numbers));
+  assert.equal(latest, WEEKLY_ISSUE_2.issue);
+  assert.equal(weeklyIssueByNumber(latest)?.issue, latest);
+
+  const config = readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
+  assert.match(config, /latestPublishedWeeklyIssue\(\)/);
+  assert.doesNotMatch(config, /destination:\s*["']\/weekly\/\d+["']/);
+
+  const rules = await nextConfig.redirects!();
+  const rule = rules.find((item) => item.source === "/weekly");
+  assert.ok(rule);
+  assert.equal(rule.destination, `/weekly/${latest}`);
+  assert.equal("statusCode" in rule ? rule.statusCode : undefined, 301);
+  assert.equal("permanent" in rule ? rule.permanent : undefined, undefined);
+  assert.equal(
+    rules.some((item) => /^\/weekly\/\d+/.test(item.source) || item.source.startsWith("/weekly/:")),
+    false,
+  );
 });
 
 test("issue 2 is the locked max-heat Top 10 plus doop", () => {
