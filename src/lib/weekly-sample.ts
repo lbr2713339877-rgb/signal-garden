@@ -412,6 +412,8 @@ export interface PublicWeeklyIssue {
 /**
  * Public issue pages. Add the next frozen issue here.
  * `/weekly/[issue]`, its Open Graph card, the sitemap, and IndexNow all read this list.
+ * Bare `/weekly` redirects to the highest issue number (see next.config).
+ * next.config imports this module, so keep it free of server-only dependencies.
  */
 const PUBLISHED_WEEKLY_ISSUES: WeeklyIssue[] = [WEEKLY_ISSUE_1, WEEKLY_ISSUE_2];
 
@@ -425,4 +427,9 @@ export function publicWeeklyIssues(): PublicWeeklyIssue[] {
     number: issue.issue,
     publishedOn: issue.to,
   }));
+}
+
+/** Highest issue number in the published list. `0` when nothing is published. */
+export function latestPublishedWeeklyIssue(): number {
+  return PUBLISHED_WEEKLY_ISSUES.reduce((latest, issue) => Math.max(latest, issue.issue), 0);
 }

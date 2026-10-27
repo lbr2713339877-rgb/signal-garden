@@ -1,5 +1,19 @@
 import type { NextConfig } from "next";
 import { HTML_LIMITED_BOTS } from "./src/lib/html-limited-bots";
+import { latestPublishedWeeklyIssue } from "./src/lib/weekly-sample";
+
+/**
+ * Bare `/weekly` follows the newest frozen issue. A page under `(site)` would
+ * sit inside loading.tsx, and Next would answer 200 with the redirect only in
+ * the RSC payload. Config redirects run first, stay a real 301, and keep the
+ * query string. Adding the next issue to PUBLISHED_WEEKLY_ISSUES retargets
+ * this; the path is not hardcoded here.
+ */
+function weeklyIndexRedirects(): { source: string; destination: string; statusCode: 301 }[] {
+  const latest = latestPublishedWeeklyIssue();
+  if (latest < 1) return [];
+  return [{ source: "/weekly", destination: `/weekly/${latest}`, statusCode: 301 }];
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -9,6 +23,7 @@ const nextConfig: NextConfig = {
   htmlLimitedBots: HTML_LIMITED_BOTS,
   async redirects() {
     return [
+      ...weeklyIndexRedirects(),
       { source: "/pricing", destination: "/sponsor", permanent: true },
       { source: "/pricing/:path*", destination: "/sponsor", permanent: true },
       { source: "/subscription", destination: "/sponsor", permanent: true },
