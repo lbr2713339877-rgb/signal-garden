@@ -6,6 +6,9 @@
  * 2026-10-26 00:21 SGT (window 10/20–10/26): max heat in that window, not the
  * daily #1/#2 sampler. The 2026-10-24 freeze was revised at lock: TOMC entered
  * at #3 and mcptoon dropped out. doop is the editor pick and is not in the Top 10.
+ * Issue 3 is the provisional lock from 2026-11-01 10:11 SGT (window 10/27–11/02;
+ * the 11/02 board was not published yet). chaojifeng-video-design is the editor
+ * pick and is not in the Top 10.
  * Names and summaries are the locked copy. This module does not read the mailing list.
  */
 
@@ -251,16 +254,19 @@ export const WEEKLY_ISSUE_1: WeeklyIssue = {
 
 const WEEKLY_2_CAMPAIGN = "weekly-2";
 
-function frozenHeatItem(input: {
-  rank: number;
-  name: string;
-  slug: string;
-  heat: number;
-  peakDate: string;
-  zh: string;
-  en: string;
-  starsLine: string;
-}): WeeklySampleItem {
+function frozenHeatItem(
+  input: {
+    rank: number;
+    name: string;
+    slug: string;
+    heat: number;
+    peakDate: string;
+    zh: string;
+    en: string;
+    starsLine: string;
+  },
+  campaign = WEEKLY_2_CAMPAIGN,
+): WeeklySampleItem {
   return {
     date: input.peakDate,
     rank: input.rank,
@@ -273,7 +279,7 @@ function frozenHeatItem(input: {
     heat: input.heat,
     peakDate: input.peakDate,
     starsLine: input.starsLine,
-    href: weeklyCampaignPath(input.slug, WEEKLY_2_CAMPAIGN),
+    href: weeklyCampaignPath(input.slug, campaign),
   };
 }
 
@@ -403,6 +409,134 @@ export const WEEKLY_ISSUE_2: WeeklyIssue = {
   },
 };
 
+const WEEKLY_3_CAMPAIGN = "weekly-3";
+
+/** Provisional lock 2026-11-01 10:11 SGT. Order and numbers are the lock, not a live query. */
+export const WEEKLY_ISSUE_3: WeeklyIssue = {
+  issue: 3,
+  from: "2026-10-27",
+  to: "2026-11-02",
+  sponsor: true,
+  editorNote: {
+    zh: "本周热度分榜上，**设计/动效 skills、视频工具链、可安装 agent 技能**扎堆：design-agent、impeccable、claude-skill、reanimate、EAC-design-world、brand-identity-skill、awesome-gamedev-agent-skills 都在给助手加「设计判断 / 动画克隆 / 成片」能力；榜首 DeepSeekBot 是带长期记忆的桌面 Bot 团队，中间还插进了一个清理安卓电视的 cleanyourtv，提醒日榜并不只围着 coding agent 转。",
+    en: "This week's momentum board clustered around **design/motion skills, video toolchains, and installable agent skills**—design-agent, impeccable, claude-skill, reanimate, EAC-design-world, brand-identity-skill, and awesome-gamedev-agent-skills all extend assistants with design taste, animation cloning, or shipping video. Chart-topper DeepSeekBot is a desktop Bot team with long-term memory, and cleanyourtv (Android TV cleanup) still broke into the Top 10—a reminder the board is not only coding agents.",
+  },
+  items: [
+    frozenHeatItem({
+      rank: 1,
+      name: "DeepSeekBot",
+      slug: "botharness-deepseekbot",
+      heat: 90,
+      peakDate: "2026-11-01",
+      zh: "在桌面端组建有长期记忆的AI Bot团队，协作完成任务。",
+      en: "An open-source alternative to GrokBot that lets you run a team of personal AI bots with memory, identities, and permissions.",
+      starsLine: "21 → 460 stars（+2090.5%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 2,
+      name: "cleanyourtv",
+      slug: "gathin23-cleanyourtv",
+      heat: 83,
+      peakDate: "2026-10-27",
+      zh: "用编码助手通过Wi-Fi清理安卓电视的垃圾软件，换上Apple TV风格主屏。",
+      en: "Android and Google TV owners can use CleanYourTV to remove bloatware over Wi-Fi and get a cleaner home screen.",
+      starsLine: "1.8k → 48k stars（+2593.0%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 3,
+      name: "design-agent",
+      slug: "langchain-ai-design-agent",
+      heat: 78,
+      peakDate: "2026-10-30",
+      zh: "在Slack聊天里生成品牌一致的设计，从一张图到整份简报。",
+      en: "A design agent that turns Slack conversations into on-brand visuals, from stills to motion graphics.",
+      starsLine: "2 → 530 stars（+26400.0%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 4,
+      name: "reanimate",
+      slug: "niazmorshed2007-reanimate",
+      heat: 78,
+      peakDate: "2026-11-01",
+      zh: "给 Claude Code 装上这个技能，就能从录屏或网站里逐帧拆解动画，自动生成匹配的代码组件。",
+      en: "Clone any animation from a website, recording, or video file into editable components with Claude Code.",
+      starsLine: "116 → 434 stars（+274.1%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 5,
+      name: "EAC-design-world",
+      slug: "ebony-vinyl-eac-design-world",
+      heat: 76,
+      peakDate: "2026-10-27",
+      zh: "一个本地视频剪辑和设计插件，让 DeepSeek Harness 用户能多轨剪辑、套模板并导出视频。",
+      en: "A local-first video production plugin for DeepSeek Harness with multi-track editing, design templates, and native preview.",
+      starsLine: "22 → 353 stars（+1504.5%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 6,
+      name: "house-plan-designer",
+      slug: "zwd11-house-plan-designer",
+      heat: 74,
+      peakDate: "2026-11-01",
+      zh: "上传户型图，一句话让它变成可编辑的2D/3D装修设计网页。",
+      en: "Hand your AI assistant a floor plan photo and it builds a living 2D/3D interior designer page—single HTML file, works offline.",
+      starsLine: "50 → 265 stars（+430.0%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 7,
+      name: "claude-skill",
+      slug: "motionsites-ai-claude-skill",
+      heat: 71,
+      peakDate: "2026-10-28",
+      zh: "免费的Claude技能，让Claude做出电影感落地页而不是普通AI页面。",
+      en: "Free Claude skill: make Claude build award-level, cinematic landing pages. By MotionSites.",
+      starsLine: "120 → 1.3k stars（+965.0%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 8,
+      name: "brand-identity-skill",
+      slug: "fatihaydost-brand-identity-skill",
+      heat: 70,
+      peakDate: "2026-11-01",
+      zh: "给Claude装个品牌设计师技能，一句话出Logo、字体和配色。",
+      en: "Create a complete brand identity system from one brief: logo, typography, color palette, and guidelines PDF.",
+      starsLine: "65 → 276 stars（+324.6%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 9,
+      name: "awesome-gamedev-agent-skills",
+      slug: "gamedev-skills-awesome-gamedev-agent-skills",
+      heat: 70,
+      peakDate: "2026-10-28",
+      zh: "给AI编程助手装上游戏开发技能，它会按你用的引擎自动挑选对应做法。",
+      en: "Game developers using AI coding assistants get engine-specific guidance for Godot, Unity, Unreal, and more.",
+      starsLine: "4.8k → 6.3k stars（+31.3%）",
+    }, WEEKLY_3_CAMPAIGN),
+    frozenHeatItem({
+      rank: 10,
+      name: "impeccable",
+      slug: "pbakaus-impeccable",
+      heat: 70,
+      peakDate: "2026-10-30",
+      zh: "给编程助手装上设计判断力，让它在出代码前先挑出丑和乱。",
+      en: "A design vocabulary that lets your coding agent review, critique, and polish UI before shipping.",
+      starsLine: "92k → 98k stars（+6.2%）",
+    }, WEEKLY_3_CAMPAIGN),
+  ],
+  editorPick: {
+    name: "chaojifeng-video-design",
+    slug: "mileson-chaojifeng-video-design",
+    heat: 69,
+    peakDate: "2026-10-29",
+    zh: "给AI助手用的视频设计技能包：用户说需求，它做分镜、配乐、改局部，直到出片。",
+    en: "A video design methodology that lets AI turn a one-sentence description into a complete video with storyboard, music, and effects.",
+    starsLine: "116 → 489 stars（+321.6%）",
+    reasonZh: "选它的理由：贴本周 video / design-skill 主题，但是「视频设计方法论技能包」而不是又一个单机动效库。",
+    reasonEn: "Why this pick: it fits this week's video / design-skill theme, but as a video-design methodology skill pack, not another solo motion library.",
+    href: weeklyCampaignPath("mileson-chaojifeng-video-design", WEEKLY_3_CAMPAIGN),
+  },
+};
+
 export interface PublicWeeklyIssue {
   number: number;
   /** Day the public /weekly/<n> page went live. IndexNow treats a match as a new issue. */
@@ -415,7 +549,7 @@ export interface PublicWeeklyIssue {
  * Bare `/weekly` redirects to the highest issue number (see next.config).
  * next.config imports this module, so keep it free of server-only dependencies.
  */
-const PUBLISHED_WEEKLY_ISSUES: WeeklyIssue[] = [WEEKLY_ISSUE_1, WEEKLY_ISSUE_2];
+const PUBLISHED_WEEKLY_ISSUES: WeeklyIssue[] = [WEEKLY_ISSUE_1, WEEKLY_ISSUE_2, WEEKLY_ISSUE_3];
 
 export function weeklyIssueByNumber(number: number): WeeklyIssue | null {
   if (!Number.isInteger(number) || number < 1) return null;
