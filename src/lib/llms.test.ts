@@ -27,4 +27,5 @@ test("links the sample weekly issue", () => {
   const text = llmsTxt("https://signalgarden.site");
   assert.ok(text.includes("https://signalgarden.site/weekly/1"));
   assert.ok(text.includes("https://signalgarden.site/weekly/2"));
+  assert.ok(text.includes("https://signalgarden.site/weekly/3"));
 });

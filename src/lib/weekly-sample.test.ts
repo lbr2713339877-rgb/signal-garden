@@ -6,6 +6,7 @@ import { weeklyIssueMetadata } from "./page-meta";
 import {
   WEEKLY_ISSUE_1,
   WEEKLY_ISSUE_2,
+  WEEKLY_ISSUE_3,
   latestPublishedWeeklyIssue,
   publicWeeklyIssues,
   weeklyIssueByNumber,
@@ -56,12 +57,14 @@ test("every public issue is one /weekly/[issue] route", () => {
   assert.match(image, /renderWeeklyOg/);
   assert.equal(weeklyIssueByNumber(1)?.issue, WEEKLY_ISSUE_1.issue);
   assert.equal(weeklyIssueByNumber(2)?.issue, WEEKLY_ISSUE_2.issue);
-  assert.equal(weeklyIssueByNumber(3), null);
+  assert.equal(weeklyIssueByNumber(3)?.issue, WEEKLY_ISSUE_3.issue);
+  assert.equal(weeklyIssueByNumber(4), null);
   assert.deepEqual(
     publicWeeklyIssues().map((row) => [row.number, row.publishedOn]),
     [
       [1, WEEKLY_ISSUE_1.to],
       [2, WEEKLY_ISSUE_2.to],
+      [3, WEEKLY_ISSUE_3.to],
     ],
   );
   const entries = readdirSync(new URL("../app/(site)/weekly", import.meta.url), { withFileTypes: true });
@@ -79,7 +82,8 @@ test("/weekly 301s to the latest published issue", async () => {
   const numbers = publicWeeklyIssues().map((issue) => issue.number);
   const latest = latestPublishedWeeklyIssue();
   assert.equal(latest, Math.max(...numbers));
-  assert.equal(latest, WEEKLY_ISSUE_2.issue);
+  assert.equal(latest, WEEKLY_ISSUE_3.issue);
+  assert.equal(latest, 3);
   assert.equal(weeklyIssueByNumber(latest)?.issue, latest);
 
   const config = readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
@@ -162,5 +166,109 @@ test("issue 2 is the locked max-heat Top 10 plus doop", () => {
   const ogImage = Array.isArray(meta.openGraph?.images) ? meta.openGraph.images[0] : meta.openGraph?.images;
   const ogUrl = typeof ogImage === "string" ? ogImage : ogImage && typeof ogImage === "object" && "url" in ogImage ? String(ogImage.url) : "";
   assert.equal(ogUrl, "https://signalgarden.site/weekly/2/opengraph-image");
+  assert.equal(meta.twitter && "card" in meta.twitter ? meta.twitter.card : undefined, "summary_large_image");
+});
+
+test("issue 3 is the locked max-heat Top 10 plus chaojifeng-video-design", () => {
+  assert.equal(WEEKLY_ISSUE_3.issue, 3);
+  assert.equal(WEEKLY_ISSUE_3.from, "2026-10-27");
+  assert.equal(WEEKLY_ISSUE_3.to, "2026-11-02");
+  assert.equal(WEEKLY_ISSUE_3.items.length, 10);
+  assert.equal(WEEKLY_ISSUE_3.sponsor, true);
+  assert.deepEqual(
+    WEEKLY_ISSUE_3.items.map((item) => `${item.rank} ${item.name} ${item.slug} ${item.heat} ${item.peakDate} ${item.starsLine}`),
+    [
+      "1 DeepSeekBot botharness-deepseekbot 90 2026-11-01 21 → 460 stars（+2090.5%）",
+      "2 cleanyourtv gathin23-cleanyourtv 83 2026-10-27 1.8k → 48k stars（+2593.0%）",
+      "3 design-agent langchain-ai-design-agent 78 2026-10-30 2 → 530 stars（+26400.0%）",
+      "4 reanimate niazmorshed2007-reanimate 78 2026-11-01 116 → 434 stars（+274.1%）",
+      "5 EAC-design-world ebony-vinyl-eac-design-world 76 2026-10-27 22 → 353 stars（+1504.5%）",
+      "6 house-plan-designer zwd11-house-plan-designer 74 2026-11-01 50 → 265 stars（+430.0%）",
+      "7 claude-skill motionsites-ai-claude-skill 71 2026-10-28 120 → 1.3k stars（+965.0%）",
+      "8 brand-identity-skill fatihaydost-brand-identity-skill 70 2026-11-01 65 → 276 stars（+324.6%）",
+      "9 awesome-gamedev-agent-skills gamedev-skills-awesome-gamedev-agent-skills 70 2026-10-28 4.8k → 6.3k stars（+31.3%）",
+      "10 impeccable pbakaus-impeccable 70 2026-10-30 92k → 98k stars（+6.2%）",
+    ],
+  );
+  assert.deepEqual(
+    WEEKLY_ISSUE_3.items.map((item) => item.zh),
+    [
+      "在桌面端组建有长期记忆的AI Bot团队，协作完成任务。",
+      "用编码助手通过Wi-Fi清理安卓电视的垃圾软件，换上Apple TV风格主屏。",
+      "在Slack聊天里生成品牌一致的设计，从一张图到整份简报。",
+      "给 Claude Code 装上这个技能，就能从录屏或网站里逐帧拆解动画，自动生成匹配的代码组件。",
+      "一个本地视频剪辑和设计插件，让 DeepSeek Harness 用户能多轨剪辑、套模板并导出视频。",
+      "上传户型图，一句话让它变成可编辑的2D/3D装修设计网页。",
+      "免费的Claude技能，让Claude做出电影感落地页而不是普通AI页面。",
+      "给Claude装个品牌设计师技能，一句话出Logo、字体和配色。",
+      "给AI编程助手装上游戏开发技能，它会按你用的引擎自动挑选对应做法。",
+      "给编程助手装上设计判断力，让它在出代码前先挑出丑和乱。",
+    ],
+  );
+  assert.deepEqual(
+    WEEKLY_ISSUE_3.items.map((item) => item.en),
+    [
+      "An open-source alternative to GrokBot that lets you run a team of personal AI bots with memory, identities, and permissions.",
+      "Android and Google TV owners can use CleanYourTV to remove bloatware over Wi-Fi and get a cleaner home screen.",
+      "A design agent that turns Slack conversations into on-brand visuals, from stills to motion graphics.",
+      "Clone any animation from a website, recording, or video file into editable components with Claude Code.",
+      "A local-first video production plugin for DeepSeek Harness with multi-track editing, design templates, and native preview.",
+      "Hand your AI assistant a floor plan photo and it builds a living 2D/3D interior designer page—single HTML file, works offline.",
+      "Free Claude skill: make Claude build award-level, cinematic landing pages. By MotionSites.",
+      "Create a complete brand identity system from one brief: logo, typography, color palette, and guidelines PDF.",
+      "Game developers using AI coding assistants get engine-specific guidance for Godot, Unity, Unreal, and more.",
+      "A design vocabulary that lets your coding agent review, critique, and polish UI before shipping.",
+    ],
+  );
+  assert.equal(
+    WEEKLY_ISSUE_3.editorNote?.zh,
+    "本周热度分榜上，**设计/动效 skills、视频工具链、可安装 agent 技能**扎堆：design-agent、impeccable、claude-skill、reanimate、EAC-design-world、brand-identity-skill、awesome-gamedev-agent-skills 都在给助手加「设计判断 / 动画克隆 / 成片」能力；榜首 DeepSeekBot 是带长期记忆的桌面 Bot 团队，中间还插进了一个清理安卓电视的 cleanyourtv，提醒日榜并不只围着 coding agent 转。",
+  );
+  assert.equal(
+    WEEKLY_ISSUE_3.editorNote?.en,
+    "This week's momentum board clustered around **design/motion skills, video toolchains, and installable agent skills**—design-agent, impeccable, claude-skill, reanimate, EAC-design-world, brand-identity-skill, and awesome-gamedev-agent-skills all extend assistants with design taste, animation cloning, or shipping video. Chart-topper DeepSeekBot is a desktop Bot team with long-term memory, and cleanyourtv (Android TV cleanup) still broke into the Top 10—a reminder the board is not only coding agents.",
+  );
+  const pick = WEEKLY_ISSUE_3.editorPick;
+  assert.ok(pick);
+  assert.equal(pick.slug, "mileson-chaojifeng-video-design");
+  assert.equal(pick.name, "chaojifeng-video-design");
+  assert.equal(pick.heat, 69);
+  assert.equal(pick.peakDate, "2026-10-29");
+  assert.equal(pick.starsLine, "116 → 489 stars（+321.6%）");
+  assert.equal(pick.zh, "给AI助手用的视频设计技能包：用户说需求，它做分镜、配乐、改局部，直到出片。");
+  assert.equal(
+    pick.en,
+    "A video design methodology that lets AI turn a one-sentence description into a complete video with storyboard, music, and effects.",
+  );
+  assert.equal(
+    pick.reasonZh,
+    "选它的理由：贴本周 video / design-skill 主题，但是「视频设计方法论技能包」而不是又一个单机动效库。",
+  );
+  assert.equal(
+    pick.reasonEn,
+    "Why this pick: it fits this week's video / design-skill theme, but as a video-design methodology skill pack, not another solo motion library.",
+  );
+  assert.equal(WEEKLY_ISSUE_3.items.some((item) => item.slug === pick.slug), false);
+  for (const item of WEEKLY_ISSUE_3.items) {
+    assert.equal(item.labelZh, `热度分 ${item.heat}`);
+    assert.equal(item.labelEn, `Heat ${item.heat}`);
+  }
+  for (const item of [...WEEKLY_ISSUE_3.items, pick]) {
+    assert.equal(
+      item.href,
+      `/p/${item.slug}?utm_source=email&utm_medium=weekly&utm_campaign=weekly-3`,
+    );
+    assert.ok(item.zh.length > 0);
+    assert.ok(item.en.length > 0);
+  }
+  assert.doesNotMatch(JSON.stringify(WEEKLY_ISSUE_3), BANNED);
+
+  const meta = weeklyIssueMetadata(WEEKLY_ISSUE_3, "https://signalgarden.site");
+  assert.equal(meta.alternates?.canonical, "https://signalgarden.site/weekly/3");
+  assert.match(String(meta.description), /第 3 期/);
+  assert.match(String(meta.description), /2026-10-27 – 2026-11-02/);
+  const ogImage = Array.isArray(meta.openGraph?.images) ? meta.openGraph.images[0] : meta.openGraph?.images;
+  const ogUrl = typeof ogImage === "string" ? ogImage : ogImage && typeof ogImage === "object" && "url" in ogImage ? String(ogImage.url) : "";
+  assert.equal(ogUrl, "https://signalgarden.site/weekly/3/opengraph-image");
   assert.equal(meta.twitter && "card" in meta.twitter ? meta.twitter.card : undefined, "summary_large_image");
 });
