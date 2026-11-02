@@ -8,10 +8,11 @@
 
 import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { dailySignal, project, repoSnapshot } from "@/db/schema";
+import { dailySignal, project } from "@/db/schema";
 import { evaluateGate, measureForkGrowth, GATE } from "@/collectors/github/growth";
 import { signalDate } from "@/lib/day";
 import { MIN_STARS_TO_RANK } from "@/scoring/daily";
+import { loadStarAnchors } from "@/db/star-anchors";
 import { chunk, mapLimit } from "@/lib/concurrency";
 import { log, type JobResult } from "./run";
 
@@ -23,7 +24,7 @@ const DAY_MS = 86_400_000;
  * Star delta from our own snapshots. Returns null when no snapshot is old
  * enough to answer the question — never a guess.
  */
-function starDelta(
+export function starDelta(
   snaps: { capturedAt: Date; stars: number }[],
   currentStars: number,
   daysAgo: number,
@@ -117,16 +118,8 @@ export async function measureGrowth(opts: { limit?: number; force?: boolean; ids
   // Star snapshots for the projects in this run.
   const snapsByProject = new Map<string, { capturedAt: Date; stars: number }[]>();
   for (const ids of chunk<string>(rows.map((r) => r.id), 200)) {
-    const snaps = await d
-      .select({ projectId: repoSnapshot.projectId, capturedAt: repoSnapshot.capturedAt, stars: repoSnapshot.stars })
-      .from(repoSnapshot)
-      .where(inArray(repoSnapshot.projectId, ids))
-      .orderBy(repoSnapshot.capturedAt);
-    for (const s of snaps) {
-      const list = snapsByProject.get(s.projectId) ?? [];
-      list.push({ capturedAt: s.capturedAt as Date, stars: s.stars });
-      snapsByProject.set(s.projectId, list);
-    }
+    const anchors = await loadStarAnchors(d, ids, now);
+    for (const [projectId, list] of anchors) snapsByProject.set(projectId, list);
   }
 
   let measured = 0;

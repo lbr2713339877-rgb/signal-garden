@@ -8,7 +8,16 @@ import { log, type JobResult } from './run';
 
 export async function reviewDiscoveries(opts: { limit?: number; slugs?: string[]; force?: boolean } = {}): Promise<JobResult> {
   const d = await db();
-  const rows = await d.select().from(project).where(and(eq(project.parseState, 'parsed'), eq(project.hidden, false),
+  const rows = await d.select({
+    id: project.id,
+    slug: project.slug,
+    name: project.name,
+    primaryUrl: project.primaryUrl,
+    projectKind: project.projectKind,
+    description: project.description,
+    readmeHash: project.readmeHash,
+    readmeText: sql<string | null>`left(${project.readmeText}, 16000)`,
+  }).from(project).where(and(eq(project.parseState, 'parsed'), eq(project.hidden, false),
     isNull(project.junkReason), isNull(project.duplicateOf), eq(project.isSkillCollection, false),
     sql`('play' = ANY(${project.focusThemes}) OR ${project.projectKind} <> 'repo')`,
     opts.slugs?.length ? inArray(project.slug, opts.slugs) : sql`true`,

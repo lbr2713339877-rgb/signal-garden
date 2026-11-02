@@ -15,9 +15,10 @@
 
 import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { dailySignal, externalMention, project, repoSnapshot } from "@/db/schema";
+import { dailySignal, externalMention, project } from "@/db/schema";
 import { computeHeat, heatBasis, isSpike, type HeatInput } from "@/scoring/heat";
 import { FOCUS_MIN } from "@/normalizers/focus";
+import { loadStarAnchors } from "@/db/star-anchors";
 import { chunk } from "@/lib/concurrency";
 import { TODAY_LIMIT } from "@/lib/edition";
 import { log, type JobResult } from "../jobs/run";
@@ -60,7 +61,7 @@ interface Candidate {
 }
 
 /** Star count closest to `daysAgo`, if a snapshot that old exists. */
-function starsAt(snaps: { capturedAt: Date; stars: number }[], daysAgo: number, now: number): number | null {
+export function starsAt(snaps: { capturedAt: Date; stars: number }[], daysAgo: number, now: number): number | null {
   const target = now - daysAgo * DAY_MS;
   let best: { capturedAt: Date; stars: number } | null = null;
   for (const s of snaps) {
@@ -141,16 +142,8 @@ export async function scoreDaily(opts: { limit?: number; top?: number } = {}): P
   const snapsByProject = new Map<string, { capturedAt: Date; stars: number }[]>();
   const mentionsByProject = new Map<string, { points: number; comments: number; publishedAt: Date | null }[]>();
   for (const ids of chunk<string>(rows.map((r) => r.id), 200)) {
-    const snaps = await d
-      .select({ projectId: repoSnapshot.projectId, capturedAt: repoSnapshot.capturedAt, stars: repoSnapshot.stars })
-      .from(repoSnapshot)
-      .where(inArray(repoSnapshot.projectId, ids))
-      .orderBy(repoSnapshot.capturedAt);
-    for (const s of snaps) {
-      const list = snapsByProject.get(s.projectId) ?? [];
-      list.push({ capturedAt: s.capturedAt as Date, stars: s.stars });
-      snapsByProject.set(s.projectId, list);
-    }
+    const anchors = await loadStarAnchors(d, ids, now);
+    for (const [projectId, list] of anchors) snapsByProject.set(projectId, list);
 
     const mentions = await d
       .select({
@@ -284,7 +277,7 @@ export async function scoreDaily(opts: { limit?: number; top?: number } = {}): P
   };
 }
 
-function averageDailyGrowth(snaps: { capturedAt: Date; stars: number }[]): number {
+export function averageDailyGrowth(snaps: { capturedAt: Date; stars: number }[]): number {
   if (snaps.length < 2) return 0;
   const sorted = [...snaps].sort((a, b) => +new Date(a.capturedAt) - +new Date(b.capturedAt));
   const first = sorted[0];

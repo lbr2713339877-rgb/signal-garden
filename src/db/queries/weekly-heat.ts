@@ -1,4 +1,6 @@
 import { getArchiveEditions, getFeedEdition, type ProjectCard } from "@/db/queries";
+import { signalDate } from "@/lib/day";
+import { cachePublicRead, PUBLIC_BOARD_TTL } from "@/lib/public-cache";
 import {
   editionDay,
   selectWeeklyEditions,
@@ -19,7 +21,7 @@ function sampleCard(card: ProjectCard): WeeklySampleCard {
 }
 
 /** Live Top 10 for the homepage. Same editions the Monday mailer would send. */
-export async function getThisWeekHeatTop(top = WEEKLY_HEAT_TOP): Promise<WeeklyHeatWindow> {
+async function loadThisWeekHeatTop(_day: string, top: number): Promise<WeeklyHeatWindow> {
   const today = await getFeedEdition(top);
   const archive = await getArchiveEditions(WEEKLY_WINDOW_DAYS);
   const editions = selectWeeklyEditions({
@@ -41,4 +43,10 @@ export async function getThisWeekHeatTop(top = WEEKLY_HEAT_TOP): Promise<WeeklyH
     })),
     top,
   );
+}
+
+const readThisWeekHeatTop = cachePublicRead(loadThisWeekHeatTop, "weekly-heat-top", PUBLIC_BOARD_TTL);
+
+export function getThisWeekHeatTop(top = WEEKLY_HEAT_TOP): Promise<WeeklyHeatWindow> {
+  return readThisWeekHeatTop(signalDate(), top);
 }

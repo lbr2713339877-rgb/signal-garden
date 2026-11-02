@@ -22,7 +22,8 @@ import { formatRank } from "@/lib/utils";
  *   2. "no item without a hook" — getHeadline only returns projects with one.
  *   4. "unqualified projects appear nowhere" — every query goes through gated().
  */
-export const revalidate = 0;
+// PUBLIC_BOARD_TTL in src/lib/public-cache.ts. Segment config must be a literal.
+export const revalidate = 300;
 
 export default async function HomePage() {
   const [headline, features, rising, counts] = await Promise.all([

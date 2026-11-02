@@ -18,7 +18,7 @@ test("generateStaticParams prebuilds the live pilot set plus today's edition", (
     page.indexOf("export async function generateStaticParams"),
     page.indexOf("export async function generateMetadata"),
   );
-  assert.match(page, /export const revalidate = 3600/);
+  assert.match(page, /export const revalidate = 21600/);
   assert.match(page, /export const dynamicParams = true/);
   assert.match(fn, /publishedProjectSlugs\(signalDate\(\)\)/);
   assert.match(fn, /getSeoPilotSlugSet\(/);

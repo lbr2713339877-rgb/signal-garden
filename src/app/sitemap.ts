@@ -5,14 +5,15 @@ import { connection } from 'next/server';
 import { db } from '@/db/client';
 import { project } from '@/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
+import { SITEMAP_TTL } from '@/lib/public-cache';
 import { publicWeeklyIssues } from '@/lib/weekly-sample';
 
 /* PGlite allows a single process to hold the data directory. Prerendering the
    sitemap alongside other DB-reading pages makes two build workers fight over
    that lock, and the database may be absent during `next build`. Bail out of
    that prerender (dynamic on the first request). `revalidate` plus the cached
-   project query keep later requests off the database for an hour. */
-export const revalidate = 3600;
+   project query keep later requests off the database for six hours. */
+export const revalidate = 21600;
 
 const STATIC_PATHS = [
   '/',
@@ -73,7 +74,7 @@ const loadSitemapProjects = unstable_cache(
     }));
   },
   ['sitemap-projects'],
-  { revalidate: 3600 },
+  { revalidate: SITEMAP_TTL },
 );
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

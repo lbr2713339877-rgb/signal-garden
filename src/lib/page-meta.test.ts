@@ -111,7 +111,7 @@ test("home metadata stays Chinese and /en share metadata is English", () => {
   assert.equal(project.openGraph?.locale, "zh_CN");
 
   assert.match(enPage, /enShareMetadata\(\)/);
-  assert.match(enPage, /export const revalidate = 0/);
+  assert.match(enPage, /export const revalidate = 300/);
   assert.match(enPage, /export \{ default \} from "\.\.\/\(site\)\/today\/page"/);
   assert.doesNotMatch(enPage, /redirect\(/);
 

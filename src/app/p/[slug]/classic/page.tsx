@@ -77,7 +77,7 @@ export default async function ProjectPage({
     notFound();
   }
 
-  const { project: p, skills, content, mentions, history } = data;
+  const { project: p, skills, mentions, history } = data;
   const github = ownerRepo(p.fullName);
   const featured = github ? await projectWasFeatured(p.id) : false;
   const copy = await getProjectCopy(p.id);

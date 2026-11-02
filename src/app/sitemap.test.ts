@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { revalidate } from "@/app/sitemap";
+import { SITEMAP_TTL } from "@/lib/public-cache";
 
-test("sitemap revalidates hourly and does not force a per-request render", () => {
-  assert.equal(revalidate, 3600);
+test("sitemap revalidates every six hours and does not force a per-request render", () => {
+  assert.equal(SITEMAP_TTL, 21600);
+  assert.equal(revalidate, SITEMAP_TTL);
 
   const source = readFileSync(new URL("./sitemap.ts", import.meta.url), "utf8");
-  assert.match(source, /export const revalidate = 3600/);
+  assert.match(source, /export const revalidate = 21600/);
   assert.match(source, /unstable_cache\(/);
-  assert.match(source, /revalidate: 3600/);
+  assert.match(source, /revalidate: SITEMAP_TTL/);
   assert.doesNotMatch(source, /export const dynamic = ['"]force-dynamic['"]/);
   assert.match(source, /eq\(project\.hidden, false\)/);
   assert.match(source, /eq\(project\.parseState, 'parsed'\)/);

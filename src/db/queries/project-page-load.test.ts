@@ -126,7 +126,7 @@ async function runDedupeChild() {
     assert.equal(counter.count('from "skill"'), 1, counter.spans.join("\n---\n"));
     assert.equal(counter.count('from "external_mention"'), 1);
     assert.equal(counter.count('from "repo_snapshot"'), 1);
-    assert.equal(counter.count('from "ai_content"'), 1);
+    assert.equal(counter.count('from "ai_content"'), 0, "copy is loaded by getProjectCopy, not the project row");
     assert.ok(first);
 
     counter.reset();
@@ -176,12 +176,14 @@ if (process.env[CHILD] === "dedupe") {
 test("project payload reads do not wait on each other, and a miss stays one query", async () => {
   const queries = readFileSync("src/db/queries/index.ts", "utf8");
   const slugFn = queries.slice(
-    queries.indexOf("export const getProjectBySlug"),
+    queries.indexOf("async function loadProjectBySlug"),
     queries.indexOf("export async function getFocusCounts"),
   );
   assert.match(slugFn, /Promise\.all\(/);
   assert.ok(slugFn.indexOf("if (!row || row.hidden) return null;") < slugFn.indexOf("Promise.all"));
-  for (const table of ["skill", "aiContent", "externalMention", "repoSnapshot"]) {
+  assert.match(slugFn, /left\(\$\{project\.readmeText\}, \$\{PUBLIC_README_CHARS\}\)/);
+  assert.doesNotMatch(slugFn, /from\(aiContent\)/);
+  for (const table of ["skill", "externalMention", "repoSnapshot"]) {
     assert.match(slugFn, new RegExp(`from\\(${table}\\)`));
   }
 
@@ -212,6 +214,7 @@ test("project payload reads do not wait on each other, and a miss stays one quer
     assert.deepEqual(data.skills.map((item) => item.name), ["beta", "alpha"]);
     assert.deepEqual(data.mentions.map((item) => item.title), ["newer", "older"]);
     assert.deepEqual(data.history.map((item) => item.stars), [9, 1]);
+    assert.equal(counter.spans.some((sql) => sql.includes("body_excerpt") || sql.includes("frontmatter")), false);
     const copy = await getProjectCopy(row.id);
     assert.equal(copy.zh?.oneLiner, "中文。");
     assert.equal(copy.en?.oneLiner, "English.");
@@ -221,6 +224,10 @@ test("project payload reads do not wait on each other, and a miss stays one quer
     assert.equal(await getProjectBySlug("missing"), null);
     assert.equal(counter.count('from "skill"'), 0, counter.spans.join("\n---\n"));
     assert.equal(counter.count('from "project"'), 2);
+
+    await project(d, "long-readme", { readmeText: "x".repeat(6000) });
+    const trimmed = await getProjectBySlug("long-readme");
+    assert.equal(trimmed?.project.readmeText?.length, 5000);
   });
 });
 
@@ -228,7 +235,7 @@ test("/p metadata and the page share one cached load", async () => {
   const page = readFileSync("src/app/p/[slug]/page.tsx", "utf8");
   const queries = readFileSync("src/db/queries/index.ts", "utf8");
   const seo = readFileSync("src/db/queries/seo-pilot.ts", "utf8");
-  assert.match(page, /export const revalidate = 3600/);
+  assert.match(page, /export const revalidate = 21600/);
   assert.match(page, /export const dynamicParams = true/);
   assert.match(page, /unionPrerenderSlugs\(/);
   assert.match(queries, /import \{ cache \} from "react"/);

@@ -246,7 +246,7 @@ test("pages redirect aliases only after a miss, and the open graph image does no
   assert.equal(existsSync("src/app/(site)/loading.tsx"), true);
   assert.equal(existsSync("src/app/(site)/p"), false);
   assert.equal(existsSync("src/app/(site)/feedback"), false);
-  assert.match(page, /revalidate = 3600/);
+  assert.match(page, /revalidate = 21600/);
   assert.match(page, /dynamicParams = true/);
   assert.match(page, /generateStaticParams/);
   for (const source of [page, classic, feedback]) {
