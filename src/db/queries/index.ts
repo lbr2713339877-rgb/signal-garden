@@ -8,14 +8,18 @@
  */
 
 import { cache } from "react";
-import { and, asc, desc, eq, gte, isNotNull, isNull, ne, or, sql, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, isNotNull, isNull, ne, or, sql, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { aiContent, dailySignal, externalMention, project, repoSnapshot, skill, userFeedback } from "@/db/schema";
 import { FOCUS_MIN, type FocusTheme } from "@/normalizers/focus";
 import { signalDate } from "@/lib/day";
 import { TODAY_LIMIT } from "@/lib/edition";
+import { ARCHIVE_PAGE_TTL, cachePublicRead, PROJECT_PAGE_TTL, PUBLIC_BOARD_TTL } from "@/lib/public-cache";
 import { catalogueTraction, interestingDiscovery } from '@/normalizers/discovery-policy';
 import { projectIdForSlug } from "@/lib/slug-alias";
+
+/** Matches `audienceReadmeExcerpt`, which only reads this much of the README. */
+const PUBLIC_README_CHARS = 5000;
 
 /** Conditions a project must meet to appear on any public ranked surface. */
 export function rankable() {
@@ -165,17 +169,22 @@ async function withOneLiners(rows: any[]): Promise<ProjectCard[]> {
 }
 
 /** Today's published edition. Quiet days never recycle earlier editions. */
-export async function getTodaysSignals(limit = TODAY_LIMIT): Promise<{ date: string; cards: ProjectCard[] }> {
+async function loadTodaysSignals(day: string, limit: number): Promise<{ date: string; cards: ProjectCard[] }> {
   const d = await db();
-  const date = signalDate();
   const rows = await d
     .select({ ...CARD_COLUMNS, rank: dailySignal.rank, heatScore: dailySignal.heatScore })
     .from(dailySignal)
     .innerJoin(project, eq(dailySignal.projectId, project.id))
-    .where(and(eq(dailySignal.signalDate, date), eq(dailySignal.isPublished, true), rankable()))
+    .where(and(eq(dailySignal.signalDate, day), eq(dailySignal.isPublished, true), rankable()))
     .orderBy(dailySignal.rank)
     .limit(limit);
-  return { date, cards: await withOneLiners(rows) };
+  return { date: day, cards: await withOneLiners(rows) };
+}
+
+const readTodaysSignals = cachePublicRead(loadTodaysSignals, "todays-signals", PUBLIC_BOARD_TTL);
+
+export function getTodaysSignals(limit = TODAY_LIMIT): Promise<{ date: string; cards: ProjectCard[] }> {
+  return readTodaysSignals(signalDate(), limit);
 }
 
 /** Slugs on a published edition. Used to prerender and to drop stale /p HTML. */
@@ -191,11 +200,11 @@ export async function publishedProjectSlugs(date: string): Promise<string[]> {
 }
 
 /** Historical editions use their saved publication dates, ranks and scores. */
-export async function getArchiveEditions(limit = 14): Promise<{ date: string; cards: ProjectCard[] }[]> {
+async function loadArchiveEditions(day: string, limit: number): Promise<{ date: string; cards: ProjectCard[] }[]> {
   const d = await db();
   const dates = await d.selectDistinct({ date: dailySignal.signalDate }).from(dailySignal)
     .innerJoin(project, eq(dailySignal.projectId, project.id))
-    .where(and(eq(dailySignal.isPublished, true), eq(project.hidden, false), sql`${dailySignal.signalDate} < ${signalDate()}::date`))
+    .where(and(eq(dailySignal.isPublished, true), eq(project.hidden, false), sql`${dailySignal.signalDate} < ${day}::date`))
     .orderBy(desc(dailySignal.signalDate)).limit(limit);
   if (!dates.length) return [];
   const rows = await d.select({ ...CARD_COLUMNS, date: dailySignal.signalDate, rank: dailySignal.rank, heatScore: dailySignal.heatScore })
@@ -204,6 +213,12 @@ export async function getArchiveEditions(limit = 14): Promise<{ date: string; ca
     .orderBy(desc(dailySignal.signalDate), dailySignal.rank);
   const cards = await withOneLiners(rows);
   return dates.map(({ date }) => ({ date, cards: cards.filter((_, i) => rows[i].date === date) }));
+}
+
+const readArchiveEditions = cachePublicRead(loadArchiveEditions, "archive-editions", ARCHIVE_PAGE_TTL);
+
+export function getArchiveEditions(limit = 14): Promise<{ date: string; cards: ProjectCard[] }[]> {
+  return readArchiveEditions(signalDate(), limit);
 }
 
 /** Keep the last published edition readable until a new one is published.
@@ -219,7 +234,7 @@ export async function getCurrentEdition(limit = TODAY_LIMIT): Promise<{ date: st
 }
 
 /** Published edition for the homepage, /today and /feed.xml. */
-export async function getFeedEdition(limit = TODAY_LIMIT): Promise<{
+async function loadFeedEdition(_day: string, limit: number): Promise<{
   date: string;
   publishedAt: Date | null;
   cards: ProjectCard[];
@@ -242,6 +257,20 @@ export async function getFeedEdition(limit = TODAY_LIMIT): Promise<{
   };
 }
 
+const readFeedEdition = cachePublicRead(loadFeedEdition, "feed-edition", PUBLIC_BOARD_TTL);
+
+export async function getFeedEdition(limit = TODAY_LIMIT): Promise<{
+  date: string;
+  publishedAt: Date | null;
+  cards: ProjectCard[];
+  isPrevious: boolean;
+}> {
+  const edition = await readFeedEdition(signalDate(), limit);
+  if (edition.publishedAt instanceof Date || edition.publishedAt == null) return edition;
+  const publishedAt = new Date(edition.publishedAt);
+  return { ...edition, publishedAt: Number.isNaN(publishedAt.getTime()) ? null : publishedAt };
+}
+
 /** Batch lookup used by account pages (saved / followed) so they render names and slugs, not UUIDs. */
 export async function getProjectsByIds(ids: string[]) {
   if (!ids.length) return [];
@@ -261,25 +290,81 @@ export async function getProjectsByIds(ids: string[]) {
     .where(and(inArray(project.id, ids), rankable()));
 }
 
+const PROJECT_DATE_KEYS = [
+  "firstSeenAt",
+  "firstTrackedAt",
+  "parsedAt",
+  "lastVerifiedAt",
+  "upstreamCreatedAt",
+  "upstreamPushedAt",
+  "createdAt",
+  "updatedAt",
+  "metaRefreshedAt",
+  "heatComputedAt",
+  "growthMeasuredAt",
+  "mentionsCheckedAt",
+  "aiGeneratedAt",
+] as const;
+
+function reviveIso(value: unknown): unknown {
+  if (value instanceof Date || typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(value)) return value;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date;
+}
+
+function reviveProjectDates<T extends { project: Record<string, unknown>; history: { capturedAt: unknown }[] }>(loaded: T): T {
+  const projectRow = { ...loaded.project };
+  for (const key of PROJECT_DATE_KEYS) projectRow[key] = reviveIso(projectRow[key]);
+  return {
+    ...loaded,
+    project: projectRow,
+    history: loaded.history.map((point) => ({ ...point, capturedAt: reviveIso(point.capturedAt) })),
+  };
+}
+
 /**
- * Project payload for `/p/[slug]`. The row has to land first. Skills, the
- * single content row, mentions, and star history only need that id, so they
- * share one round trip. `cache()` lets `generateMetadata` and the page reuse
- * the same promise for a slug during one render.
+ * Project payload for `/p/[slug]`. The row has to land first. Skills, mentions,
+ * and star history only need that id, so they share one round trip. Copy is a
+ * separate read (`getProjectCopy`) because metadata and the page both use it.
+ * `cache()` dedupes those calls during one render; the data cache dedupes them
+ * across requests.
+ *
+ * The public page never renders the full README or skill bodies. The SEO
+ * excerpt uses the first PUBLIC_README_CHARS characters.
  */
-export const getProjectBySlug = cache(async function getProjectBySlug(slug: string) {
+async function loadProjectBySlug(slug: string) {
   const d = await db();
-  const [row] = await d.select().from(project).where(eq(project.slug, slug)).limit(1);
+  const { readmeText: _fullReadme, ...projectColumns } = getTableColumns(project);
+  const [row] = await d
+    .select({
+      ...projectColumns,
+      readmeText: sql<string | null>`left(${project.readmeText}, ${PUBLIC_README_CHARS})`,
+    })
+    .from(project)
+    .where(eq(project.slug, slug))
+    .limit(1);
   if (!row || row.hidden) return null;
-  const [skills, contentRows, mentions, history] = await Promise.all([
+  const [skills, mentions, history] = await Promise.all([
     d
-      .select()
+      .select({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        sourcePath: skill.sourcePath,
+        isVerifiedSkill: skill.isVerifiedSkill,
+      })
       .from(skill)
       .where(eq(skill.projectId, row.id))
       .orderBy(desc(skill.isVerifiedSkill), skill.name),
-    d.select().from(aiContent).where(eq(aiContent.projectId, row.id)).limit(1),
     d
-      .select()
+      .select({
+        id: externalMention.id,
+        source: externalMention.source,
+        url: externalMention.url,
+        title: externalMention.title,
+        points: externalMention.points,
+        comments: externalMention.comments,
+      })
       .from(externalMention)
       .where(eq(externalMention.projectId, row.id))
       .orderBy(desc(externalMention.publishedAt))
@@ -291,7 +376,14 @@ export const getProjectBySlug = cache(async function getProjectBySlug(slug: stri
       .orderBy(repoSnapshot.capturedAt)
       .limit(180),
   ]);
-  return { project: row, skills, content: contentRows[0] ?? null, mentions, history };
+  return { project: row, skills, mentions, history };
+}
+
+const readProjectBySlug = cachePublicRead(loadProjectBySlug, "project-by-slug", PROJECT_PAGE_TTL);
+
+export const getProjectBySlug = cache(async function getProjectBySlug(slug: string) {
+  const loaded = await readProjectBySlug(slug);
+  return loaded ? reviveProjectDates(loaded) : null;
 });
 
 export async function getFocusCounts(): Promise<Record<string, number>> {
@@ -355,7 +447,7 @@ export interface ProjectSearchFilters {
 }
 
 /** All constraints apply in SQL before paging; Chinese editorial copy is searchable. */
-export async function searchProjects(q: string, limit = 40, filters: ProjectSearchFilters = {}): Promise<ProjectCard[]> {
+async function loadSearchProjects(q: string, limit: number, filters: ProjectSearchFilters): Promise<ProjectCard[]> {
   const d = await db();
   const query = q.trim();
   const like = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
@@ -377,6 +469,12 @@ export async function searchProjects(q: string, limit = 40, filters: ProjectSear
   )).orderBy(desc(project.focusScore), desc(project.stars), project.id)
     .limit(Math.min(Math.max(limit, 1), 100)).offset(Math.max(0, filters.offset ?? 0));
   return withOneLiners(rows);
+}
+
+const readSearchProjects = cachePublicRead(loadSearchProjects, "search-projects", PUBLIC_BOARD_TTL);
+
+export function searchProjects(q: string, limit = 40, filters: ProjectSearchFilters = {}): Promise<ProjectCard[]> {
+  return readSearchProjects(q, limit, filters);
 }
 
 /** Data-source health for /status. */
@@ -434,7 +532,7 @@ export type SortKey = "heat" | "growth" | "newest";
  * Category listing. V2 §5 requires a second level and a sort control, so a
  * category page is never a single undifferentiated column.
  */
-export async function getByTaxonomy(
+async function loadByTaxonomy(
   primary: string,
   opts: { secondary?: string | null; sort?: SortKey; limit?: number; offset?: number; interesting?: boolean } = {},
 ): Promise<ProjectCard[]> {
@@ -464,8 +562,17 @@ export async function getByTaxonomy(
   return withOneLiners(rows);
 }
 
+const readByTaxonomy = cachePublicRead(loadByTaxonomy, "taxonomy-list", PUBLIC_BOARD_TTL);
+
+export function getByTaxonomy(
+  primary: string,
+  opts: { secondary?: string | null; sort?: SortKey; limit?: number; offset?: number; interesting?: boolean } = {},
+): Promise<ProjectCard[]> {
+  return readByTaxonomy(primary, opts);
+}
+
 /** Counts per primary, and per second level within a primary. */
-export async function getTaxonomyCounts(primary?: string) {
+async function loadTaxonomyCounts(primary: string | null) {
   const d = await db();
   const key = primary ? project.secondaryCategory : project.primaryCategory;
   return d.select({ k: sql<string>`${key}`, n: sql<number>`count(*)::int` }).from(project)
@@ -473,15 +580,27 @@ export async function getTaxonomyCounts(primary?: string) {
     .groupBy(key).orderBy(desc(sql`count(*)`));
 }
 
-export async function getInterestingDiscoveries(limit = 120): Promise<ProjectCard[]> {
+const readTaxonomyCounts = cachePublicRead(loadTaxonomyCounts, "taxonomy-counts", PUBLIC_BOARD_TTL);
+
+export function getTaxonomyCounts(primary?: string) {
+  return readTaxonomyCounts(primary ?? null);
+}
+
+async function loadInterestingDiscoveries(limit: number): Promise<ProjectCard[]> {
   const d = await db();
   const rows = await d.select(CARD_COLUMNS).from(project).where(and(gated(), interestingDiscovery()))
     .orderBy(desc(project.firstTrackedAt), desc(project.heatScoreLatest)).limit(limit);
   return withOneLiners(rows);
 }
 
+const readInterestingDiscoveries = cachePublicRead(loadInterestingDiscoveries, "interesting-discoveries", PUBLIC_BOARD_TTL);
+
+export function getInterestingDiscoveries(limit = 120): Promise<ProjectCard[]> {
+  return readInterestingDiscoveries(limit);
+}
+
 /** Projects that were tracked before they qualified (V2 §2 回溯机制). */
-export async function getRising(limit = 12): Promise<ProjectCard[]> {
+async function loadRising(limit: number): Promise<ProjectCard[]> {
   const d = await db();
   const rows = await d
     .select(CARD_COLUMNS)
@@ -492,13 +611,33 @@ export async function getRising(limit = 12): Promise<ProjectCard[]> {
   return withOneLiners(rows);
 }
 
+const readRising = cachePublicRead(loadRising, "rising-projects", PUBLIC_BOARD_TTL);
+
+export function getRising(limit = 12): Promise<ProjectCard[]> {
+  return readRising(limit);
+}
+
 /** Bilingual copy for one project, used by the detail page. Shared with metadata for this render. */
 export const getProjectCopy = cache(async function getProjectCopy(projectId: string) {
   const d = await db();
-  const rows = await d.select().from(aiContent).where(eq(aiContent.projectId, projectId));
+  const rows = await d
+    .select({
+      locale: aiContent.locale,
+      oneLiner: aiContent.oneLiner,
+      hook: aiContent.hook,
+      personas: aiContent.personas,
+      targetUsers: aiContent.targetUsers,
+      whyNow: aiContent.whyNow,
+      notFor: aiContent.notFor,
+      capabilities: aiContent.capabilities,
+      installHint: aiContent.installHint,
+      riskNote: aiContent.riskNote,
+    })
+    .from(aiContent)
+    .where(eq(aiContent.projectId, projectId));
   return {
-    zh: (rows as any[]).find((r) => r.locale === "zh") ?? null,
-    en: (rows as any[]).find((r) => r.locale === "en") ?? null,
+    zh: rows.find((r) => r.locale === "zh") ?? null,
+    en: rows.find((r) => r.locale === "en") ?? null,
   };
 });
 

@@ -16,7 +16,8 @@ import { GATE } from '@/collectors/github/growth';
 import { T } from '@/lib/dict';
 
 export const metadata: Metadata = { title: '趋势' };
-export const revalidate = 0;
+// PUBLIC_BOARD_TTL in src/lib/public-cache.ts. Segment config must be a literal.
+export const revalidate = 300;
 
 export default async function TrendsPage() {
   // Trend board, not the daily edition. See src/lib/edition.ts.

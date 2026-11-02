@@ -7,6 +7,7 @@
 
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { SITEMAP_TTL } from "@/lib/public-cache";
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { dailySignal } from "@/db/schema";
@@ -93,7 +94,7 @@ async function querySeoPilotSlugs(): Promise<string[]> {
   return selectSeoPilotSlugs(rows);
 }
 
-const loadSeoPilotSlugs = unstable_cache(querySeoPilotSlugs, ["seo-pilot-slugs"], { revalidate: 3600 });
+const loadSeoPilotSlugs = unstable_cache(querySeoPilotSlugs, ["seo-pilot-slugs"], { revalidate: SITEMAP_TTL });
 
 export const getSeoPilotSlugSet = cache(async function getSeoPilotSlugSet(): Promise<Set<string>> {
   try {

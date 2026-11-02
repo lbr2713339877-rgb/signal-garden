@@ -8,8 +8,9 @@ export const alt = "Signal Garden — Today";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 // Same process as the site. A build-time prerender races the PGlite lock and
-// would publish an empty card, so this stays fresh with /today.
-export const revalidate = 0;
+// would publish an empty card, so this stays on the same window as /today.
+// PUBLIC_BOARD_TTL in src/lib/public-cache.ts. Segment config must be a literal.
+export const revalidate = 300;
 
 export default async function Image() {
   try {

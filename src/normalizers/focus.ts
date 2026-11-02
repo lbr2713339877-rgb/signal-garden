@@ -30,8 +30,10 @@ export const FOCUS_LABEL: Record<FocusTheme, string> = {
 };
 
 export const FOCUS_MIN = 3;
+/** README and skill text the scorer reads. The rest cannot change a focus score. */
+export const FOCUS_TEXT_BUDGET = 6000;
 
-const TOPICS: Record<FocusTheme, string[]> = {
+export const TOPICS: Record<FocusTheme, string[]> = {
   play: ['ai-bot', 'telegram-bot', 'discord-bot', 'ai-assistant', 'video-editing', 'video-generation', 'image-generation', 'text-to-speech', 'interactive-art', 'creative-coding', 'browser-game', 'web-game'],
   web: ["landing-page", "landing-pages", "website-builder", "nextjs", "next-js", "astro", "tailwindcss", "tailwind", "shadcn", "shadcn-ui", "saas-boilerplate", "saas-starter", "saas-template", "indie-hacker", "indiehackers", "seo", "frontend", "web-development", "webdev", "vibe-coding"],
   design: ["design", "design-system", "design-systems", "ui", "ux", "ui-design", "ux-design", "ui-ux", "uiux", "figma", "ui-components", "component-library", "design-tokens", "typography"],
@@ -145,8 +147,8 @@ function hits(res: RegExp[], text: string): RegExp[] {
 export function scoreFocus(input: FocusInput): FocusResult {
   const topics = input.topics.map((t) => t.toLowerCase());
   const head = `${input.name.replace(/[-_]/g, " ")} ${input.description ?? ""}`;
-  const readme = (input.readme ?? "").slice(0, 6000);
-  const skills = (input.skillTexts ?? []).join("\n").slice(0, 6000);
+  const readme = (input.readme ?? "").slice(0, FOCUS_TEXT_BUDGET);
+  const skills = (input.skillTexts ?? []).join("\n").slice(0, FOCUS_TEXT_BUDGET);
 
   const scores = {} as Record<FocusTheme, number>;
   const evidence: Record<string, string[]> = {};

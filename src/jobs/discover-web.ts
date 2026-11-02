@@ -56,7 +56,16 @@ export async function discoverWeb(opts: { limit?: number; seedsOnly?: boolean; d
       const hash = fingerprint(page.text);
       const tax = classifyTaxonomy({ name, description: page.description, topics: [], readme: page.text, skillMdCount: 0, hasMcpSdk: false });
       if (opts.dryRun) { log('discover-web', `DRY RUN ${name} · ${domain} · ${tax.primary}`); saved++; return; }
-      const [existing] = await d.select().from(project).where(or(eq(project.domain, domain), eq(project.canonicalProjectId, `domain:${domain}`))).limit(1);
+      const [existing] = await d
+        .select({
+          id: project.id,
+          projectKind: project.projectKind,
+          docSignals: project.docSignals,
+          readmeHash: project.readmeHash,
+        })
+        .from(project)
+        .where(or(eq(project.domain, domain), eq(project.canonicalProjectId, `domain:${domain}`)))
+        .limit(1);
       if (existing?.projectKind === 'repo') {
         if (item.hit) await saveMention(existing.id, item.hit); return;
       }

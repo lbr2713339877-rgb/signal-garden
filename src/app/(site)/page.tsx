@@ -7,7 +7,8 @@ import { NewsletterSignup } from '@/components/v3/NewsletterForm';
 import { SubscribeHash } from '@/components/v3/SubscribeHash';
 import { homePageMetadata } from '@/lib/page-meta';
 
-export const revalidate = 45;
+// PUBLIC_BOARD_TTL in src/lib/public-cache.ts. Segment config must be a literal.
+export const revalidate = 300;
 
 export const metadata: Metadata = homePageMetadata();
 

@@ -595,13 +595,13 @@ test("non-pilot metadata stays the body summary, and sitemap plus classic stay o
   const classic = readFileSync("src/app/p/[slug]/classic/page.tsx", "utf8");
   const sitemap = readFileSync("src/app/sitemap.ts", "utf8");
   const query = readFileSync("src/db/queries/seo-pilot.ts", "utf8");
-  assert.match(page, /export const revalidate = 3600/);
+  assert.match(page, /export const revalidate = 21600/);
   assert.match(page, /isSeoPilot\(/);
   assert.doesNotMatch(page, /cookies\(|headers\(|getCurrentUser/);
   assert.doesNotMatch(classic, /isSeoPilot|SeoPilot/);
   assert.doesNotMatch(sitemap, /isSeoPilot|SeoPilot/);
   assert.match(query, /unstable_cache\(/);
-  assert.match(query, /revalidate:\s*3600/);
+  assert.match(query, /revalidate:\s*SITEMAP_TTL/);
   assert.match(query, /count\(DISTINCT s\.signal_date\)/);
   assert.doesNotMatch(query, /WHERE s\.is_published = true AND p\.hidden/);
 });

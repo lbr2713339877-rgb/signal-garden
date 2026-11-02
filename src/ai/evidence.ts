@@ -85,7 +85,38 @@ export function trimReadme(markdown: string, budget = 6000): string {
 
 export async function buildEvidence(projectId: string): Promise<Evidence | null> {
   const d = await db();
-  const [p] = await d.select().from(project).where(eq(project.id, projectId)).limit(1);
+  const [p] = await d
+    .select({
+      id: project.id,
+      projectKind: project.projectKind,
+      fullName: project.fullName,
+      name: project.name,
+      primaryUrl: project.primaryUrl,
+      description: project.description,
+      topics: project.topics,
+      license: project.license,
+      language: project.language,
+      stars: project.stars,
+      forks: project.forks,
+      openIssues: project.openIssues,
+      commits7d: project.commits7d,
+      upstreamCreatedAt: project.upstreamCreatedAt,
+      upstreamPushedAt: project.upstreamPushedAt,
+      skillType: project.skillType,
+      supportedAgents: project.supportedAgents,
+      installCommands: project.installCommands,
+      requiresApiKey: project.requiresApiKey,
+      requiresLocalRuntime: project.requiresLocalRuntime,
+      requiresDocker: project.requiresDocker,
+      difficulty: project.difficulty,
+      securityLevel: project.securityLevel,
+      riskFlags: project.riskFlags,
+      readmeText: project.readmeText,
+      docSignals: project.docSignals,
+    })
+    .from(project)
+    .where(eq(project.id, projectId))
+    .limit(1);
   if (!p) return null;
 
   const rows = await d

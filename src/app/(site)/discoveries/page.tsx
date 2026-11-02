@@ -6,7 +6,8 @@ import { getInterestingDiscoveries } from '@/db/queries';
 import { LANG } from '@/lib/i18n';
 import { TAXONOMY } from '@/normalizers/taxonomy';
 
-export const revalidate = 0;
+// PUBLIC_BOARD_TTL in src/lib/public-cache.ts. Segment config must be a literal.
+export const revalidate = 300;
 export const metadata: Metadata = { title: '有意思的 · Interesting finds', description: '值得亲自试一下的机器人、创作工具和互动作品。' };
 export default async function DiscoveriesPage() {
   const cards = await getInterestingDiscoveries();

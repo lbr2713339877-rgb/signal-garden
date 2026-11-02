@@ -16,7 +16,8 @@ import { getArchiveEditions } from '@/db/queries';
 import { T } from '@/lib/dict';
 
 export const metadata: Metadata = { title: '归档' };
-export const revalidate = 0;
+// ARCHIVE_PAGE_TTL in src/lib/public-cache.ts. Past editions change once a day.
+export const revalidate = 1800;
 
 export default async function ArchivePage() {
   const editions = await getArchiveEditions();

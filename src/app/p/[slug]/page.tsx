@@ -42,7 +42,7 @@ import { isSeoPilot } from '@/lib/seo-pilot';
 import { SeoPilotSections } from '@/components/v3/detail/SeoPilotSections';
 
 /**
- * Shared HTML, refreshed at least hourly and again at the end of `pnpm job daily`.
+ * Shared HTML, refreshed at least every six hours and again at the end of `pnpm job daily`.
  * The hit path must not read cookies, headers, or searchParams: that would opt
  * the route out of the cache and could bake a session into the HTML. Saves,
  * follows, and the account menu live in client components and load after paint.
@@ -53,7 +53,8 @@ import { SeoPilotSections } from '@/components/v3/detail/SeoPilotSections';
  * The alias 308 is therefore the canonical path with no query string. `/classic`
  * and `/feedback` stay dynamic and still keep the query.
  */
-export const revalidate = 3600;
+// PROJECT_PAGE_TTL in src/lib/public-cache.ts. Segment config must be a literal.
+export const revalidate = 21600;
 /** Unknown slugs, including aliases, still render on demand so a miss can 308. */
 export const dynamicParams = true;
 
@@ -156,7 +157,7 @@ export default async function ProjectPageV3({
     notFound();
   }
 
-  const { project: p, skills, content, mentions, history } = data;
+  const { project: p, skills, mentions, history } = data;
   const isWebsite = p.projectKind !== "repo";
   const github = ownerRepo(p.fullName);
   const copyPromise = getProjectCopy(p.id);

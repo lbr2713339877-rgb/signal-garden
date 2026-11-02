@@ -18,7 +18,8 @@ import { T } from '@/lib/dict';
 import { LANG } from '@/lib/i18n';
 
 export const metadata: Metadata = { title: '分类' };
-export const revalidate = 0;
+// PUBLIC_BOARD_TTL in src/lib/public-cache.ts. Segment config must be a literal.
+export const revalidate = 300;
 
 export default async function CategoriesHubPage() {
   const counts = await getTaxonomyCounts();

@@ -162,9 +162,9 @@ const jobs: Record<string, () => Promise<boolean>> = {
       if (!pinged) log("daily", "indexnow did not complete; the edition is still published");
 
       // Drop ISR HTML for the projects this edition published. A missed ping
-      // only means those pages stay cached until revalidate (one hour).
+      // only means those pages stay cached until revalidate (six hours).
       const refreshed = await runJob("revalidate-projects", () => revalidatePublishedProjectPages());
-      if (!refreshed) log("daily", "project page revalidation did not complete; /p pages expire within an hour");
+      if (!refreshed) log("daily", "project page revalidation did not complete; /p pages expire within six hours");
 
       if (failed.length) {
         throw new Error(`daily failed steps: ${failed.join(", ")}`);

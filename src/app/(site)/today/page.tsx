@@ -28,7 +28,8 @@ import { JsonLd } from '@/components/seo/JsonLd';
 import { todayItemList } from '@/lib/jsonld';
 
 export const metadata: Metadata = todayPageMetadata();
-export const revalidate = 0;
+// PUBLIC_BOARD_TTL in src/lib/public-cache.ts. Segment config must be a literal.
+export const revalidate = 300;
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
