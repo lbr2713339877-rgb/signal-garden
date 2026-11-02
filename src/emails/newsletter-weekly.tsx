@@ -1,14 +1,11 @@
 /**
- * Signal Garden weekly digest.
+ * Legacy daily-rank digest. Each day's #1, then #2s, from the last 7 published
+ * editions. The window and order live in src/lib/weekly-ranking.ts, shared with
+ * the homepage. On-site links carry utm_source=email&utm_campaign=weekly.
  *
- *   tsx scripts/newsletter-weekly.tsx --dry-run                 # print the ranking, send nothing
- *   tsx scripts/newsletter-weekly.tsx --sample you@example.com  # one sample to an allowlisted address, no DB writes
- *   tsx scripts/newsletter-weekly.tsx --all                     # all active subscribers (needs NEWSLETTER_WEEKLY_ENABLED=true)
- *
- * Content: the last 7 published daily editions. Each day's #1, then #2s (newest
- * day first) until 10 items, listed by date. The window and order live in
- * src/lib/weekly-ranking.ts, shared with the homepage. On-site links carry
- * utm_source=email&utm_campaign=weekly.
+ * Not the Monday cron send. `/etc/cron.d/sg-newsletter-weekly` runs
+ * `scripts/newsletter-weekly.tsx`, which mails the curated lock in
+ * src/lib/weekly-sample.ts (frozen Top 10 + editor pick).
  */
 import React from "react";
 import { loadLocalEnv } from "@/lib/env";
