@@ -11,7 +11,7 @@ Signal Garden collects signals (GitHub activity and related sources), ranks proj
 - **项目页 / Project pages.** 每个项目有独立页面。Each project has its own page.
 - **RSS.** `/feed.xml`
 - **README 徽章 / README badge.** 上过已发布榜单的仓库可在项目页复制 `Featured on | Signal Garden` 徽章。Repos that have appeared in a published edition can copy a badge from the project page.
-- **周一邮件周报 / Monday weekly email digest.**
+- **周一邮件周报 / Monday weekly email digest.** 正式发送是 `scripts/newsletter-weekly.tsx`（VPS 周一 09:00 cron 已指向该路径）。内容是 `src/lib/weekly-sample.ts` 里最新一期锁定周刊（Top 10 + 编辑推荐），不是旧的日榜第 1 / 第 2 名抽样。
 - **中英双语 / Bilingual zh/en.**
 - **可自托管的 Next.js / Self-hostable Next.js.** 本地 `pnpm install && pnpm dev` 即可运行。
 - **MIT.** 见 `LICENSE`。
@@ -76,6 +76,8 @@ pnpm job indexnow
 ```
 
 That command is a no-op until `INDEXNOW_KEY` is set. It POSTs `https://signalgarden.site/today`, project pages whose first published edition is today, `https://signalgarden.site/`, and `https://signalgarden.site/feed.xml` to `https://api.indexnow.org/indexnow`. The same list is not sent twice on the same day.
+
+Monday weekly mail (`scripts/newsletter-weekly.tsx`) reads the latest curated issue. The VPS cron file already runs `tsx scripts/newsletter-weekly.tsx --all` at 09:00 Asia/Singapore. `--dry-run` prints the plan and writes nothing. Operators send with `--canary`, then `--real`. `--all` no-ops when that issue is not dated today or every eligible subscriber is already sent for `issue.to`. Live sends need `NEWSLETTER_WEEKLY_ENABLED=true`, `NEWSLETTER_SEND_MODE=live`, and `NEWSLETTER_UNSUB_SECRET`.
 
 Cron to add, in `Asia/Singapore`, after the morning publish:
 
