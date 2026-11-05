@@ -24,7 +24,7 @@ function signupFrame(location: SubscribeLocation): string {
   if (location === "home") return "mx-auto max-w-[var(--container)] px-[var(--gutter)] pb-[clamp(48px,8vh,96px)]";
   if (location === "weekly") return "mt-12 max-w-[640px] border-t border-[var(--glass-1-border)] pt-10";
   if (location === "today_inline") return "my-2 max-w-[640px] border-y border-[var(--glass-1-border)] py-10";
-  if (location === "project_bottom") return "max-w-[520px]";
+  if (location === "project_bottom" || location === "p") return "max-w-[520px]";
   if (location === "project_cta") return "w-full min-w-0 lg:max-w-[520px] lg:flex-1";
   return "mt-8 max-w-[360px]";
 }
@@ -33,7 +33,14 @@ function subscribeAnchor(location: SubscribeLocation): boolean {
   return location === "home" || location === "weekly";
 }
 
-export function NewsletterSignup({ location }: { location: SubscribeLocation }) {
+export function NewsletterSignup({
+  location,
+  slug,
+}: {
+  location: SubscribeLocation;
+  /** Project slug for `location="p"`. Sent with the Umami event, not stored on the subscriber. */
+  slug?: string;
+}) {
   const enabled = newsletterFormEnabled();
   const anchor = subscribeAnchor(location);
   if (!enabled && !anchor) return null;
@@ -46,7 +53,7 @@ export function NewsletterSignup({ location }: { location: SubscribeLocation }) 
       className={frame}
       style={anchor ? { scrollMarginTop: SUBSCRIBE_SCROLL_MARGIN_PX } : undefined}
     >
-      {enabled ? <NewsletterForm location={location} /> : null}
+      {enabled ? <NewsletterForm location={location} slug={slug} /> : null}
     </Region>
   );
 }
@@ -108,7 +115,7 @@ function ConfirmStep({
   );
 }
 
-function NewsletterForm({ location }: { location: SubscribeLocation }) {
+function NewsletterForm({ location, slug }: { location: SubscribeLocation; slug?: string }) {
   const lang = useLang();
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
@@ -204,7 +211,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
           ...readStoredAttribution(),
         }),
       });
-      const analytics = subscribeAnalyticsProps(location, currentUtmSource());
+      const analytics = subscribeAnalyticsProps(location, currentUtmSource(), { slug });
       if (response.ok) {
         succeeded = true;
         const body = await response.json().catch(() => null) as { sent?: unknown } | null;
@@ -234,7 +241,7 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
       }
     } catch {
       setMessage("invalid_email");
-      trackEvent("subscribe_error", { ...subscribeAnalyticsProps(location, currentUtmSource()), reason: "network" });
+      trackEvent("subscribe_error", { ...subscribeAnalyticsProps(location, currentUtmSource(), { slug }), reason: "network" });
     } finally {
       setToken("");
       const widgetId = widgetIdRef.current;
@@ -263,11 +270,11 @@ function NewsletterForm({ location }: { location: SubscribeLocation }) {
       });
       const body = await response.json().catch(() => null) as { sent?: unknown } | null;
       const sent = response.ok && !!body && body.sent !== false;
-      trackEvent("subscribe_resend", resendAnalytics(location, currentUtmSource(), sent));
+      trackEvent("subscribe_resend", resendAnalytics(location, currentUtmSource(), sent, { slug }));
       setResendSent(sent);
       setResendLimited(!sent);
     } catch {
-      trackEvent("subscribe_resend", resendAnalytics(location, currentUtmSource(), false));
+      trackEvent("subscribe_resend", resendAnalytics(location, currentUtmSource(), false, { slug }));
       setResendSent(false);
       setResendLimited(true);
     } finally {

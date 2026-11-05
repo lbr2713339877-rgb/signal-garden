@@ -2,29 +2,52 @@
  * Where a Monday-digest signup started.
  * `today` is the older today-page value and maps to the inline placement.
  */
-export const SUBSCRIBE_LOCATIONS = ["home", "today_inline", "project_bottom", "project_cta", "footer", "weekly"] as const;
+export const SUBSCRIBE_LOCATIONS = ["home", "today_inline", "project_bottom", "project_cta", "p", "footer", "weekly"] as const;
 
 export type SubscribeLocation = (typeof SUBSCRIBE_LOCATIONS)[number];
 
+/**
+ * `p` is the in-content box on `/p/[slug]`. The subscriber `source` column
+ * stores that exact value. `p:<slug>` is not a source: the slug is analytics-only.
+ */
 export function normalizeSubscribeLocation(value: unknown): SubscribeLocation | null {
   if (value === "today" || value === "today_inline") return "today_inline";
-  if (value === "home" || value === "project_bottom" || value === "project_cta" || value === "footer" || value === "weekly") return value;
+  if (value === "home" || value === "project_bottom" || value === "project_cta" || value === "p" || value === "footer" || value === "weekly") return value;
   return null;
 }
 
 /** Coarser page name kept for existing Umami filters. Weekly issues keep their own page name. */
 export function subscribeAnalyticsPage(location: SubscribeLocation): "home" | "today" | "project" | "footer" | "weekly" {
   if (location === "today_inline") return "today";
-  if (location === "project_bottom" || location === "project_cta") return "project";
+  if (location === "project_bottom" || location === "project_cta" || location === "p") return "project";
   return location;
 }
 
-export function subscribeAnalyticsProps(location: SubscribeLocation, utmSource: string): Record<string, string> {
-  return {
+/** Public project slug safe to attach to an analytics event. Not an email. */
+const PROJECT_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
+
+export function normalizeSubscribeSlug(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const slug = value.trim().toLowerCase();
+  if (!PROJECT_SLUG.test(slug)) return null;
+  return slug;
+}
+
+export function subscribeAnalyticsProps(
+  location: SubscribeLocation,
+  utmSource: string,
+  extra?: { slug?: unknown },
+): Record<string, string> {
+  const props: Record<string, string> = {
     location,
     page: subscribeAnalyticsPage(location),
     source: utmSource,
   };
+  if (location === "p") {
+    const slug = normalizeSubscribeSlug(extra?.slug);
+    if (slug) props.slug = slug;
+  }
+  return props;
 }
 
 /**
@@ -41,9 +64,10 @@ export function resendAnalytics(
   location: SubscribeLocation,
   utmSource: string,
   sent: boolean,
+  extra?: { slug?: unknown },
 ): Record<string, string> {
   return {
-    ...subscribeAnalyticsProps(location, utmSource),
+    ...subscribeAnalyticsProps(location, utmSource, extra),
     outcome: sent ? "sent" : "limited",
   };
 }
