@@ -17,6 +17,8 @@ test("signup placements stay on the allowlist and today maps to the inline box",
   assert.equal(normalizeSubscribeLocation("today_inline"), "today_inline");
   assert.equal(normalizeSubscribeLocation("project_bottom"), "project_bottom");
   assert.equal(normalizeSubscribeLocation("project_cta"), "project_cta");
+  assert.equal(normalizeSubscribeLocation("p"), "p");
+  assert.equal(normalizeSubscribeLocation("p:some-project"), null);
   assert.equal(normalizeSubscribeLocation("footer"), "footer");
   assert.equal(normalizeSubscribeLocation("home"), "home");
   assert.equal(normalizeSubscribeLocation("weekly"), "weekly");
@@ -33,6 +35,18 @@ test("signup placements stay on the allowlist and today maps to the inline box",
     page: "project",
     source: "direct",
   });
+  assert.deepEqual(subscribeAnalyticsProps("p", "direct", { slug: "TrailHQ-Trail-Code" }), {
+    location: "p",
+    page: "project",
+    source: "direct",
+    slug: "trailhq-trail-code",
+  });
+  assert.deepEqual(subscribeAnalyticsProps("p", "newsletter", { slug: "not an email@x.test" }), {
+    location: "p",
+    page: "project",
+    source: "newsletter",
+  });
+  assert.equal(subscribeAnalyticsProps("footer", "direct", { slug: "ignored" }).slug, undefined);
   assert.equal(subscribeAnalyticsProps("today_inline", "newsletter").location, "today_inline");
   assert.equal(subscribeAnalyticsProps("footer", "direct").page, "footer");
 });
@@ -76,6 +90,7 @@ test("confirm redirect carries location and never a raw address", () => {
   assert.equal(confirmStatusQuery("confirmed", "footer"), "status=confirmed&loc=footer");
   assert.equal(confirmStatusQuery("confirmed", "today"), "status=confirmed&loc=today_inline");
   assert.equal(confirmStatusQuery("confirmed", "project_cta"), "status=confirmed&loc=project_cta");
+  assert.equal(confirmStatusQuery("confirmed", "p"), "status=confirmed&loc=p");
   assert.equal(confirmStatusQuery("already", "nope"), "status=already");
   assert.doesNotMatch(confirmStatusQuery("confirmed", "a@b.c"), /@/);
 });
@@ -91,11 +106,15 @@ test("the inline today box sits after the third card, or after the last when sho
   const form = readFileSync(new URL("../../components/v3/NewsletterForm.tsx", import.meta.url), "utf8");
   assert.match(today, /todayInlineInsertIndex/);
   assert.match(today, /location="today_inline"/);
-  assert.match(project, /location="project_bottom"/);
+  assert.match(project, /location="p"/);
+  assert.match(project, /slug=\{p\.slug\}/);
+  assert.doesNotMatch(project, /location="project_bottom"/);
   assert.match(project, /location="project_cta"/);
   const ctaAt = project.indexOf('location="project_cta"');
-  const bottomAt = project.indexOf('location="project_bottom"');
-  assert.ok(ctaAt > 0 && bottomAt > ctaAt);
+  const contentAt = project.indexOf('location="p"');
+  const provenanceAt = project.indexOf("PROVENANCE");
+  assert.ok(ctaAt > 0 && contentAt > ctaAt && provenanceAt > contentAt);
+  assert.match(project, /export const revalidate = 21600/);
   const hero = project.slice(project.indexOf("mt-10 flex flex-col"), ctaAt);
   assert.match(hero, /flex-col/);
   assert.match(hero, /lg:flex-row/);
@@ -116,7 +135,7 @@ test("the inline today box sits after the third card, or after the last when sho
   for (const line of errors) {
     assert.match(line, /\.\.\.analytics|\.\.\.subscribeAnalyticsProps\(location/);
   }
-  assert.match(form, /const analytics = subscribeAnalyticsProps\(location, currentUtmSource\(\)\)/);
+  assert.match(form, /const analytics = subscribeAnalyticsProps\(location, currentUtmSource\(\), \{ slug \}\)/);
   assert.match(form, /trackEvent\("subscribe_submit", analytics\)/);
   assert.match(form, /subscribeAck\(body\) === "limited"/);
   assert.match(form, /message === "ok" \? \(/);
@@ -133,7 +152,7 @@ test("the inline today box sits after the third card, or after the last when sho
   assert.match(form, /setResendSent\(sent\)/);
   assert.match(form, /setResendLimited\(!sent\)/);
   assert.match(form, /resendCooldownSeconds\(\)/);
-  assert.match(form, /trackEvent\("subscribe_resend", resendAnalytics\(location, currentUtmSource\(\), sent\)\)/);
+  assert.match(form, /trackEvent\("subscribe_resend", resendAnalytics\(location, currentUtmSource\(\), sent, \{ slug \}\)\)/);
   assert.deepEqual(resendAnalytics("footer", "direct", true), {
     location: "footer",
     page: "footer",
@@ -145,6 +164,13 @@ test("the inline today box sits after the third card, or after the last when sho
     page: "project",
     source: "newsletter",
     outcome: "limited",
+  });
+  assert.deepEqual(resendAnalytics("p", "direct", true, { slug: "cosscom-ui" }), {
+    location: "p",
+    page: "project",
+    source: "direct",
+    slug: "cosscom-ui",
+    outcome: "sent",
   });
   assert.equal(subscribeAnalyticsProps("project_cta", "newsletter").location, "project_cta");
   const confirm = readFileSync(new URL("../../app/(site)/subscribe/confirm/page.tsx", import.meta.url), "utf8");

@@ -505,6 +505,19 @@ export default async function ProjectPageV3({
         </section>
       ) : null}
 
+      {/* In-content weekly signup, after the article. FooterBrand keeps its own form. */}
+      <section className="px-[var(--gutter)] pt-10 pb-4">
+        <div className="mx-auto max-w-[var(--container)] border-t border-[var(--glass-1-border)] pt-10">
+          <NewsletterSignup location="p" slug={p.slug} />
+          <SubscribeLink
+            medium="project_page"
+            className="body mt-6 inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)]"
+          >
+            <T k="pd.subscribe.cta" as="span" fade={false} /> <span aria-hidden>→</span>
+          </SubscribeLink>
+        </div>
+      </section>
+
       {/* ── Provenance ──────────────────────────────────────────────── */}
       <section className="px-[var(--gutter)] pb-[var(--section-gap)]">
         <div className="mx-auto max-w-[var(--container)]">
@@ -553,16 +566,6 @@ export default async function ProjectPageV3({
               </pre>
             </details>
           </details>
-
-          <div className="mt-12 border-t border-[var(--glass-1-border)] pt-8">
-            <NewsletterSignup location="project_bottom" />
-            <SubscribeLink
-              medium="project_page"
-              className="body mt-6 inline-flex items-center gap-2 border-b border-[var(--glass-2-border)] pb-1 text-[var(--ink-1)] transition-colors duration-[var(--d-micro)] hover:border-[var(--ink-1)]"
-            >
-              <T k="pd.subscribe.cta" as="span" fade={false} /> <span aria-hidden>→</span>
-            </SubscribeLink>
-          </div>
 
           <div className="mt-12 flex flex-wrap gap-8">
             <Link
