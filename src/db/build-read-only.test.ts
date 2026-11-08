@@ -110,6 +110,25 @@ test("the switch is exactly true and the off pool matches the previous settings"
   assert.equal("onConnect" in off, false);
   const on = postgresPoolConfig({ connectionString: "postgres://local/db", readOnly: true });
   assert.equal(on.onConnect, enforceBuildReadOnly);
+  assert.equal(on.connectionTimeoutMillis, 10_000);
+  assert.equal(on.query_timeout, undefined);
+  const previousConnect = process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS;
+  const previousQuery = process.env.SG_BUILD_DB_QUERY_TIMEOUT_MS;
+  process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS = "5000";
+  process.env.SG_BUILD_DB_QUERY_TIMEOUT_MS = "5000";
+  try {
+    const tightened = postgresPoolConfig({ connectionString: "postgres://local/db", readOnly: true });
+    assert.equal(tightened.connectionTimeoutMillis, 5000);
+    assert.equal(tightened.query_timeout, 5000);
+    const stillOff = postgresPoolConfig({ connectionString: "postgres://local/db", readOnly: false });
+    assert.equal(stillOff.connectionTimeoutMillis, 10_000);
+    assert.equal(stillOff.query_timeout, undefined);
+  } finally {
+    if (previousConnect === undefined) delete process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS;
+    else process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS = previousConnect;
+    if (previousQuery === undefined) delete process.env.SG_BUILD_DB_QUERY_TIMEOUT_MS;
+    else process.env.SG_BUILD_DB_QUERY_TIMEOUT_MS = previousQuery;
+  }
   const client = readFileSync(new URL("./client.ts", import.meta.url), "utf8");
   assert.match(client, /postgresPoolConfig/);
   assert.match(client, /buildReadOnlyEnabled/);

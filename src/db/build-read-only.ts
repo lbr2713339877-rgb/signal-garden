@@ -41,7 +41,17 @@ export async function enforceBuildReadOnly(client: ClientBase): Promise<void> {
   }
 }
 
-/** Same pool settings as the Postgres branch. `onConnect` exists only when the switch is on. */
+function positiveInt(value: string | undefined): number | undefined {
+  if (!value || !/^[1-9]\d*$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
+/**
+ * Same pool settings as the Postgres branch when the switch is off.
+ * When it is on, this process may tighten connection and query timeouts.
+ * Unset values stay at the reviewed 10s connect timeout, pool max, and no query timeout.
+ */
 export function postgresPoolConfig(input: { connectionString: string; readOnly: boolean; max?: number }): PoolConfig {
   const config: PoolConfig = {
     connectionString: input.connectionString,
@@ -50,6 +60,11 @@ export function postgresPoolConfig(input: { connectionString: string; readOnly: 
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
   };
-  if (input.readOnly) config.onConnect = enforceBuildReadOnly;
+  if (!input.readOnly) return config;
+  config.onConnect = enforceBuildReadOnly;
+  const connectMs = positiveInt(process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS);
+  const queryMs = positiveInt(process.env.SG_BUILD_DB_QUERY_TIMEOUT_MS);
+  if (connectMs) config.connectionTimeoutMillis = connectMs;
+  if (queryMs) config.query_timeout = queryMs;
   return config;
 }

@@ -136,6 +136,9 @@ async function releaseLock(dir: string): Promise<void> {
 }
 
 async function create(): Promise<DbHandle> {
+  if (buildReadOnlyEnabled() && !(process.env.DATABASE_URL && process.env.DATABASE_URL.length > 0)) {
+    throw new Error("SG_BUILD_READ_ONLY requires a nonempty DATABASE_URL");
+  }
   const driver = driverFromEnv();
 
   if (driver === "postgres") {
