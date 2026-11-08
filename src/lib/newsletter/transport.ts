@@ -25,7 +25,7 @@ export type DeliveryLookup =
 
 export interface MailTransport {
   mode: "mock" | "live";
-  send(mail: OutboundMail): Promise<{ id: string }>;
+  send(mail: OutboundMail, options?: { signal?: AbortSignal }): Promise<{ id: string }>;
   /**
    * Live provider read. Omitted on the mock transport so a fake id cannot
    * be reported as delivered. `signal` cancels the underlying fetch.
@@ -118,13 +118,22 @@ export function deliveryLookupFromProvider(value: unknown): DeliveryLookup {
   return { ok: true, lastEvent: event.trim() };
 }
 
+export class ProviderRejectedError extends Error {
+  readonly statusCode: number | null;
+  constructor(message: string, statusCode: number | null) {
+    super(message);
+    this.name = "ProviderRejectedError";
+    this.statusCode = statusCode;
+  }
+}
+
 export function liveTransport(): MailTransport {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("[newsletter] RESEND_API_KEY is required when NEWSLETTER_SEND_MODE=live");
   const resend = new Resend(apiKey);
   return {
     mode: "live",
-    async send(mail) {
+    async send(mail, options) {
       const { data, error } = await resend.emails.send({
         from: newsletterFrom(),
         to: mail.to,
@@ -133,8 +142,14 @@ export function liveTransport(): MailTransport {
         html: mail.html,
         text: mail.text,
         headers: mail.headers,
-      }, { idempotencyKey: mail.idempotencyKey });
-      if (error || !data) throw new Error(error?.message ?? "resend send failed");
+      }, { idempotencyKey: mail.idempotencyKey, signal: options?.signal });
+      if (options?.signal?.aborted) {
+        throw new ProviderRejectedError("send aborted", null);
+      }
+      if (error || !data?.id) {
+        const statusCode = error && "statusCode" in error ? error.statusCode ?? null : null;
+        throw new ProviderRejectedError(redactDeliveryError(error?.message ?? "resend send failed"), statusCode);
+      }
       return { id: data.id };
     },
     async getDelivery(messageId, signal) {

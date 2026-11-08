@@ -465,13 +465,13 @@ test("the weekly script gates live sends and leaves dry-run before transport", (
   const created = script.indexOf("newsletterTransport()");
   assert.ok(snapshot !== -1 && created !== -1 && snapshot < created);
   assert.match(runner, /input\.dryRun \|\| input\.mode === "dry-run"/);
-  assert.match(runner, /canary-live-disabled/);
+  assert.match(runner, /"canary" \| "real" \| "all"/);
   assert.match(runner, /edition-not-due/);
   assert.match(runner, /allPlan\.action === "noop"/);
   assert.match(script, /eq\(newsletterSend\.editionDate, editionDate\)/);
   assert.match(script, /previewWeeklyCanaryGate/);
   assert.match(script, /getDelivery/);
-  assert.match(script, /settleAcceptedSend/);
+  assert.match(script, /claimAndSend/);
   assert.match(script, /sg-newsletter-weekly/);
   assert.match(script, /gateMode === "real"/);
   assert.match(script, /audience\.reals/);
@@ -562,34 +562,16 @@ test("a stored provider id is not resent when the sent-status write failed", asy
   assert.equal(second.result.deliveredConfirmed, false);
 });
 
-test("overlapping runs share one idempotency key and are not an exclusive lock", async () => {
-  let entered = 0;
-  let release = () => {};
-  const bothEntered = new Promise<void>((resolve) => {
-    release = resolve;
+test("explicit canary mode sends the preferred canary only", async () => {
+  const { result, sends } = await run({
+    mode: "canary",
+    held: [EXTRA, REAL_A, REAL_B],
   });
-  const send: ExecuteWeeklyGatedSendInput["send"] = async (input) => {
-    entered += 1;
-    if (entered >= 2) release();
-    await bothEntered;
-    return { ok: true, id: `id-${input.subscriberId}` };
-  };
-  const pending = async () => ({ ok: true as const, lastEvent: "sent" });
-  const [left, right] = await Promise.race([
-    Promise.all([
-      run({ maxPolls: 1, send, queryDelivery: pending }),
-      run({ maxPolls: 1, send, queryDelivery: pending }),
-    ]),
-    new Promise<never>((_resolve, reject) => {
-      setTimeout(() => reject(new Error("overlap hung")), 1000);
-    }),
-  ]);
-  assert.equal(left.sends.length, 1);
-  assert.equal(right.sends.length, 1);
-  assert.equal(left.sends[0]?.idempotencyKey, right.sends[0]?.idempotencyKey);
-  assert.equal(left.sends[0]?.idempotencyKey, "newsletter-weekly-3/2026-11-02/canary");
-  assert.equal(left.result.realSends, 0);
-  assert.equal(right.result.realSends, 0);
+  assert.deepEqual(sends.map((row) => row.subscriberId), ["canary"]);
+  assert.equal(sends[0]?.idempotencyKey, "newsletter-weekly-3/2026-11-02/canary");
+  assert.equal(result.realSends, 0);
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.deliveredConfirmed, false);
 });
 
 test("a provider error object sends zero real recipients", async () => {
@@ -700,27 +682,27 @@ test("live real mode does not send before the edition day", async () => {
   assert.equal(sends, 1);
 });
 
-test("live canary mode does not send", async () => {
-  let sends = 0;
+test("live canary mode is an explicit preferred-canary send", async () => {
+  let mode = "";
   const outcome = await runWeeklySnapshot({
     mode: "canary",
     dryRun: false,
     editionDate: "2026-11-02",
-    today: "2026-11-02",
+    today: "2026-11-09",
     eligibleIds: ["canary", "real-a"],
     ledger: [],
     weeklyEnabled: true,
     sendMode: "live",
     unsubSecret: "secret",
-    liveSend: async () => {
-      sends += 1;
+    liveSend: async (args) => {
+      mode = args.mode;
       return { exitCode: 0 };
     },
   });
-  assert.equal(outcome.exitCode, 7);
-  assert.equal(outcome.reason, "canary-live-disabled");
-  assert.equal(sends, 0);
+  assert.equal(outcome.phase, "send");
+  assert.equal(mode, "canary");
 
+  let drySends = 0;
   const preview = await runWeeklySnapshot({
     mode: "canary",
     dryRun: true,
@@ -731,11 +713,11 @@ test("live canary mode does not send", async () => {
     weeklyEnabled: false,
     sendMode: "mock",
     liveSend: async () => {
-      sends += 1;
+      drySends += 1;
       return { exitCode: 0 };
     },
   });
   assert.equal(preview.exitCode, 0);
   assert.equal(preview.phase, "dry-run");
-  assert.equal(sends, 0);
+  assert.equal(drySends, 0);
 });

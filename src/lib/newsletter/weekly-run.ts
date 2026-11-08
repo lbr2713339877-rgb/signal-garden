@@ -1,19 +1,13 @@
 /**
  * Live/dry-run decision for scripts/newsletter-weekly.tsx.
  *
- * Dry-run returns before any send or delivery query. Live `--canary` does not
- * send. Live `--real` also requires this edition's date, so a delivered canary
- * from another day cannot mail real recipients early. `--all` still uses
- * planWeeklyAllSend, which does not pick up recipients with no ledger row on
- * a later day.
+ * Dry-run returns before any send or delivery query. Live `--canary` sends
+ * only the preferred canary. Live `--all` and `--real` both require this
+ * edition's date, and real recipients also require this edition's canary to
+ * be delivered. A later Monday does not pick up subscribers with no row.
  *
- * There is no cross-process send lock and no ledger reset. Resend's SDK sets
- * `Idempotency-Key` from our stable edition/subscriber key and does not dedupe
- * in process. The API names `concurrent_idempotent_requests` and
- * `invalid_idempotent_request` are the provider's responses, not a guarantee
- * this process can make. Two overlapping runs can both observe no stored id
- * and both call send. A provider id that never reaches the ledger can be sent
- * again with the same key. That is not absolute duplicate protection.
+ * Overlapping sends are stopped by the durable newsletter_send claim, not by
+ * a session advisory lock and not by provider idempotency.
  */
 import {
   planWeeklyAllSend,
@@ -27,7 +21,7 @@ export type WeeklyDisposition =
   | { action: "dry-run"; exitCode: 0; allPlan: WeeklyAllPlan }
   | { action: "refused"; exitCode: number; reason: string; allPlan: WeeklyAllPlan }
   | { action: "noop"; exitCode: 0; reason: string; allPlan: WeeklyAllPlan }
-  | { action: "send"; mode: "real" | "all"; exitCode: 0; allPlan: WeeklyAllPlan; plannedIds: readonly string[] };
+  | { action: "send"; mode: "canary" | "real" | "all"; exitCode: 0; allPlan: WeeklyAllPlan; plannedIds: readonly string[] };
 
 export function weeklySendDisposition(input: {
   mode: WeeklyCliMode;
@@ -54,9 +48,6 @@ export function weeklySendDisposition(input: {
     unsubSecret: input.unsubSecret,
   });
   if (blocker) return { action: "refused", exitCode: 2, reason: blocker, allPlan };
-  if (input.mode === "canary") {
-    return { action: "refused", exitCode: 7, reason: "canary-live-disabled", allPlan };
-  }
   if (input.mode === "all" && allPlan.action === "noop") {
     return { action: "noop", exitCode: 0, reason: allPlan.reason, allPlan };
   }
@@ -83,7 +74,7 @@ export async function runWeeklySnapshot(input: {
   sendMode: "mock" | "live";
   unsubSecret?: string;
   /** Invoked only for a live `--real` or `--all` send. Dry-run never calls it. */
-  liveSend: (args: { mode: "real" | "all"; plannedIds: readonly string[]; plan: WeeklyAllPlan }) => Promise<{ exitCode: number }>;
+  liveSend: (args: { mode: "canary" | "real" | "all"; plannedIds: readonly string[]; plan: WeeklyAllPlan }) => Promise<{ exitCode: number }>;
 }): Promise<{ exitCode: number; phase: WeeklyDisposition["action"]; reason?: string; allPlan: WeeklyAllPlan }> {
   const disposition = weeklySendDisposition(input);
   if (disposition.action !== "send") {

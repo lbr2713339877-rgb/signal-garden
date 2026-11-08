@@ -110,7 +110,7 @@ export type DeliveryQueryResult =
 
 export type WeeklyRecipientSendResult =
   | { ok: true; id: string; skipped?: boolean }
-  | { ok: false; error: string; id?: string };
+  | { ok: false; error: string; id?: string; held?: boolean };
 
 export type WeeklyGateMode = "canary" | "real" | "all";
 
@@ -467,6 +467,7 @@ export async function pollCanaryDelivery(input: PollCanaryDeliveryInput): Promis
 
 interface AttemptWithId extends WeeklyGateAttempt {
   id?: string;
+  held?: boolean;
 }
 
 export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput): Promise<WeeklyGateRunResult> {
@@ -589,6 +590,7 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
         skipped: sent.ok ? Boolean(sent.skipped) : false,
         error: sent.ok ? undefined : redactSensitive(sent.error),
         id: sent.id,
+        held: sent.ok ? false : Boolean(sent.held),
       };
       attempts.push(attempt);
       return attempt;
@@ -608,11 +610,18 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
   if (input.mode === "canary") {
     if (!input.canary) return finish({ exitCode: WEEKLY_EXIT_MISSING_CANARY, reason: "missing-canary" });
     const row = ledgerFor(input.ledger, input.canary.id);
-    if (row?.status === "sent" || row?.status === "bounced" || usableMessageId(row?.resendMessageId)) {
+    if (row?.status === "sent" && !usableMessageId(row.resendMessageId)) {
+      return finish({ exitCode: WEEKLY_EXIT_GATE_CLOSED, reason: "claim-held" });
+    }
+    if (row?.status === "bounced" || canaryLedgerTerminal(row)) {
+      return finish({ exitCode: WEEKLY_EXIT_GATE_CLOSED, reason: "canary-terminal" });
+    }
+    if (row?.status === "sent" || usableMessageId(row?.resendMessageId)) {
       messageId = usableMessageId(row?.resendMessageId);
       return finish({ exitCode: 0, reason: "canary-already-recorded", deliveredConfirmed: false });
     }
     const attempt = await sendRecipient(input.canary);
+    if (attempt.held) return finish({ exitCode: WEEKLY_EXIT_GATE_CLOSED, reason: attempt.id ? "canary-ledger-persist-failed" : "claim-held", failed: 1 });
     if (!attempt.ok) return finish({ exitCode: WEEKLY_EXIT_CANARY_API, reason: "canary-api-error", failed: 1 });
     messageId = usableMessageId(attempt.id);
     return finish({
@@ -646,10 +655,14 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
     }
     const attempt = await sendRecipient(input.canary);
     messageId = usableMessageId(attempt.id);
-    if (!attempt.ok && !messageId) return finish({ exitCode: WEEKLY_EXIT_CANARY_API, reason: "canary-api-error", failed: 1 });
-    if (!attempt.ok) {
-      return finish({ exitCode: WEEKLY_EXIT_GATE_CLOSED, reason: "canary-ledger-persist-failed", failed: 1 });
+    if (attempt.held || (!attempt.ok && messageId)) {
+      return finish({
+        exitCode: WEEKLY_EXIT_GATE_CLOSED,
+        reason: messageId ? "canary-ledger-persist-failed" : "claim-held",
+        failed: 1,
+      });
     }
+    if (!attempt.ok) return finish({ exitCode: WEEKLY_EXIT_CANARY_API, reason: "canary-api-error", failed: 1 });
     if (!messageId) return finish({ exitCode: WEEKLY_EXIT_GATE_CLOSED, reason: "canary-accepted-id-missing" });
     if (!attempt.skipped) canarySends = 1;
   }
@@ -711,11 +724,30 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
   let failed = 0;
   let realSends = 0;
   let skipped = 0;
+  let heldUnknown = input.held.filter((recipient) => {
+    const ledger = ledgerFor(input.ledger, recipient.id);
+    return ledger?.status === "sent" && !usableMessageId(ledger.resendMessageId);
+  }).length;
   for (const recipient of held) {
     const attempt = await sendRecipient(recipient);
-    if (!attempt.ok) failed += 1;
+    if (attempt.held) heldUnknown += 1;
+    else if (!attempt.ok) failed += 1;
     else if (attempt.skipped) skipped += 1;
     else realSends += 1;
+  }
+  if (heldUnknown > 0) {
+    return finish({
+      exitCode: WEEKLY_EXIT_GATE_CLOSED,
+      reason: "reconciliation-held",
+      canarySends,
+      realSends,
+      failed,
+      skipped,
+      polls: polled.polls,
+      lastEvent: polled.lastEvent,
+      elapsedMs: polled.elapsedMs,
+      deliveredConfirmed: true,
+    });
   }
   return finish({
     exitCode: failed > 0 ? WEEKLY_EXIT_REAL_FAILED : 0,

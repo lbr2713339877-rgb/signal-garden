@@ -201,6 +201,7 @@ test("cli accepts one mode and documents dry-run, canary, real, and all", () => 
 
   const script = readFileSync(new URL("../../../scripts/newsletter-weekly.tsx", import.meta.url), "utf8");
   const helper = readFileSync(new URL("./weekly-lock.ts", import.meta.url), "utf8");
+  const claim = readFileSync(new URL("./edition-claim.ts", import.meta.url), "utf8");
   const legacy = readFileSync(new URL("../../emails/newsletter-weekly.tsx", import.meta.url), "utf8");
   assert.match(script, /--dry-run/);
   assert.match(script, /--canary/);
@@ -210,7 +211,8 @@ test("cli accepts one mode and documents dry-run, canary, real, and all", () => 
   assert.match(script, /publishedWeeklyMailIssue/);
   assert.match(script, /listUnsubscribeHeaders/);
   assert.match(script, /unsubTokenFor/);
-  assert.match(script, /onConflictDoNothing/);
+  assert.match(script, /claimAndSend/);
+  assert.match(claim, /ON CONFLICT \(edition_date, subscriber_id\) DO NOTHING/);
   assert.match(script, /WEEKLY_LIVE_SEND_GAP_MS/);
   assert.match(helper, /latestPublishedWeeklyIssue/);
   assert.match(helper, /weeklyIssueByNumber/);

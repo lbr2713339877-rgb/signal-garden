@@ -17,23 +17,23 @@
  *   tsx scripts/newsletter-weekly.tsx --all [--dry-run]
  *
  * Cron uses --all. --dry-run writes nothing and does not query delivery.
- * Live --canary does not send; the flag remains for an explicit dry-run.
- * Live --real sends only on this edition's date, and only after this
- * edition's canary delivery query returns delivered. A later day does not
- * catch up recipients who have no ledger row. Nothing rewrites a bounced
- * or failed row back to queued.
+ * --canary sends only the preferred canary. --all and --real send real
+ * recipients only on this edition's date, and only after this edition's
+ * canary delivery query returns delivered. A later day does not catch up
+ * recipients who have no ledger row. Nothing rewrites a bounced or failed
+ * row back to queued, and a sent row with no provider id is not released.
  *
  * Audiences are unchanged. A Resend id or a ledger row of sent is not
  * delivery. A missing canary, accept error, bounce, other non-delivery,
- * query error, or bounded wait exits nonzero and sends zero real recipients.
- * Overlapping runs are not exclusive: the same idempotency key is sent, and
- * the ledger unique key stops a second row, not two in-flight sends.
+ * query error, timeout, or unknown claim exits nonzero and sends zero real
+ * recipients. The claim is the newsletter_send row, committed before the
+ * provider call. Abort does not prove the provider did not accept.
  *
  * Live sends need NEWSLETTER_WEEKLY_ENABLED=true, NEWSLETTER_SEND_MODE=live,
  * and NEWSLETTER_UNSUB_SECRET. The canary wait is
- * WEEKLY_CANARY_DELIVERY_BUDGET_MS (30s, at most 6 reads). Each read is
- * aborted at WEEKLY_CANARY_DELIVERY_QUERY_TIMEOUT_MS. process.exit follows
- * closeDb and does not wait on an aborted read.
+ * WEEKLY_CANARY_DELIVERY_BUDGET_MS (30s, at most 6 reads). Each read and
+ * each send is aborted on its own deadline. Claim statements are bounded
+ * by WEEKLY_CLAIM_TIMEOUT_MS. process.exit follows closeDb.
  */
 import { loadLocalEnv } from "@/lib/env";
 import type { WeeklyAudienceRow } from "@/lib/newsletter/weekly-lock";
@@ -61,16 +61,16 @@ const {
   maskWeeklyEmail,
   previewWeeklyCanaryGate,
   selectGateHeldRecipients,
-  settleAcceptedSend,
 } = await import("@/lib/newsletter/canary-gate");
+const { claimAndSend, claimDbFromPglite, claimDbFromPool } = await import("@/lib/newsletter/edition-claim");
 const { runWeeklySnapshot } = await import("@/lib/newsletter/weekly-run");
 const { renderWeeklyLockMail } = await import("@/emails/weekly-lock");
-const { db, closeDb } = await import("@/db/client");
+const { db, closeDb, getDb } = await import("@/db/client");
 const { and, eq, isNotNull } = await import("drizzle-orm");
 const { newsletterSend, newsletterSubscriber } = await import("@/db/schema");
 const { listUnsubscribeHeaders, unsubscribePageUrl } = await import("@/lib/newsletter/headers");
 const { unsubTokenFor } = await import("@/lib/newsletter/tokens");
-const { newsletterSendMode, newsletterTransport } = await import("@/lib/newsletter/transport");
+const { ProviderRejectedError, newsletterSendMode, newsletterTransport } = await import("@/lib/newsletter/transport");
 
 function log(event: Record<string, unknown>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), ...event }));
@@ -199,69 +199,59 @@ try {
     unsubSecret: process.env.NEWSLETTER_UNSUB_SECRET,
     liveSend: async ({ mode, plannedIds, plan }) => {
       const transport = newsletterTransport();
+      const handle = await getDb();
+      const claims = handle.driver === "postgres" ? claimDbFromPool(handle.raw) : claimDbFromPglite(handle.raw);
       const byId = new Map(eligible.map((row) => [row.id, row]));
 
       async function sendOne(sub: WeeklyAudienceRow, idempotencyKey: string): Promise<
-        { ok: true; id: string; skipped?: boolean } | { ok: false; error: string; id?: string }
+        { ok: true; id: string; skipped?: boolean } | { ok: false; error: string; id?: string; held?: boolean }
       > {
-        const inserted = await database
-          .insert(newsletterSend)
-          .values({ editionDate, subscriberId: sub.id, status: "queued" })
-          .onConflictDoNothing({ target: [newsletterSend.editionDate, newsletterSend.subscriberId] })
-          .returning({ id: newsletterSend.id });
-        let sendRowId = inserted[0]?.id;
-        if (!sendRowId) {
-          const [existing] = await database
-            .select()
-            .from(newsletterSend)
-            .where(and(
-              eq(newsletterSend.editionDate, editionDate),
-              eq(newsletterSend.subscriberId, sub.id),
-            ))
-            .limit(1);
-          if (!existing || existing.status === "sent" || existing.status === "bounced") {
-            return { ok: true, id: existing?.resendMessageId ?? "skipped", skipped: true };
-          }
-          if (existing.resendMessageId) return { ok: true, id: existing.resendMessageId, skipped: true };
-          sendRowId = existing.id;
-        }
-        const rowId = sendRowId;
         const token = unsubTokenFor(sub.id);
         const mail = await renderWeeklyLockMail(issue!, siteUrl, unsubscribePageUrl(siteUrl, token));
-        let providerId: string | undefined;
-        try {
-          const res = await transport.send({
-            to: sub.email,
-            subject: mail.subject,
-            html: mail.html,
-            text: mail.text,
-            headers: listUnsubscribeHeaders(siteUrl, token),
-            idempotencyKey,
-          });
-          providerId = res.id;
-          const settled = await settleAcceptedSend(res.id, async (patch) => {
-            await database.update(newsletterSend).set(patch).where(eq(newsletterSend.id, rowId));
-          });
-          if (!settled.ok) return settled;
+        const outcome = await claimAndSend({
+          db: claims,
+          editionDate,
+          subscriberId: sub.id,
+          transport: async (signal) => {
+            try {
+              const res = await transport.send({
+                to: sub.email,
+                subject: mail.subject,
+                html: mail.html,
+                text: mail.text,
+                headers: listUnsubscribeHeaders(siteUrl, token),
+                idempotencyKey,
+              }, { signal });
+              return { accepted: true, id: res.id };
+            } catch (err) {
+              if (signal.aborted || !(err instanceof ProviderRejectedError)) {
+                return { accepted: false, statusCode: null, error: err instanceof Error ? err.message : String(err) };
+              }
+              return { accepted: false, statusCode: err.statusCode, error: err.message };
+            }
+          },
+        });
+        if (outcome.action === "sent") {
           try {
             await database
               .update(newsletterSubscriber)
               .set({ lastSentAt: new Date() })
               .where(eq(newsletterSubscriber.id, sub.id));
           } catch {
-            // The provider id is already stored. Do not mark the row failed.
+            // The provider id is already stored. Do not clear the claim.
           }
-          return { ok: true, id: res.id };
-        } catch (err) {
-          if (!providerId) {
-            await database.update(newsletterSend).set({ status: "failed" }).where(eq(newsletterSend.id, rowId));
-          }
-          return {
-            ok: false,
-            id: providerId,
-            error: err instanceof Error ? err.message : String(err),
-          };
+          return { ok: true, id: outcome.providerId };
         }
+        if (outcome.action === "query") return { ok: true, id: outcome.providerId, skipped: true };
+        if (outcome.action === "rejected") return { ok: false, error: outcome.error };
+        return {
+          ok: false,
+          held: true,
+          id: outcome.providerId,
+          error: outcome.reason === "persist-failed"
+            ? "provider accepted but ledger update failed"
+            : "claim-held",
+        };
       }
 
       const result = await executeWeeklyGatedSend({
