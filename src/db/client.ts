@@ -15,6 +15,7 @@
  */
 
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { buildReadOnlyEnabled, postgresPoolConfig } from "./build-read-only";
 import * as schema from "./schema";
 
 export type Driver = "pglite" | "postgres";
@@ -141,13 +142,10 @@ async function create(): Promise<DbHandle> {
     const { drizzle } = await import("drizzle-orm/node-postgres");
     const { Pool } = await import("pg");
 
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      // Serverless-friendly: few connections per instance, recycled quickly.
-      max: Number(process.env.PG_POOL_MAX ?? 5),
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 10_000,
-    });
+    const pool = new Pool(postgresPoolConfig({
+      connectionString: process.env.DATABASE_URL ?? "",
+      readOnly: buildReadOnlyEnabled(),
+    }));
 
     return {
       driver,
