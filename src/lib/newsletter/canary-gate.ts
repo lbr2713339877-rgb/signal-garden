@@ -221,6 +221,7 @@ function ledgerFor(
 }
 
 /** Provider already told us this edition's canary was not delivered. Do not resend it. */
+/** `bounced`, and `failed` that still has a provider id, are not sent again. */
 export function canaryLedgerTerminal(row: WeeklyEditionSendRow | undefined): boolean {
   if (!row) return false;
   if (row.status === "bounced") return true;

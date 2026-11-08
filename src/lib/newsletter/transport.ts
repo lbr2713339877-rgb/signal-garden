@@ -120,10 +120,12 @@ export function deliveryLookupFromProvider(value: unknown): DeliveryLookup {
 
 export class ProviderRejectedError extends Error {
   readonly statusCode: number | null;
-  constructor(message: string, statusCode: number | null) {
+  readonly providerName: string | null;
+  constructor(message: string, statusCode: number | null, providerName: string | null = null) {
     super(message);
     this.name = "ProviderRejectedError";
     this.statusCode = statusCode;
+    this.providerName = providerName;
   }
 }
 
@@ -144,11 +146,12 @@ export function liveTransport(): MailTransport {
         headers: mail.headers,
       }, { idempotencyKey: mail.idempotencyKey, signal: options?.signal });
       if (options?.signal?.aborted) {
-        throw new ProviderRejectedError("send aborted", null);
+        throw new ProviderRejectedError("send aborted", null, null);
       }
       if (error || !data?.id) {
-        const statusCode = error && "statusCode" in error ? error.statusCode ?? null : null;
-        throw new ProviderRejectedError(redactDeliveryError(error?.message ?? "resend send failed"), statusCode);
+        const statusCode = error && typeof error.statusCode === "number" ? error.statusCode : null;
+        const providerName = error && typeof error.name === "string" ? error.name : null;
+        throw new ProviderRejectedError(redactDeliveryError(error?.message ?? "resend send failed"), statusCode, providerName);
       }
       return { id: data.id };
     },

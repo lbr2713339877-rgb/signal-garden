@@ -227,7 +227,7 @@ try {
               if (signal.aborted || !(err instanceof ProviderRejectedError)) {
                 return { accepted: false, statusCode: null, error: err instanceof Error ? err.message : String(err) };
               }
-              return { accepted: false, statusCode: err.statusCode, error: err.message };
+              return { accepted: false, statusCode: err.statusCode, name: err.providerName, error: err.message };
             }
           },
         });

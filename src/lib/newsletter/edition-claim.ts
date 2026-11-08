@@ -10,12 +10,13 @@
  * id is stored. Abort, timeout, a thrown send, and a failed id write leave
  * the row as it is. Nothing in `finally` sets it back to `queued` or `failed`.
  *
- * A later run that sees a provider id only queries that id. A later run that
- * sees `sent` and no id does not send and does not take the row. A person can
- * reconcile by writing the id from Resend (idempotency key
- * `newsletter-weekly-${issue}/${editionDate}/${subscriberId}`) or, after
- * confirming Resend has no message, by setting the row to `failed`. This
- * process never does either of those.
+ * A later run that sees a provider id only queries that id. It does not send.
+ * `sent` with no id stays unknown and is not taken. `bounced`, and `failed`
+ * that still has an id, are terminal and are not rewritten. `failed` with no
+ * id is only the record of a documented definite rejection, so a later run
+ * may claim it. There is no recovery command in this program. A person may,
+ * outside it, write a missing id onto a `sent` row or delete a row after
+ * confirming the provider state.
  *
  * Limits: a crash after the claim commits and before the provider is called
  * leaves the same hold, even if nothing was accepted. A claim transaction
@@ -38,9 +39,49 @@ export interface ClaimDb {
   statement<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<ClaimStatementResult<T>>;
 }
 
+/**
+ * Documented Resend rejections that do not create an email.
+ * Source: https://resend.com/docs/api-reference/errors (fetched 2026-11-08)
+ * and the `name` values in resend 6.32.0. HTTP 408 is not in that list.
+ * 409 `concurrent_idempotent_requests`, `invalid_idempotent_request`, and
+ * `resource_locked` are not rejections of an unseen send. 500
+ * `application_error` and 503 `service_unavailable` are not either.
+ * The SDK readme says an abort returns statusCode null.
+ */
+export const RESEND_DEFINITE_REJECTION_STATUSES: ReadonlyMap<string, readonly number[]> = new Map([
+  ["invalid_idempotency_key", [400]],
+  ["validation_error", [400, 401, 403]],
+  ["missing_api_key", [401]],
+  ["restricted_api_key", [401, 403]],
+  ["email_above_quota", [403]],
+  ["invalid_permission", [403]],
+  ["suspended_api_key", [403]],
+  ["not_found", [404]],
+  ["method_not_allowed", [405]],
+  ["invalid_attachment", [422]],
+  ["invalid_parameter", [422]],
+  ["missing_required_field", [422]],
+  ["missing_required_parameter", [422]],
+  ["daily_quota_exceeded", [429]],
+  ["monthly_quota_exceeded", [429]],
+  ["rate_limit_exceeded", [429]],
+]);
+
 export type ClaimTransportResult =
   | { accepted: true; id: string }
-  | { accepted: false; statusCode: number | null; error: string };
+  | { accepted: false; statusCode: number | null; name?: string | null; error: string };
+
+/** True only for an allowlisted Resend rejection. Abort, 408, 409, and unknown are not. */
+export function isDefiniteProviderRejection(input: {
+  aborted: boolean;
+  statusCode: number | null;
+  name?: string | null;
+}): boolean {
+  if (input.aborted) return false;
+  if (input.statusCode == null || input.statusCode === 408 || input.statusCode === 409) return false;
+  const allowed = RESEND_DEFINITE_REJECTION_STATUSES.get(input.name?.trim() ?? "");
+  return Boolean(allowed?.includes(input.statusCode));
+}
 
 export type ClaimSendResult =
   | { action: "sent"; providerId: string }
@@ -177,8 +218,8 @@ async function takeClaim(db: ClaimDb, editionDate: string, subscriberId: string)
 
 function classifyExisting(row: SendRow | null): ClaimSendResult {
   if (!row) return { action: "held", reason: "unknown" };
+  if (row.status === "bounced" || row.status === "failed") return { action: "held", reason: "terminal" };
   if (row.resend_message_id?.trim()) return { action: "query", providerId: row.resend_message_id.trim() };
-  if (row.status === "bounced") return { action: "held", reason: "terminal" };
   return { action: "held", reason: "unknown" };
 }
 
@@ -200,7 +241,8 @@ async function persistProviderId(db: ClaimDb, rowId: string, providerId: string)
 }
 
 function definiteRejection(result: ClaimTransportResult, aborted: boolean): boolean {
-  return result.accepted === false && !aborted && result.statusCode != null && result.statusCode >= 400 && result.statusCode < 500;
+  if (result.accepted) return false;
+  return isDefiniteProviderRejection({ aborted, statusCode: result.statusCode, name: result.name });
 }
 
 /**

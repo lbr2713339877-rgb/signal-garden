@@ -48,8 +48,14 @@ export function weeklySendDisposition(input: {
     unsubSecret: input.unsubSecret,
   });
   if (blocker) return { action: "refused", exitCode: 2, reason: blocker, allPlan };
+  if (input.mode === "all" && allPlan.action === "noop" && allPlan.reason === "reconciliation-held") {
+    return { action: "refused", exitCode: 7, reason: "reconciliation-held", allPlan };
+  }
   if (input.mode === "all" && allPlan.action === "noop") {
     return { action: "noop", exitCode: 0, reason: allPlan.reason, allPlan };
+  }
+  if ((input.mode === "all" || input.mode === "real") && input.ledger.some((row) => row.status === "sent" && !row.resendMessageId?.trim() && input.eligibleIds.includes(row.subscriberId))) {
+    return { action: "refused", exitCode: 7, reason: "reconciliation-held", allPlan };
   }
   if (input.mode === "real" && input.editionDate !== input.today) {
     return { action: "refused", exitCode: 7, reason: "edition-not-due", allPlan };
