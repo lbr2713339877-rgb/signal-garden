@@ -17,10 +17,12 @@
  *   tsx scripts/newsletter-weekly.tsx --all [--dry-run]
  *
  * Cron uses --all. --dry-run writes nothing and does not query delivery.
- * --canary sends only the preferred canary. --all and --real send real
- * recipients only on this edition's date, and only after this edition's
- * canary delivery query returns delivered. A later day does not catch up
- * recipients who have no ledger row. Nothing rewrites a bounced or failed
+ * --canary sends only the preferred canary. Live --all and live --real both
+ * refuse unless issue.to is today's signal date, before any claim or send,
+ * even when queued or failed ledger rows exist. On that date, real
+ * recipients are mailed only after this edition's canary delivery query
+ * returns delivered. Dry-run still previews on any date and writes nothing.
+ * Nothing rewrites a bounced or failed
  * row back to queued, and a sent row with no provider id is not released.
  *
  * Audiences are unchanged. A Resend id or a ledger row of sent is not
@@ -34,6 +36,19 @@
  * WEEKLY_CANARY_DELIVERY_BUDGET_MS (30s, at most 6 reads). Each read and
  * each send is aborted on its own deadline. Claim statements are bounded
  * by WEEKLY_CLAIM_TIMEOUT_MS. process.exit follows closeDb.
+ *
+ * This process is `tsx` on this file, not the Next `.next` bundle.
+ * package.json and pnpm-lock.yaml are unchanged from the PR #40 site build.
+ * Source loaded at runtime:
+ * scripts/newsletter-weekly.tsx,
+ * src/lib/newsletter/weekly-run.ts, canary-gate.ts, edition-claim.ts,
+ * weekly-lock.ts, transport.ts, headers.ts, tokens.ts, confirm-copy.ts,
+ * placement.ts, src/emails/weekly-lock.tsx, src/emails/frame.tsx,
+ * src/lib/weekly-sample.ts, day.ts, env.ts, email-template.ts,
+ * email-locale.ts, site.ts, src/parsers/types.ts, src/db/client.ts,
+ * src/db/schema.ts.
+ * Packages already present: drizzle-orm, pg, @electric-sql/pglite, resend,
+ * react, react-email, plus node:crypto and node:fs.
  */
 import { loadLocalEnv } from "@/lib/env";
 import type { WeeklyAudienceRow } from "@/lib/newsletter/weekly-lock";

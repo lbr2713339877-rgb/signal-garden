@@ -17,7 +17,7 @@ import {
 } from "./canary-gate";
 import { deliveryLookupFromProvider } from "./transport";
 import { runWeeklySnapshot } from "./weekly-run";
-import type { WeeklyAudienceRow } from "./weekly-lock";
+import { planWeeklyAllSend, type WeeklyAudienceRow } from "./weekly-lock";
 
 const CANARY: WeeklyAudienceRow = {
   id: "canary",
@@ -659,8 +659,9 @@ test("live real mode does not send before the edition day", async () => {
       return { exitCode: 0 };
     },
   });
-  assert.equal(later.phase, "noop");
-  assert.equal(later.exitCode, 0);
+  assert.equal(later.phase, "refused");
+  assert.equal(later.reason, "edition-not-due");
+  assert.equal(later.exitCode, 7);
   assert.equal(sends, 0);
 
   const due = await runWeeklySnapshot({
@@ -680,6 +681,88 @@ test("live real mode does not send before the edition day", async () => {
   });
   assert.equal(due.phase, "send");
   assert.equal(sends, 1);
+});
+
+test("live all and real send only on the edition signal date", async () => {
+  const editionDate = "2026-11-02";
+  const ledger = [
+    { subscriberId: "canary", status: "queued" as const },
+    { subscriberId: "real-a", status: "failed" as const },
+  ];
+  for (const today of ["2026-11-01", "2026-11-09"]) {
+    const planned = planWeeklyAllSend({
+      editionDate,
+      today,
+      eligibleIds: ["canary", "real-a"],
+      rows: ledger,
+    });
+    assert.equal(planned.action, "send");
+    if (planned.action === "send") {
+      assert.deepEqual(planned.subscriberIds, ["canary", "real-a"]);
+    }
+    for (const mode of ["all", "real"] as const) {
+      let sends = 0;
+      const outcome = await runWeeklySnapshot({
+        mode,
+        dryRun: false,
+        editionDate,
+        today,
+        eligibleIds: ["canary", "real-a"],
+        ledger,
+        weeklyEnabled: true,
+        sendMode: "live",
+        unsubSecret: "secret",
+        liveSend: async () => {
+          sends += 1;
+          throw new Error("cross-day live send");
+        },
+      });
+      assert.equal(outcome.phase, "refused");
+      assert.equal(outcome.reason, "edition-not-due");
+      assert.equal(outcome.exitCode, 7);
+      assert.equal(sends, 0);
+    }
+  }
+
+  let drySends = 0;
+  const preview = await runWeeklySnapshot({
+    mode: "all",
+    dryRun: true,
+    editionDate,
+    today: "2026-11-09",
+    eligibleIds: ["canary", "real-a"],
+    ledger,
+    weeklyEnabled: false,
+    sendMode: "mock",
+    liveSend: async () => {
+      drySends += 1;
+      throw new Error("dry-run live send");
+    },
+  });
+  assert.equal(preview.phase, "dry-run");
+  assert.equal(preview.exitCode, 0);
+  assert.equal(drySends, 0);
+
+  let dueSends = 0;
+  const due = await runWeeklySnapshot({
+    mode: "all",
+    dryRun: false,
+    editionDate,
+    today: editionDate,
+    eligibleIds: ["canary", "real-a"],
+    ledger,
+    weeklyEnabled: true,
+    sendMode: "live",
+    unsubSecret: "secret",
+    liveSend: async (args) => {
+      dueSends += 1;
+      assert.equal(args.mode, "all");
+      return { exitCode: 0 };
+    },
+  });
+  assert.equal(due.phase, "send");
+  assert.equal(due.exitCode, 0);
+  assert.equal(dueSends, 1);
 });
 
 test("live canary mode is an explicit preferred-canary send", async () => {

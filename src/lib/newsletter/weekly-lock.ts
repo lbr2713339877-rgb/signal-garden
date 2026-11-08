@@ -213,6 +213,10 @@ export function isUnknownWeeklyHold(row: WeeklySendRow | undefined): boolean {
  * an unknown hold: it is not mailed, and the plan is `reconciliation-held`
  * rather than `already-mailed` when nothing else is sendable.
  *
+ * The planner can still list queued or failed rows on another day. Live
+ * `--all` and `--real` do not execute that list unless the edition date is
+ * today's signal date.
+ *
  * `sent` is not delivery. The provider accept path and the delivered webhook
  * both store `sent`. `scripts/newsletter-weekly.tsx` still has to see
  * `delivered` for this edition's canary before it mails anyone else.

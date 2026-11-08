@@ -1,10 +1,11 @@
 /**
  * Live/dry-run decision for scripts/newsletter-weekly.tsx.
  *
- * Dry-run returns before any send or delivery query. Live `--canary` sends
- * only the preferred canary. Live `--all` and `--real` both require this
- * edition's date, and real recipients also require this edition's canary to
- * be delivered. A later Monday does not pick up subscribers with no row.
+ * Dry-run returns before any send or delivery query and is not date-limited.
+ * Live `--canary` sends only the preferred canary. Live `--all` and live
+ * `--real` both refuse unless `issue.to` is today's signal date, including
+ * when queued or failed ledger rows exist. Real recipients also require this
+ * edition's canary to be delivered.
  *
  * Overlapping sends are stopped by the durable newsletter_send claim, not by
  * a session advisory lock and not by provider idempotency.
@@ -48,6 +49,9 @@ export function weeklySendDisposition(input: {
     unsubSecret: input.unsubSecret,
   });
   if (blocker) return { action: "refused", exitCode: 2, reason: blocker, allPlan };
+  if ((input.mode === "all" || input.mode === "real") && input.editionDate !== input.today) {
+    return { action: "refused", exitCode: 7, reason: "edition-not-due", allPlan };
+  }
   if (input.mode === "all" && allPlan.action === "noop" && allPlan.reason === "reconciliation-held") {
     return { action: "refused", exitCode: 7, reason: "reconciliation-held", allPlan };
   }
@@ -56,9 +60,6 @@ export function weeklySendDisposition(input: {
   }
   if ((input.mode === "all" || input.mode === "real") && input.ledger.some((row) => row.status === "sent" && !row.resendMessageId?.trim() && input.eligibleIds.includes(row.subscriberId))) {
     return { action: "refused", exitCode: 7, reason: "reconciliation-held", allPlan };
-  }
-  if (input.mode === "real" && input.editionDate !== input.today) {
-    return { action: "refused", exitCode: 7, reason: "edition-not-due", allPlan };
   }
   return {
     action: "send",
