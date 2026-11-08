@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { WEEKLY_ISSUE_1, WEEKLY_ISSUE_2, WEEKLY_ISSUE_3 } from "@/lib/weekly-sample";
+import { WEEKLY_ISSUE_1, WEEKLY_ISSUE_2, WEEKLY_ISSUE_3, WEEKLY_ISSUE_4 } from "@/lib/weekly-sample";
 import { renderWeeklyLockMail } from "@/emails/weekly-lock";
 import {
   WEEKLY_LOCK_PREHEADER,
@@ -21,6 +21,9 @@ import {
 } from "./weekly-lock";
 
 const ISSUE_3_SUBJECT = "Signal Garden 周刊 #3｜本周热度最高的 10 个 GitHub 新项目（10/27–11/02）";
+const ISSUE_4_SUBJECT = "Signal Garden 周刊 #4｜本周热度最高的 10 个 GitHub 新项目（11/03–11/09）";
+const ISSUE_4_EDITOR_ZH =
+  "本周热度分榜被视频 / 动画 / 3D 生成类 agent 技能占了大半：wallstreet-explainer（华尔街风财经短片）、code-animation-prompts、claude-animation-skills、vibe-knowledge（带出处的知识短片）、open-3d-skills、diorama 都在让编程助手直接「出片、出动画、出 3D」；另一条线是让 AI 按流程干活——bops 给每个业务 Bot 配电脑、邮箱和电话，aidlc-workflows 和 dsh-mattpocock-skills-deck 把开发流程与工程技能打包，Agentic-Bug-Hunter 则把漏洞赏金从侦察做到报告。";
 const ISSUE_3_EDITOR_ZH =
   "本周热度分榜上，设计/动效 skills、视频工具链、可安装 agent 技能扎堆：design-agent、impeccable、claude-skill、reanimate、EAC-design-world、brand-identity-skill、awesome-gamedev-agent-skills 都在给助手加「设计判断 / 动画克隆 / 成片」能力；榜首 DeepSeekBot 是带长期记忆的桌面 Bot 团队，中间还插进了一个清理安卓电视的 cleanyourtv，提醒日榜并不只围着 coding agent 转。";
 
@@ -47,13 +50,21 @@ test("the mailer uses the latest curated lock and refuses the daily-rank issue",
   assert.equal(isCuratedWeeklyIssue(WEEKLY_ISSUE_1), false);
   assert.equal(isCuratedWeeklyIssue(WEEKLY_ISSUE_2), true);
   assert.equal(isCuratedWeeklyIssue(WEEKLY_ISSUE_3), true);
+  assert.equal(isCuratedWeeklyIssue(WEEKLY_ISSUE_4), true);
   const latest = publishedWeeklyMailIssue();
   assert.ok(latest);
-  assert.equal(latest.issue, WEEKLY_ISSUE_3.issue);
-  assert.equal(latest.items[0]?.name, "DeepSeekBot");
-  assert.equal(latest.items[9]?.name, "impeccable");
-  assert.equal(latest.editorPick?.name, "chaojifeng-video-design");
+  assert.equal(latest.issue, WEEKLY_ISSUE_4.issue);
+  assert.equal(latest.items[0]?.name, "wallstreet-explainer");
+  assert.equal(latest.items[9]?.name, "Agentic-Bug-Hunter");
+  assert.equal(latest.editorPick?.name, "boardui");
   assert.equal(latest.items.some((item) => item.labelZh.includes("榜首")), false);
+  assert.equal(weeklyLockSubject(WEEKLY_ISSUE_4), ISSUE_4_SUBJECT);
+  assert.equal(weeklyPlainCopy(WEEKLY_ISSUE_4.editorNote?.zh ?? ""), ISSUE_4_EDITOR_ZH);
+  assert.equal(weeklyIdempotencyKey(4, WEEKLY_ISSUE_4.to, "subscriber-1"), "newsletter-weekly-4/2026-11-09/subscriber-1");
+  assert.equal(
+    weeklyWebUrl("https://signalgarden.site", 4),
+    "https://signalgarden.site/weekly/4?utm_source=email&utm_medium=weekly&utm_campaign=weekly-4",
+  );
 });
 
 test("rendered issue 3 mail carries the lock, campaign, and unsubscribe link", async () => {
@@ -70,6 +81,22 @@ test("rendered issue 3 mail carries the lock, campaign, and unsubscribe link", a
   assert.match(mail.text, /选它的理由：贴本周 video \/ design-skill 主题/);
   assert.doesNotMatch(`${mail.html}\n${mail.text}`, /mcptoon|\*\*|第 \d+ 名|\d+\/\d+ 榜首/);
   assert.equal(mail.text.includes(ISSUE_3_EDITOR_ZH), true);
+});
+
+test("rendered issue 4 mail uses ZH-A and omits the Chinese wallstreet English line", async () => {
+  const unsub = "https://signalgarden.site/unsubscribe?t=preview-token";
+  const mail = await renderWeeklyLockMail(WEEKLY_ISSUE_4, "https://signalgarden.site", unsub);
+  assert.equal(mail.subject, ISSUE_4_SUBJECT);
+  assert.match(mail.html, /wallstreet-explainer/);
+  assert.match(mail.html, /Agentic-Bug-Hunter/);
+  assert.match(mail.html, /boardui/);
+  assert.match(mail.html, /utm_campaign=weekly-4/);
+  assert.match(mail.html, /preview-token/);
+  assert.match(mail.text, /给要拍财经解读视频的人用/);
+  assert.doesNotMatch(`${mail.html}\n${mail.text}`, /设计思路、风格语言/);
+  assert.match(mail.text, /选它的理由：本周榜单多是/);
+  assert.equal(mail.text.includes(ISSUE_4_EDITOR_ZH), true);
+  assert.doesNotMatch(`${mail.html}\n${mail.text}`, /\*\*/);
 });
 
 test("audience split keeps the grokbot canary and drops test rows", () => {
@@ -191,6 +218,24 @@ test("cron --all no-ops when the edition is not due or already mailed", () => {
       ],
     }),
     { action: "noop", reason: "reconciliation-held" },
+  );
+  assert.deepEqual(
+    planWeeklyAllSend({
+      editionDate: WEEKLY_ISSUE_4.to,
+      today: "2026-11-08",
+      eligibleIds: eligible,
+      rows: [],
+    }),
+    { action: "noop", reason: "edition-not-due" },
+  );
+  assert.deepEqual(
+    planWeeklyAllSend({
+      editionDate: WEEKLY_ISSUE_4.to,
+      today: WEEKLY_ISSUE_4.to,
+      eligibleIds: eligible,
+      rows: [],
+    }),
+    { action: "send", subscriberIds: eligible },
   );
 });
 

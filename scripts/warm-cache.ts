@@ -4,7 +4,7 @@
  *   WARM_ORIGIN=http://127.0.0.1:3000 WARM_CONCURRENCY=2 pnpm warm-cache
  *
  * Pages: the SEO pilot set (same query as /p), the edition shown on / and
- * /today, /, /today, each public /weekly/<n> (currently /weekly/1, /weekly/2, and /weekly/3), /en, and
+ * /today, /, /today, each public /weekly/<n> (currently /weekly/1 through /weekly/4), /en, and
  * /sitemap.xml. Concurrency stays at 2 or 3. A few URL failures are logged and
  * the process still exits 0. It exits non-zero when most URLs fail, or when
  * the pilot or edition query itself fails.

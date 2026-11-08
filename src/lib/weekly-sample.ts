@@ -9,6 +9,10 @@
  * Issue 3 is the provisional lock from 2026-11-01 10:11 SGT (window 10/27–11/02;
  * the 11/02 board was not published yet). chaojifeng-video-design is the editor
  * pick and is not in the Top 10.
+ * Issue 4 is the provisional lock from 2026-11-08 09:05 SGT (window 11/03–11/09;
+ * the 11/09 board was not published yet). boardui is the editor pick and is not
+ * in the Top 10. Monday content may reopen if any 11/09 heat is >70.
+ * This Top 10 stays until an explicit new lock.
  * Names and summaries are the locked copy. This module does not read the mailing list.
  */
 
@@ -537,6 +541,137 @@ export const WEEKLY_ISSUE_3: WeeklyIssue = {
   },
 };
 
+const WEEKLY_4_CAMPAIGN = "weekly-4";
+
+/** Provisional lock 2026-11-08 09:05 SGT. Order and numbers are the lock, not a live query. */
+export const WEEKLY_ISSUE_4: WeeklyIssue = {
+  issue: 4,
+  from: "2026-11-03",
+  to: "2026-11-09",
+  sponsor: true,
+  editorNote: {
+    zh: "本周热度分榜被**视频 / 动画 / 3D 生成类 agent 技能**占了大半：wallstreet-explainer（华尔街风财经短片）、code-animation-prompts、claude-animation-skills、vibe-knowledge（带出处的知识短片）、open-3d-skills、diorama 都在让编程助手直接「出片、出动画、出 3D」；另一条线是**让 AI 按流程干活**——bops 给每个业务 Bot 配电脑、邮箱和电话，aidlc-workflows 和 dsh-mattpocock-skills-deck 把开发流程与工程技能打包，Agentic-Bug-Hunter 则把漏洞赏金从侦察做到报告。",
+    en: "This week's momentum board was dominated by **video, animation, and 3D agent skills**—wallstreet-explainer (Wall Street–style finance explainers), code-animation-prompts, claude-animation-skills, vibe-knowledge (cited, narrated explainers), open-3d-skills, and diorama all let a coding assistant ship clips, motion, or 3D scenes directly. The other thread is **AI that works to a process**: bops gives each business bot its own computer, inbox, and phone number; aidlc-workflows and dsh-mattpocock-skills-deck package dev lifecycles and engineering skills; Agentic-Bug-Hunter runs bug bounties from recon to report.",
+  },
+  items: [
+    frozenHeatItem({
+      rank: 1,
+      name: "wallstreet-explainer",
+      slug: "heychengc-wallstreet-explainer",
+      heat: 93,
+      peakDate: "2026-11-07",
+      zh: "给要拍财经解读视频的人用：AI 助手装上它，就能做出华尔街风格短片。",
+      // Locked English one-liner is Chinese site copy. Omitted; not translated.
+      en: "",
+      starsLine: "414 → 617 stars（+49.0%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 2,
+      name: "code-animation-prompts",
+      slug: "xiaoyecodes-code-animation-prompts",
+      heat: 74,
+      peakDate: "2026-11-04",
+      zh: "给代码动画选风格的离线工具包，含341种提示词和参考图，装进Claude Code或Codex就能用。",
+      en: "Offline library of 341 code animation style prompts with reference stills, a picker, and one-click import for Claude Code and Codex.",
+      starsLine: "62 → 700 stars（+1029.0%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 3,
+      name: "bops",
+      slug: "orgoai-bops",
+      heat: 69,
+      peakDate: "2026-11-05",
+      zh: "给每个业务机器人配一台电脑、一个邮箱和电话号码，在 Mac 上替你跑日常运营。",
+      en: "Bops: a team of AI bots that run your business ops, each with its own computer, email and phone number. bops.bot",
+      starsLine: "259 → 495 stars（+91.1%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 4,
+      name: "open-3d-skills",
+      slug: "moh4696-open-3d-skills",
+      heat: 68,
+      peakDate: "2026-11-08",
+      zh: "给AI编程助手的8个三维网页制作技能包",
+      en: "Eight agent skills that turn text prompts into 3D scenes, scroll films, transparent video, cursor rigs, and more.",
+      starsLine: "28 → 287 stars（+925.0%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 5,
+      name: "claude-animation-skills",
+      slug: "artemnovitckii-claude-animation-skills",
+      heat: 67,
+      peakDate: "2026-11-07",
+      zh: "给Claude Code的动画技能，输入命令就能生成六种短视频动画。",
+      en: "Six Claude Code skills that turn text prompts into animated reels—no video footage required.",
+      starsLine: "47 → 442 stars（+840.4%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 6,
+      name: "vibe-knowledge",
+      slug: "andyhuo520-vibe-knowledge",
+      heat: 66,
+      peakDate: "2026-11-05",
+      zh: "一个Claude Code技能，输入知识点就能生成有旁白、有出处的知识短片。",
+      en: "Make a citation-backed narrated video from any single knowledge point, in any of 44 styles.",
+      starsLine: "408 → 546 stars（+33.8%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 7,
+      name: "aidlc-workflows",
+      slug: "awslabs-aidlc-workflows",
+      heat: 66,
+      peakDate: "2026-11-07",
+      zh: "一套规则，让AI编码助手按固定阶段管理开发流程。",
+      en: "Adaptive rules that guide your AI coding assistant through the entire development lifecycle, stage by stage.",
+      starsLine: "5.7k → 5.9k stars（+3.0%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 8,
+      name: "diorama",
+      slug: "sloemo01-diorama",
+      heat: 66,
+      peakDate: "2026-11-05",
+      zh: "给AI agent用的像素立体模型自动构建工具包",
+      en: "A research-first playbook and code kit for building pixel-art dioramas in Three.js, with automatic palette and animation.",
+      starsLine: "122 → 342 stars（+180.3%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 9,
+      name: "dsh-mattpocock-skills-deck",
+      slug: "featherhunter-dsh-mattpocock-skills-deck",
+      heat: 65,
+      peakDate: "2026-11-08",
+      // Conflicting skill counts were removed. The rest of each locked line stays.
+      zh: "DSH 插件，一次安装获得 AI 工程技能，加速代码审查、调试和设计。",
+      en: "A pre-loaded deck of engineering and productivity skills for DSH, ready to use with zero manual setup.",
+      starsLine: "270 → 318 stars（+17.8%）",
+    }, WEEKLY_4_CAMPAIGN),
+    frozenHeatItem({
+      rank: 10,
+      name: "Agentic-Bug-Hunter",
+      slug: "awarexone-agentic-bug-hunter",
+      heat: 62,
+      peakDate: "2026-11-03",
+      zh: "帮漏洞赏金猎人和安全研究员自动完成侦察、挖洞、验证和写报告。",
+      en: "A free AI toolkit that automates bug bounty hunting from recon to report.",
+      starsLine: "5.4k → 5.6k stars（+3.6%）",
+    }, WEEKLY_4_CAMPAIGN),
+  ],
+  editorPick: {
+    name: "boardui",
+    slug: "boardui-boardui",
+    heat: 61,
+    peakDate: "2026-11-05",
+    zh: "智能体界面的 React 组件库，组件源码免费可下，自带 AI 聊天示例。",
+    en: "A free React design system that gives you a working AI chat app and source-available components for agentic interfaces.",
+    starsLine: "551 → 1.1k stars（+93.3%）",
+    reasonZh: "选它的理由：本周榜单多是「让 agent 产出内容」的技能，boardui 则是给 agent 产品本身做界面的组件库（自带 AI 聊天示例），换个角度看同一波 agent 热；A- 质量、窗口内翻倍。",
+    // Draft reason is Chinese only. Left blank rather than translated.
+    reasonEn: "",
+    href: weeklyCampaignPath("boardui-boardui", WEEKLY_4_CAMPAIGN),
+  },
+};
+
 export interface PublicWeeklyIssue {
   number: number;
   /** Day the public /weekly/<n> page went live. IndexNow treats a match as a new issue. */
@@ -549,7 +684,7 @@ export interface PublicWeeklyIssue {
  * Bare `/weekly` redirects to the highest issue number (see next.config).
  * next.config imports this module, so keep it free of server-only dependencies.
  */
-const PUBLISHED_WEEKLY_ISSUES: WeeklyIssue[] = [WEEKLY_ISSUE_1, WEEKLY_ISSUE_2, WEEKLY_ISSUE_3];
+const PUBLISHED_WEEKLY_ISSUES: WeeklyIssue[] = [WEEKLY_ISSUE_1, WEEKLY_ISSUE_2, WEEKLY_ISSUE_3, WEEKLY_ISSUE_4];
 
 export function weeklyIssueByNumber(number: number): WeeklyIssue | null {
   if (!Number.isInteger(number) || number < 1) return null;
