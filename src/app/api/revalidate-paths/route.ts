@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { handleRevalidatePaths } from "@/lib/revalidate-paths";
 
-/** Drops cached /p HTML. Only the loopback daily job may call it. */
+/** Drops cached /p HTML. Loopback host plus the runtime revalidate token. */
 export async function POST(request: Request) {
   return handleRevalidatePaths(request, revalidatePath);
 }
