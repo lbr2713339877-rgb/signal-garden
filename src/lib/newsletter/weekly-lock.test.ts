@@ -113,8 +113,8 @@ test("cron --all no-ops when the edition is not due or already mailed", () => {
       today: "2026-11-02",
       eligibleIds: eligible,
       rows: [
-        { subscriberId: "canary", status: "sent" },
-        { subscriberId: "real", status: "sent" },
+        { subscriberId: "canary", status: "sent", resendMessageId: "canary-id" },
+        { subscriberId: "real", status: "sent", resendMessageId: "real-id" },
       ],
     }),
     { action: "noop", reason: "already-mailed" },
@@ -125,11 +125,23 @@ test("cron --all no-ops when the edition is not due or already mailed", () => {
       today: "2026-11-02",
       eligibleIds: eligible,
       rows: [
-        { subscriberId: "canary", status: "sent" },
+        { subscriberId: "canary", status: "sent", resendMessageId: "canary-id" },
         { subscriberId: "real", status: "failed" },
       ],
     }),
     { action: "send", subscriberIds: ["real"] },
+  );
+  assert.deepEqual(
+    planWeeklyAllSend({
+      editionDate: "2026-11-02",
+      today: "2026-11-02",
+      eligibleIds: eligible,
+      rows: [
+        { subscriberId: "canary", status: "sent", resendMessageId: "canary-id" },
+        { subscriberId: "real", status: "failed", resendMessageId: "real-id" },
+      ],
+    }),
+    { action: "noop", reason: "already-mailed" },
   );
   assert.deepEqual(
     planWeeklyAllSend({
@@ -146,7 +158,7 @@ test("cron --all no-ops when the edition is not due or already mailed", () => {
       today: "2026-11-09",
       eligibleIds: [...eligible, "new"],
       rows: [
-        { subscriberId: "canary", status: "sent" },
+        { subscriberId: "canary", status: "sent", resendMessageId: "canary-id" },
         { subscriberId: "real", status: "bounced" },
       ],
     }),
@@ -158,7 +170,7 @@ test("cron --all no-ops when the edition is not due or already mailed", () => {
       today: "2026-11-09",
       eligibleIds: eligible,
       rows: [
-        { subscriberId: "canary", status: "sent" },
+        { subscriberId: "canary", status: "sent", resendMessageId: "canary-id" },
         { subscriberId: "real", status: "queued" },
       ],
     }),
@@ -167,6 +179,18 @@ test("cron --all no-ops when the edition is not due or already mailed", () => {
   assert.deepEqual(
     planWeeklyAllSend({ editionDate: "2026-11-02", today: "2026-11-02", eligibleIds: [], rows: [] }),
     { action: "noop", reason: "no-recipients" },
+  );
+  assert.deepEqual(
+    planWeeklyAllSend({
+      editionDate: "2026-11-02",
+      today: "2026-11-02",
+      eligibleIds: eligible,
+      rows: [
+        { subscriberId: "canary", status: "sent", resendMessageId: null },
+        { subscriberId: "real", status: "sent", resendMessageId: "real-id" },
+      ],
+    }),
+    { action: "noop", reason: "reconciliation-held" },
   );
 });
 
@@ -201,6 +225,7 @@ test("cli accepts one mode and documents dry-run, canary, real, and all", () => 
 
   const script = readFileSync(new URL("../../../scripts/newsletter-weekly.tsx", import.meta.url), "utf8");
   const helper = readFileSync(new URL("./weekly-lock.ts", import.meta.url), "utf8");
+  const claim = readFileSync(new URL("./edition-claim.ts", import.meta.url), "utf8");
   const legacy = readFileSync(new URL("../../emails/newsletter-weekly.tsx", import.meta.url), "utf8");
   assert.match(script, /--dry-run/);
   assert.match(script, /--canary/);
@@ -210,7 +235,8 @@ test("cli accepts one mode and documents dry-run, canary, real, and all", () => 
   assert.match(script, /publishedWeeklyMailIssue/);
   assert.match(script, /listUnsubscribeHeaders/);
   assert.match(script, /unsubTokenFor/);
-  assert.match(script, /onConflictDoNothing/);
+  assert.match(script, /claimAndSend/);
+  assert.match(claim, /ON CONFLICT \(edition_date, subscriber_id\) DO NOTHING/);
   assert.match(script, /WEEKLY_LIVE_SEND_GAP_MS/);
   assert.match(helper, /latestPublishedWeeklyIssue/);
   assert.match(helper, /weeklyIssueByNumber/);
