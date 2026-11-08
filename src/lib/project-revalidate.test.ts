@@ -51,7 +51,7 @@ test("project revalidation only targets /p/<slug> and only from loopback", async
 test("the daily job revalidates today's published project pages", async () => {
   const previousSecret = process.env.REVALIDATE_SECRET;
   process.env.REVALIDATE_SECRET = REVALIDATE_SECRET;
-  const calls: { url: string; body: { paths: string[] }; token: string | null }[] = [];
+  const calls: { url: string; body: { paths: string[] }; token: string | null; redirect: RequestRedirect | undefined }[] = [];
   let result;
   try {
     result = await revalidatePublishedProjectPages({
@@ -62,6 +62,7 @@ test("the daily job revalidates today's published project pages", async () => {
           url: String(input),
           body: JSON.parse(String(init?.body)),
           token: new Headers(init?.headers).get("x-revalidate-token"),
+          redirect: init?.redirect,
         });
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
       },
@@ -73,6 +74,7 @@ test("the daily job revalidates today's published project pages", async () => {
   assert.deepEqual(calls[0]?.body.paths, ["/p/widget"]);
   assert.equal(calls[0]?.url, "http://127.0.0.1:3000/api/revalidate-paths");
   assert.equal(calls[0]?.token, REVALIDATE_SECRET);
+  assert.equal(calls[0]?.redirect, "error");
   assert.equal(JSON.stringify(result).includes(REVALIDATE_SECRET), false);
 
   const raw = new PGlite();

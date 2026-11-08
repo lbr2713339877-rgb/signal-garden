@@ -3,6 +3,14 @@ import { createHash, timingSafeEqual } from "node:crypto";
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
 
 /**
+ * The caller default and the production target are this URL.
+ * `REVALIDATE_ORIGIN` is unset there. A wider loopback check would still
+ * accept userinfo, another port, or a path, and those must not receive the
+ * token. The secret remains the authorization check.
+ */
+export const TRUSTED_REVALIDATE_ORIGIN = "http://127.0.0.1:3000";
+
+/**
  * Runtime process env only. Next 15.5 inlines `NEXT_PUBLIC_*` and `next.config`
  * `env`, not a bracket read, and this is not a module-level constant.
  */
@@ -56,6 +64,21 @@ export function isStrictLoopbackHost(raw: string | null | undefined): boolean {
   if (port.length > 1 && port.startsWith("0")) return false;
   const n = Number(port);
   return Number.isInteger(n) && n >= 1 && n <= 65535;
+}
+
+/**
+ * Accepts only `http://127.0.0.1:3000`, plus trailing slashes that strip back
+ * to that exact origin. Userinfo, a non-http scheme, a public or disguised
+ * host, another port, and a path, query, or fragment are refused.
+ */
+export function trustedRevalidateOrigin(raw: string | undefined): string | null {
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > 256) return null;
+  if (/[^a-z0-9:./]/.test(raw)) return null;
+  const normalized = raw.replace(/\/+$/, "");
+  if (normalized !== TRUSTED_REVALIDATE_ORIGIN) return null;
+  const authority = normalized.slice("http://".length);
+  if (!isStrictLoopbackHost(authority)) return null;
+  return normalized;
 }
 
 export function hostForRevalidate(request: Request): string | null {

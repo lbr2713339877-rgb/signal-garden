@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { createServer } from "node:http";
 import { join } from "node:path";
 import { test } from "node:test";
 import { revalidatePublishedProjectPages } from "@/lib/project-revalidate";
@@ -8,6 +10,8 @@ import {
   authorizeRevalidateRequest,
   isStrictLoopbackHost,
   revalidateTokenMatches,
+  TRUSTED_REVALIDATE_ORIGIN,
+  trustedRevalidateOrigin,
 } from "@/lib/revalidate-secret";
 
 const SECRET = "test-revalidate-secret";
@@ -297,6 +301,142 @@ test("the caller does not fetch without a configured secret and does not log the
   });
 });
 
+test("the caller fetches only the trusted loopback origin and does not follow redirects", async () => {
+  assert.equal(trustedRevalidateOrigin(TRUSTED_REVALIDATE_ORIGIN), TRUSTED_REVALIDATE_ORIGIN);
+  assert.equal(trustedRevalidateOrigin(`${TRUSTED_REVALIDATE_ORIGIN}/`), TRUSTED_REVALIDATE_ORIGIN);
+  assert.equal(trustedRevalidateOrigin(`${TRUSTED_REVALIDATE_ORIGIN}///`), TRUSTED_REVALIDATE_ORIGIN);
+  assert.equal(isStrictLoopbackHost("127.0.0.1:3000"), true);
+
+  const refused = [
+    "",
+    " ",
+    "http://127.0.0.1:3000 ",
+    "HTTP://127.0.0.1:3000",
+    "https://127.0.0.1:3000",
+    "http://localhost:3000",
+    "http://[::1]:3000",
+    "http://127.0.0.1",
+    "http://127.0.0.1:80",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:03000",
+    "http://user:pass@127.0.0.1:3000",
+    "http://127.0.0.1.evil.com:3000",
+    "http://127.0.0.1.evil.com",
+    "http://signalgarden.site",
+    "https://signalgarden.site/api/revalidate-paths",
+    "http://127.0.0.1:3000/api",
+    "http://127.0.0.1:3000/api/revalidate-paths",
+    "http://127.0.0.1:3000?x=1",
+    "http://127.0.0.1:3000#frag",
+    "http://127.0.0.1:3000\\@evil.example",
+    "http://127.0.0.1:3000%2eevil",
+    "javascript:alert(1)",
+    "http://0.0.0.0:3000",
+  ];
+  for (const origin of refused) {
+    assert.equal(trustedRevalidateOrigin(origin), null, origin);
+  }
+
+  await withSecret(SECRET, async () => {
+    for (const origin of refused) {
+      let called = false;
+      await assert.rejects(
+        () => revalidatePublishedProjectPages({
+          slugs: ["widget"],
+          origin,
+          fetchImpl: async () => {
+            called = true;
+            return new Response("{}", { status: 200 });
+          },
+        }),
+        (err: unknown) => {
+          assert.ok(err instanceof Error);
+          assert.equal(err.message, "revalidate origin is not allowed");
+          assert.equal(err.message.includes(SECRET), false);
+          assert.equal(err.message.includes("pass"), false);
+          assert.equal(err.message.includes("signalgarden"), false);
+          return true;
+        },
+      );
+      assert.equal(called, false, origin);
+    }
+
+    const previousOrigin = process.env.REVALIDATE_ORIGIN;
+    process.env.REVALIDATE_ORIGIN = "https://signalgarden.site";
+    try {
+      let called = false;
+      await assert.rejects(
+        () => revalidatePublishedProjectPages({
+          slugs: ["widget"],
+          fetchImpl: async () => {
+            called = true;
+            return new Response("{}", { status: 200 });
+          },
+        }),
+        /revalidate origin is not allowed/,
+      );
+      assert.equal(called, false);
+    } finally {
+      if (previousOrigin === undefined) delete process.env.REVALIDATE_ORIGIN;
+      else process.env.REVALIDATE_ORIGIN = previousOrigin;
+    }
+
+    let calls = 0;
+    const slashed = await revalidatePublishedProjectPages({
+      slugs: ["widget"],
+      origin: `${TRUSTED_REVALIDATE_ORIGIN}/`,
+      fetchImpl: async (input, init) => {
+        calls += 1;
+        assert.equal(String(input), `${TRUSTED_REVALIDATE_ORIGIN}/api/revalidate-paths`);
+        assert.equal(init?.redirect, "error");
+        assert.equal(new Headers(init?.headers).get("x-revalidate-token"), SECRET);
+        return new Response("{}", { status: 200 });
+      },
+    });
+    assert.equal(calls, 1);
+    assert.equal(slashed.itemsOut, 1);
+    assert.equal(JSON.stringify(slashed).includes(SECRET), false);
+  });
+
+  const hits: { method: string; url: string; token: string | undefined }[] = [];
+  const server = createServer((req, res) => {
+    const token = req.headers["x-revalidate-token"];
+    hits.push({
+      method: req.method ?? "",
+      url: req.url ?? "",
+      token: Array.isArray(token) ? token.join(",") : token,
+    });
+    res.writeHead(302, { location: `${TRUSTED_REVALIDATE_ORIGIN}/capture` });
+    res.end();
+  });
+  server.listen(3000, "127.0.0.1");
+  await once(server, "listening");
+  const previousOrigin = process.env.REVALIDATE_ORIGIN;
+  delete process.env.REVALIDATE_ORIGIN;
+  try {
+    await withSecret(SECRET, async () => {
+      await assert.rejects(
+        () => revalidatePublishedProjectPages({ slugs: ["widget"] }),
+        (err: unknown) => {
+          assert.ok(err instanceof Error);
+          assert.equal(err.message.includes(SECRET), false);
+          assert.match(err.message, /^revalidate unreachable /);
+          return true;
+        },
+      );
+    });
+  } finally {
+    if (previousOrigin === undefined) delete process.env.REVALIDATE_ORIGIN;
+    else process.env.REVALIDATE_ORIGIN = previousOrigin;
+    server.close();
+    await once(server, "close");
+  }
+  assert.deepEqual(hits.map((hit) => ({ method: hit.method, url: hit.url })), [
+    { method: "POST", url: "/api/revalidate-paths" },
+  ]);
+  assert.equal(hits[0]?.token, SECRET);
+});
+
 test("the secret stays a runtime bracket read outside pages and next.config", () => {
   const secretSource = readFileSync("src/lib/revalidate-secret.ts", "utf8");
   const routeSource = readFileSync("src/lib/revalidate-paths.ts", "utf8");
@@ -307,6 +447,9 @@ test("the secret stays a runtime bracket read outside pages and next.config", ()
   assert.ok(routeSource.indexOf("request.json") < routeSource.indexOf("revalidate(path)"));
   assert.doesNotMatch(readFileSync("next.config.ts", "utf8"), /REVALIDATE_SECRET/);
   assert.doesNotMatch(readFileSync("src/app/api/revalidate-paths/route.ts", "utf8"), /REVALIDATE_SECRET/);
+  const callerSource = readFileSync("src/lib/project-revalidate.ts", "utf8");
+  assert.ok(callerSource.indexOf("trustedRevalidateOrigin") < callerSource.indexOf("x-revalidate-token"));
+  assert.match(callerSource, /redirect:\s*"error"/);
 
   const hits: string[] = [];
   const walk = (dir: string) => {
