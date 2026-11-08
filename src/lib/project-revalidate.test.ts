@@ -8,49 +8,74 @@ import type { Database, DbHandle } from "@/db/client";
 import { publishedProjectSlugs } from "@/db/queries";
 import { signalDate } from "@/lib/day";
 import { projectPagePaths, revalidatePublishedProjectPages } from "@/lib/project-revalidate";
-import { handleRevalidatePaths, isLocalRevalidateRequest } from "@/lib/revalidate-paths";
+import { handleRevalidatePaths } from "@/lib/revalidate-paths";
+
+const REVALIDATE_SECRET = "test-revalidate-secret";
+
+function restoreSecret(previous: string | undefined) {
+  if (previous === undefined) delete process.env.REVALIDATE_SECRET;
+  else process.env.REVALIDATE_SECRET = previous;
+}
 
 test("project revalidation only targets /p/<slug> and only from loopback", async () => {
   assert.deepEqual(projectPagePaths(["widget", "not a slug", "widget", "old-library"]), ["/p/widget", "/p/old-library"]);
+  const previous = process.env.REVALIDATE_SECRET;
+  process.env.REVALIDATE_SECRET = REVALIDATE_SECRET;
+  try {
+    const seen: string[] = [];
+    const ok = await handleRevalidatePaths(new Request("http://127.0.0.1:3000/api/revalidate-paths", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        host: "127.0.0.1:3000",
+        "x-revalidate-token": REVALIDATE_SECRET,
+      },
+      body: JSON.stringify({ paths: ["/p/widget", "/today", "/p/not a slug", "/p/widget", "/login"] }),
+    }), (path) => seen.push(path));
+    assert.equal(ok.status, 200);
+    assert.deepEqual(seen, ["/p/widget"]);
 
-  const local = new Request("http://127.0.0.1:3000/api/revalidate-paths", { method: "POST" });
-  assert.equal(isLocalRevalidateRequest(local), true);
-  const proxied = new Request("http://127.0.0.1:3000/api/revalidate-paths", {
-    method: "POST",
-    headers: { "x-forwarded-for": "203.0.113.5", host: "127.0.0.1:3000" },
-  });
-  assert.equal(isLocalRevalidateRequest(proxied), false);
-  const publicHost = new Request("https://signalgarden.site/api/revalidate-paths", { method: "POST" });
-  assert.equal(isLocalRevalidateRequest(publicHost), false);
-
-  const seen: string[] = [];
-  const ok = await handleRevalidatePaths(new Request("http://127.0.0.1:3000/api/revalidate-paths", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ paths: ["/p/widget", "/today", "/p/not a slug", "/p/widget", "/login"] }),
-  }), (path) => seen.push(path));
-  assert.equal(ok.status, 200);
-  assert.deepEqual(seen, ["/p/widget"]);
-
-  const denied = await handleRevalidatePaths(proxied, () => {
-    throw new Error("should not revalidate");
-  });
-  assert.equal(denied.status, 403);
+    const proxied = new Request("http://127.0.0.1:3000/api/revalidate-paths", {
+      method: "POST",
+      headers: { "x-forwarded-for": "203.0.113.5", host: "127.0.0.1:3000" },
+    });
+    const denied = await handleRevalidatePaths(proxied, () => {
+      throw new Error("should not revalidate");
+    });
+    assert.equal(denied.status, 403);
+  } finally {
+    restoreSecret(previous);
+  }
 });
 
 test("the daily job revalidates today's published project pages", async () => {
-  const calls: { url: string; body: { paths: string[] } }[] = [];
-  const result = await revalidatePublishedProjectPages({
-    slugs: ["widget", "Bad Slug"],
-    origin: "http://127.0.0.1:3000",
-    fetchImpl: async (input, init) => {
-      calls.push({ url: String(input), body: JSON.parse(String(init?.body)) });
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
-    },
-  });
+  const previousSecret = process.env.REVALIDATE_SECRET;
+  process.env.REVALIDATE_SECRET = REVALIDATE_SECRET;
+  const calls: { url: string; body: { paths: string[] }; token: string | null; redirect: RequestRedirect | undefined }[] = [];
+  let result;
+  try {
+    result = await revalidatePublishedProjectPages({
+      slugs: ["widget", "Bad Slug"],
+      origin: "http://127.0.0.1:3000",
+      fetchImpl: async (input, init) => {
+        calls.push({
+          url: String(input),
+          body: JSON.parse(String(init?.body)),
+          token: new Headers(init?.headers).get("x-revalidate-token"),
+          redirect: init?.redirect,
+        });
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      },
+    });
+  } finally {
+    restoreSecret(previousSecret);
+  }
   assert.equal(result.itemsOut, 1);
   assert.deepEqual(calls[0]?.body.paths, ["/p/widget"]);
   assert.equal(calls[0]?.url, "http://127.0.0.1:3000/api/revalidate-paths");
+  assert.equal(calls[0]?.token, REVALIDATE_SECRET);
+  assert.equal(calls[0]?.redirect, "error");
+  assert.equal(JSON.stringify(result).includes(REVALIDATE_SECRET), false);
 
   const raw = new PGlite();
   for (const file of readdirSync("drizzle").filter((name) => name.endsWith(".sql")).sort()) {
