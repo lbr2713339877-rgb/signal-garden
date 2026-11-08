@@ -7,6 +7,8 @@ import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
 import { runBuildRoHarness } from "./build-ro-harness";
 
+const checkout = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+
 function pgBin(name: string): string {
   const root = "/usr/lib/postgresql";
   if (!existsSync(root)) return name;
@@ -49,9 +51,10 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
 
   test("four getDb processes report postgres and both settings on", async () => {
     const result = await runBuildRoHarness({
+      mode: "local",
       databaseUrl,
       flag: "true",
-      candidate: "e3d878d922fb0654222987497d02a8b3df956d25",
+      candidate: checkout,
       limits: { workerTimeoutMs: 10_000, parentTimeoutMs: 30_000, killGraceMs: 200 },
     });
     assert.equal(result.ok, true);
@@ -59,6 +62,7 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
     assert.equal(result.failures, 0);
     assert.equal(result.reports.length, 4);
     for (const report of result.reports) {
+      assert.equal(report.candidate, checkout);
       assert.equal(report.driver, "postgres");
       assert.equal(report.flag, true);
       assert.equal(report.urlNonempty, true);
@@ -68,14 +72,27 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
     }
   });
 
+  test("an old checkout echo is rejected against the real HEAD", async () => {
+    const result = await runBuildRoHarness({
+      mode: "local",
+      databaseUrl,
+      flag: "true",
+      candidate: "e3d878d922fb0654222987497d02a8b3df956d25",
+      limits: { workerTimeoutMs: 10_000, parentTimeoutMs: 30_000, killGraceMs: 200 },
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "sha");
+    assert.equal(result.attempts, 2);
+    assert.equal(result.reports[0]?.candidate, checkout);
+    assert.notEqual(result.reports[0]?.candidate, "e3d878d922fb0654222987497d02a8b3df956d25");
+  });
+
   test("an explicit read-only worker with an empty URL does not open PGlite", async () => {
     const child = spawn("pnpm", ["exec", "tsx", "src/db/build-ro-harness-worker.ts"], {
       env: {
         ...process.env,
         DATABASE_URL: "",
         SG_BUILD_READ_ONLY: "true",
-        BUILD_RO_CANDIDATE: "e3d878d922fb0654222987497d02a8b3df956d25",
-        BUILD_RO_PORT: "5432",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -86,6 +103,8 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
     assert.notEqual(code, 0);
     assert.equal(report.reason, "missing-url");
     assert.equal(report.driver, "none");
+    assert.equal(report.flag, true);
+    assert.equal(report.candidate, checkout);
     assert.equal(stdout.includes("postgres://"), false);
   });
 
@@ -99,8 +118,6 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
         SG_BUILD_DB_CONNECT_TIMEOUT_MS: "5000",
         SG_BUILD_DB_QUERY_TIMEOUT_MS: "200",
         BUILD_RO_TEST_SLEEP: "1",
-        BUILD_RO_CANDIDATE: "e3d878d922fb0654222987497d02a8b3df956d25",
-        BUILD_RO_PORT: String(port),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

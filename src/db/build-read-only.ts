@@ -41,10 +41,13 @@ export async function enforceBuildReadOnly(client: ClientBase): Promise<void> {
   }
 }
 
+const MAX_TIMER_MS = 2_147_483_647;
+
 function positiveInt(value: string | undefined): number | undefined {
   if (!value || !/^[1-9]\d*$/.test(value)) return undefined;
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) ? parsed : undefined;
+  if (!Number.isSafeInteger(parsed) || parsed > MAX_TIMER_MS) return undefined;
+  return parsed;
 }
 
 /**

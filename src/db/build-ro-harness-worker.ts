@@ -1,7 +1,8 @@
 /**
- * One process, one pool from getDb(). Prints one safe JSON line and exits.
- * Stdout never includes a URL, user, or password.
+ * One process, one pool from getDb(). Prints one safe JSON line.
+ * The SHA is this checkout. The port is pg's parsed connection port.
  */
+import { execFileSync } from "node:child_process";
 import { closeDb, getDb } from "./client";
 
 function classify(err: unknown): "missing-url" | "init-off" | "timeout" | "fail" {
@@ -13,18 +14,19 @@ function classify(err: unknown): "missing-url" | "init-off" | "timeout" | "fail"
   return "fail";
 }
 
-const candidate = process.env.BUILD_RO_CANDIDATE ?? "";
-const port = Number(process.env.BUILD_RO_PORT ?? "");
+function checkoutSha(): string {
+  return execFileSync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), encoding: "utf8" }).trim();
+}
+
 const flag = process.env.SG_BUILD_READ_ONLY === "true";
 const urlNonempty = Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim());
 let code = 1;
 let body: Record<string, unknown> = {
   ok: false,
   reason: "fail",
-  candidate,
+  candidate: "",
   flag,
   urlNonempty,
-  port,
   driver: "none",
   init: "off",
   query: "off",
@@ -32,27 +34,37 @@ let body: Record<string, unknown> = {
 };
 
 try {
+  body.candidate = checkoutSha();
   const handle = await getDb();
   if (handle.driver !== "postgres") {
     body = { ...body, reason: "driver", driver: handle.driver };
     code = 2;
   } else {
-    const result = await handle.raw.query(
-      process.env.BUILD_RO_TEST_SLEEP === "1"
-        ? "SELECT pg_sleep(2)"
-        : "SELECT current_setting('default_transaction_read_only') AS default_transaction_read_only, current_setting('transaction_read_only') AS transaction_read_only",
-    );
-    const row = result.rows[0] ?? {};
-    const queryOn = row.default_transaction_read_only === "on" && row.transaction_read_only === "on";
-    body = {
-      ...body,
-      ok: queryOn,
-      reason: queryOn ? "ok" : "init-off",
-      driver: "postgres",
-      init: "on",
-      query: queryOn ? "on" : "off",
-    };
-    code = queryOn ? 0 : 3;
+    const client = await handle.raw.connect();
+    try {
+      const parsedPort = Number(client.connectionParameters?.port);
+      const result = await client.query(
+        process.env.BUILD_RO_TEST_SLEEP === "1"
+          ? "SELECT pg_sleep(2)"
+          : "SELECT current_setting('default_transaction_read_only') AS default_transaction_read_only, current_setting('transaction_read_only') AS transaction_read_only, inet_server_port() AS server_port",
+      );
+      const row = result.rows[0] ?? {};
+      const queryOn = row.default_transaction_read_only === "on" && row.transaction_read_only === "on";
+      const samePort = Number(row.server_port) === parsedPort;
+      const reason = !samePort ? "port" : queryOn ? "ok" : "init-off";
+      body = {
+        ...body,
+        ok: reason === "ok" && flag,
+        reason,
+        port: parsedPort,
+        driver: "postgres",
+        init: "on",
+        query: queryOn ? "on" : "off",
+      };
+      code = body.ok ? 0 : 3;
+    } finally {
+      client.release();
+    }
   }
 } catch (err) {
   body = { ...body, reason: classify(err), driver: urlNonempty ? "postgres" : "none" };

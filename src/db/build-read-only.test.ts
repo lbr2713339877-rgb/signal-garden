@@ -123,6 +123,20 @@ test("the switch is exactly true and the off pool matches the previous settings"
     const stillOff = postgresPoolConfig({ connectionString: "postgres://local/db", readOnly: false });
     assert.equal(stillOff.connectionTimeoutMillis, 10_000);
     assert.equal(stillOff.query_timeout, undefined);
+    process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS = "2147483648";
+    process.env.SG_BUILD_DB_QUERY_TIMEOUT_MS = "2147483648";
+    const overflow = postgresPoolConfig({ connectionString: "postgres://local/db", readOnly: true });
+    assert.equal(overflow.connectionTimeoutMillis, 10_000);
+    assert.equal(overflow.query_timeout, undefined);
+    const overflowOff = postgresPoolConfig({ connectionString: "postgres://local/db", readOnly: false });
+    assert.equal(overflowOff.connectionTimeoutMillis, 10_000);
+    assert.equal(overflowOff.query_timeout, undefined);
+    assert.equal("onConnect" in overflowOff, false);
+    process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS = "2147483647";
+    process.env.SG_BUILD_DB_QUERY_TIMEOUT_MS = "2147483647";
+    const atTimerLimit = postgresPoolConfig({ connectionString: "postgres://local/db", readOnly: true });
+    assert.equal(atTimerLimit.connectionTimeoutMillis, 2_147_483_647);
+    assert.equal(atTimerLimit.query_timeout, 2_147_483_647);
   } finally {
     if (previousConnect === undefined) delete process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS;
     else process.env.SG_BUILD_DB_CONNECT_TIMEOUT_MS = previousConnect;

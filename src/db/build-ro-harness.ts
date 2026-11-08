@@ -1,11 +1,14 @@
 /**
- * Local verifier supervisor. It calls the candidate getDb through a child
- * process. It does not open its own pool.
+ * Local verifier supervisor. Children call candidate getDb(). The parent
+ * does not open a pool.
  *
- * A 6543 pooler URL is copied in memory and only the port becomes 5432.
- * That port is a verifier override, not a separate host. The URL is never logged.
+ * Production mode accepts only a 6543 pooler URL and changes the port to
+ * 5432 in memory. Local mode is explicit and rejects those ports. The URL
+ * is never logged.
  */
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+
+export type HarnessMode = "production" | "local";
 
 export type HarnessLimits = {
   workers: number;
@@ -17,6 +20,11 @@ export type HarnessLimits = {
   parentTimeoutMs: number;
   killGraceMs: number;
 };
+
+export function resolveHarnessLimits(mode: HarnessMode, override?: Partial<HarnessLimits>): HarnessLimits {
+  if (mode === "production") return { ...HARNESS_LIMITS };
+  return { ...HARNESS_LIMITS, ...override };
+}
 
 export const HARNESS_LIMITS: HarnessLimits = {
   workers: 2,
@@ -31,7 +39,7 @@ export const HARNESS_LIMITS: HarnessLimits = {
 
 export type SafeWorkerReport = {
   ok: boolean;
-  reason: "ok" | "missing-url" | "flag" | "driver" | "init-off" | "timeout" | "fail";
+  reason: "ok" | "missing-url" | "flag" | "driver" | "init-off" | "port" | "sha" | "timeout" | "fail";
   candidate?: string;
   flag?: boolean;
   urlNonempty?: boolean;
@@ -54,40 +62,47 @@ export type HarnessResult = {
 type Spawned = {
   pid: number;
   stdout: string;
+  checkGroup?: boolean;
+  settled: () => boolean;
   done: Promise<number | null>;
   kill: (signal: NodeJS.Signals) => void;
 };
 
-export function verifierDatabaseUrl(raw: string | undefined): { url: string; port: number } {
+function coded(message: string, code: string): Error {
+  const error = new Error(message);
+  (error as Error & { code: string }).code = code;
+  return error;
+}
+
+function queryOverrides(rest: string): boolean {
+  const query = rest.indexOf("?");
+  if (query === -1) return false;
+  for (const key of new URLSearchParams(rest.slice(query + 1)).keys()) {
+    const name = key.toLowerCase();
+    if (name === "host" || name === "port") return true;
+  }
+  return false;
+}
+
+export function verifierDatabaseUrl(raw: string | undefined, mode: HarnessMode): { url: string; port: number } {
   const trimmed = raw?.trim() ?? "";
-  if (!trimmed) {
-    const error = new Error("missing-url");
-    (error as Error & { code: string }).code = "missing-url";
-    throw error;
-  }
+  if (!trimmed) throw coded("missing-url", "missing-url");
   const protocol = trimmed.split(":", 1)[0]?.toLowerCase();
-  if (protocol !== "postgres" && protocol !== "postgresql") {
-    const error = new Error("bad-url");
-    (error as Error & { code: string }).code = "bad-url";
-    throw error;
-  }
+  if (protocol !== "postgres" && protocol !== "postgresql") throw coded("bad-url", "bad-url");
   const match = trimmed.match(/^(postgres(?:ql)?:\/\/)([^/?#]*)(.*)$/i);
-  if (!match) {
-    const error = new Error("bad-url");
-    (error as Error & { code: string }).code = "bad-url";
-    throw error;
-  }
+  if (!match) throw coded("bad-url", "bad-url");
   const [, scheme, authority, rest] = match;
+  if (queryOverrides(rest)) throw coded("bad-url", "bad-url");
   const at = authority.lastIndexOf("@");
   const hostport = at === -1 ? authority : authority.slice(at + 1);
   const hostMatch = hostport.match(/^(\[[^\]]+\]|[^:]+)(?::(\d+))?$/);
-  if (!hostMatch) {
-    const error = new Error("bad-url");
-    (error as Error & { code: string }).code = "bad-url";
-    throw error;
-  }
+  if (!hostMatch) throw coded("bad-url", "bad-url");
   const sourcePort = hostMatch[2] ? Number(hostMatch[2]) : 5432;
-  if (sourcePort !== 6543) return { url: trimmed, port: sourcePort };
+  if (mode === "local") {
+    if (sourcePort === 6543 || sourcePort === 5432) throw coded("bad-url", "bad-url");
+    return { url: trimmed, port: sourcePort };
+  }
+  if (sourcePort !== 6543) throw coded("bad-url", "bad-url");
   const prefix = at === -1 ? "" : authority.slice(0, at + 1);
   return { url: `${scheme}${prefix}${hostMatch[1]}:5432${rest}`, port: 5432 };
 }
@@ -113,55 +128,100 @@ function safeReport(stdout: string): SafeWorkerReport {
   }
 }
 
+function accepted(report: SafeWorkerReport, expected: { candidate: string; port: number }): boolean {
+  return report.ok
+    && report.reason === "ok"
+    && report.candidate === expected.candidate
+    && report.flag === true
+    && report.urlNonempty === true
+    && report.port === expected.port
+    && report.driver === "postgres"
+    && report.init === "on"
+    && report.query === "on"
+    && report.attempt === 1;
+}
+
+function outcome(report: SafeWorkerReport, expected: { candidate: string; port: number }): SafeWorkerReport["reason"] {
+  if (accepted(report, expected)) return "ok";
+  if (report.candidate && report.candidate !== expected.candidate) return "sha";
+  if (report.port !== undefined && report.port !== expected.port) return "port";
+  if (report.flag === false) return "flag";
+  return report.reason === "ok" ? "fail" : report.reason;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function groupAlive(child: Spawned): boolean {
+  if (!child.checkGroup || !child.pid || child.pid <= 0) return false;
+  try {
+    const out = execFileSync("ps", ["-o", "pid=", "-g", String(child.pid)], { encoding: "utf8", timeout: 1000 });
+    return out.split(/\s+/).some((part) => Number(part) > 0);
+  } catch (err) {
+    return (err as { status?: number }).status !== 1;
+  }
+}
+
 export async function runBuildRoHarness(input: {
   databaseUrl: string | undefined;
   flag: string | undefined;
   candidate: string;
+  mode: HarnessMode;
   spawnWorker?: (env: NodeJS.ProcessEnv) => Spawned;
   limits?: Partial<HarnessLimits>;
 }): Promise<HarnessResult> {
-  const limits = { ...HARNESS_LIMITS, ...input.limits };
+  const limits = resolveHarnessLimits(input.mode, input.limits);
   if (input.flag !== "true") return { ok: false, reason: "flag", attempts: 0, failures: 1, reports: [] };
   let rewritten: { url: string; port: number };
   try {
-    rewritten = verifierDatabaseUrl(input.databaseUrl);
+    rewritten = verifierDatabaseUrl(input.databaseUrl, input.mode);
   } catch (err) {
     const reason = (err as { code?: string }).code === "missing-url" ? "missing-url" : "fail";
     return { ok: false, reason, attempts: 0, failures: 1, reports: [] };
   }
 
   const reports: SafeWorkerReport[] = [];
+  const tracked: Spawned[] = [];
   let attempts = 0;
   let failures = 0;
-  const live = new Set<Spawned>();
-
+  let unclean = false;
+  const expected = { candidate: input.candidate, port: rewritten.port };
   const spawnOne = input.spawnWorker ?? ((env) => defaultSpawn(env));
 
-  async function stopAll(graceMs: number) {
-    for (const child of live) child.kill("SIGTERM");
-    await new Promise((resolve) => setTimeout(resolve, graceMs));
-    for (const child of live) child.kill("SIGKILL");
-    await Promise.all([...live].map((child) => child.done.catch(() => null)));
-    live.clear();
+  async function stopAll(): Promise<boolean> {
+    const pending = () => tracked.filter((child) => !child.settled() || groupAlive(child));
+    if (pending().length === 0) return true;
+    for (const child of pending()) child.kill("SIGTERM");
+    await delay(limits.killGraceMs);
+    for (const child of pending()) child.kill("SIGKILL");
+    await Promise.race([
+      Promise.all(pending().map((child) => child.done.catch(() => null))),
+      delay(limits.killGraceMs),
+    ]);
+    return pending().length === 0;
   }
 
   async function wave(count: number): Promise<boolean> {
-    if (attempts + count > limits.maxConnections) {
+    if (unclean || attempts + count > limits.maxConnections) {
       failures += 1;
       return false;
     }
     const children: Spawned[] = [];
     for (let i = 0; i < count; i += 1) {
       attempts += 1;
-      const child = spawnOne(workerEnv(rewritten.url, rewritten.port, input.candidate, limits));
-      live.add(child);
+      const child = spawnOne(workerEnv(rewritten.url, limits));
+      tracked.push(child);
       children.push(child);
     }
     let failed = false;
     const counted = new Set<Spawned>();
     await new Promise<void>((resolve) => {
       let pending = children.length;
-      const finish = () => {
+      const finished = new Set<Spawned>();
+      const finish = (child: Spawned) => {
+        if (finished.has(child)) return;
+        finished.add(child);
         pending -= 1;
         if (pending === 0) resolve();
       };
@@ -171,47 +231,60 @@ export async function runBuildRoHarness(input: {
         failed = true;
         failures += 1;
         for (const other of children) other.kill("SIGTERM");
-        setTimeout(() => {
-          for (const other of children) other.kill("SIGKILL");
-        }, limits.killGraceMs);
       };
       for (const child of children) {
-        const timer = setTimeout(() => mark(child), limits.workerTimeoutMs);
+        const timer = setTimeout(() => {
+          mark(child);
+          child.kill("SIGTERM");
+        }, limits.workerTimeoutMs);
+        const cap = setTimeout(() => finish(child), limits.workerTimeoutMs + limits.killGraceMs);
         child.done.then((code) => {
           clearTimeout(timer);
-          live.delete(child);
+          clearTimeout(cap);
           const report = safeReport(child.stdout);
           reports.push(report);
-          if (code !== 0 || !report.ok || report.driver !== "postgres" || report.init !== "on" || report.query !== "on") mark(child);
-          finish();
+          if (code !== 0 || !accepted(report, expected)) mark(child);
+          finish(child);
         }).catch(() => {
           clearTimeout(timer);
+          clearTimeout(cap);
           mark(child);
-          finish();
+          finish(child);
         });
       }
     });
-    if (failed) {
-      await stopAll(limits.killGraceMs);
-      return false;
-    }
-    return true;
+    if (!failed) return true;
+    unclean = !(await stopAll());
+    return false;
   }
 
   let timedOut = false;
   const parentTimer = setTimeout(() => {
     timedOut = true;
-    void stopAll(limits.killGraceMs);
+    void stopAll().then((clean) => { unclean = unclean || !clean; });
   }, limits.parentTimeoutMs);
 
   const first = await wave(limits.workers);
-  const second = first ? await wave(limits.workers * limits.replacementsPerWorker) : false;
+  if (!first || timedOut || unclean) {
+    clearTimeout(parentTimer);
+    if (!(await stopAll())) unclean = true;
+    return {
+      ok: false,
+      reason: unclean ? "cleanup" : timedOut ? "timeout" : reports.map((report) => outcome(report, expected)).find((reason) => reason !== "ok") ?? "fail",
+      attempts,
+      failures: Math.max(failures, 1),
+      port: rewritten.port,
+      reports,
+    };
+  }
+  const second = await wave(limits.workers);
   clearTimeout(parentTimer);
-  if (timedOut) return { ok: false, reason: "timeout", attempts, failures: Math.max(failures, 1), port: rewritten.port, reports };
-  if (attempts > limits.maxConnections) return { ok: false, reason: "budget", attempts, failures, port: rewritten.port, reports };
+  if (timedOut || unclean || !second) {
+    if (!(await stopAll())) unclean = true;
+  }
   return {
-    ok: first && second && failures === 0,
-    reason: first && second ? "ok" : reports.find((report) => !report.ok)?.reason ?? "fail",
+    ok: second && failures === 0 && !timedOut && !unclean,
+    reason: unclean ? "cleanup" : timedOut ? "timeout" : second ? "ok" : reports.map((report) => outcome(report, expected)).find((reason) => reason !== "ok") ?? "fail",
     attempts,
     failures,
     port: rewritten.port,
@@ -219,7 +292,7 @@ export async function runBuildRoHarness(input: {
   };
 }
 
-function workerEnv(url: string, port: number, candidate: string, limits: HarnessLimits): NodeJS.ProcessEnv {
+function workerEnv(url: string, limits: HarnessLimits): NodeJS.ProcessEnv {
   return {
     ...process.env,
     DATABASE_URL: url,
@@ -227,8 +300,6 @@ function workerEnv(url: string, port: number, candidate: string, limits: Harness
     PG_POOL_MAX: "1",
     SG_BUILD_DB_CONNECT_TIMEOUT_MS: String(limits.connectionTimeoutMs),
     SG_BUILD_DB_QUERY_TIMEOUT_MS: String(limits.queryTimeoutMs),
-    BUILD_RO_CANDIDATE: candidate,
-    BUILD_RO_PORT: String(port),
   };
 }
 
@@ -244,16 +315,19 @@ function defaultSpawn(env: NodeJS.ProcessEnv): Spawned {
 
 export function track(child: ChildProcess): Spawned {
   let stdout = "";
+  let settled = false;
   child.stdout?.on("data", (chunk) => { stdout += String(chunk); });
   child.stderr?.on("data", () => {});
   const done = new Promise<number | null>((resolve) => {
-    child.on("error", () => resolve(1));
-    child.on("close", (code) => resolve(code));
+    child.on("error", () => { settled = true; resolve(1); });
+    child.on("close", (code) => { settled = true; resolve(code); });
   });
   const pid = child.pid ?? 0;
   return {
     pid,
     get stdout() { return stdout; },
+    checkGroup: true,
+    settled: () => settled,
     done,
     kill(signal) {
       if (!pid) return;
