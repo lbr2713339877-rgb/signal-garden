@@ -20,8 +20,20 @@
  * --all sends only when issue.to is today's signal date, and only to
  * confirmed active subscribers who are not already sent/bounced for that
  * edition. A later Monday no-ops instead of mailing the same issue again.
+ *
+ * Audiences are unchanged. The preferred *@mail.grokbot.com canary is the
+ * gate for --all and --real. Those modes mail real recipients only after a
+ * delivery query reports last_event delivered for this edition's canary
+ * message. A Resend id or a ledger row of sent is not delivery. A missing
+ * canary, accept error, bounce, other non-delivery, query error, or bounded
+ * wait exits nonzero and sends zero real recipients. --canary mails only
+ * that canary and does not prove delivery. --real never sends the canary
+ * and cannot skip the gate. --dry-run writes nothing, sends nothing, does
+ * not query delivery, and does not claim the canary was delivered.
+ *
  * Live sends need NEWSLETTER_WEEKLY_ENABLED=true, NEWSLETTER_SEND_MODE=live,
- * and NEWSLETTER_UNSUB_SECRET. --dry-run writes nothing.
+ * and NEWSLETTER_UNSUB_SECRET. The canary wait is
+ * WEEKLY_CANARY_DELIVERY_BUDGET_MS (30s, at most 6 reads).
  */
 import { loadLocalEnv } from "@/lib/env";
 import type { WeeklyAudienceRow } from "@/lib/newsletter/weekly-lock";
@@ -38,10 +50,19 @@ const {
   preferredCanary,
   publishedWeeklyMailIssue,
   splitWeeklyAudience,
-  weeklyIdempotencyKey,
   weeklyLockSubject,
   weeklySendBlocker,
 } = await import("@/lib/newsletter/weekly-lock");
+const {
+  WEEKLY_CANARY_DELIVERY_BUDGET_MS,
+  WEEKLY_CANARY_DELIVERY_MAX_POLLS,
+  WEEKLY_CANARY_DELIVERY_POLL_MS,
+  WEEKLY_CANARY_DELIVERY_QUERY_TIMEOUT_MS,
+  executeWeeklyGatedSend,
+  maskWeeklyEmail,
+  previewWeeklyCanaryGate,
+  selectGateHeldRecipients,
+} = await import("@/lib/newsletter/canary-gate");
 const { renderWeeklyLockMail } = await import("@/emails/weekly-lock");
 const { db, closeDb } = await import("@/db/client");
 const { and, eq, isNotNull } = await import("drizzle-orm");
@@ -49,12 +70,6 @@ const { newsletterSend, newsletterSubscriber } = await import("@/db/schema");
 const { listUnsubscribeHeaders, unsubscribePageUrl } = await import("@/lib/newsletter/headers");
 const { unsubTokenFor } = await import("@/lib/newsletter/tokens");
 const { newsletterSendMode, newsletterTransport } = await import("@/lib/newsletter/transport");
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!domain) return "***";
-  return `${local.slice(0, Math.min(3, local.length))}***@${domain}`;
-}
 
 function log(event: Record<string, unknown>) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), ...event }));
@@ -116,6 +131,7 @@ try {
     .select({
       subscriberId: newsletterSend.subscriberId,
       status: newsletterSend.status,
+      resendMessageId: newsletterSend.resendMessageId,
     })
     .from(newsletterSend)
     .where(eq(newsletterSend.editionDate, editionDate));
@@ -124,6 +140,26 @@ try {
     today,
     eligibleIds: eligible.map((row) => row.id),
     rows: mailed,
+  });
+  const canary = preferredCanary(audience.canaries) ?? null;
+  const gateMode = parsed.mode === "dry-run" ? "all" : parsed.mode;
+  const held = gateMode === "real"
+    ? audience.reals
+    : [...audience.canaries.filter((row) => row.id !== canary?.id), ...audience.reals];
+  const heldForPreview = selectGateHeldRecipients({
+    mode: gateMode,
+    canaryId: canary?.id ?? null,
+    held,
+    plannedIds: allPlan.action === "send" ? allPlan.subscriberIds : [],
+    ledger: mailed,
+  });
+  const canaryGate = previewWeeklyCanaryGate({
+    mode: gateMode,
+    editionDate,
+    canary,
+    heldCount: heldForPreview.length,
+    ledger: mailed,
+    plan: gateMode === "all" ? allPlan.action : undefined,
   });
 
   log({
@@ -137,10 +173,17 @@ try {
     sendMode: newsletterSendMode(),
     weeklyEnabled: process.env.NEWSLETTER_WEEKLY_ENABLED === "true",
     activeConfirmed: confirmed.length,
-    canary: audience.canaries.map((row) => ({ id: row.id, email: maskEmail(row.email) })),
-    real: audience.reals.map((row) => ({ id: row.id, email: maskEmail(row.email) })),
+    canary: audience.canaries.map((row) => ({ id: row.id, email: maskWeeklyEmail(row.email) })),
+    real: audience.reals.map((row) => ({ id: row.id, email: maskWeeklyEmail(row.email) })),
     excluded: audience.excluded.length,
     allPlan,
+    canaryGate,
+    canaryGateBudget: {
+      budgetMs: WEEKLY_CANARY_DELIVERY_BUDGET_MS,
+      maxPolls: WEEKLY_CANARY_DELIVERY_MAX_POLLS,
+      pollIntervalMs: WEEKLY_CANARY_DELIVERY_POLL_MS,
+      queryTimeoutMs: WEEKLY_CANARY_DELIVERY_QUERY_TIMEOUT_MS,
+    },
   });
 
   if (parsed.dryRun) {
@@ -153,16 +196,20 @@ try {
       unsubSecret: process.env.NEWSLETTER_UNSUB_SECRET,
     });
     if (blocker) {
-      log({ phase: "refused", reason: blocker, sent: 0, failed: 0 });
+      log({ phase: "refused", reason: blocker, sent: 0, failed: 0, realSent: 0 });
       exitCode = 2;
     } else if (parsed.mode === "all" && allPlan.action === "noop") {
-      log({ phase: "noop", reason: allPlan.reason, issue: issue.issue, editionDate, sent: 0, failed: 0, skipped: 0 });
+      log({ phase: "noop", reason: allPlan.reason, issue: issue.issue, editionDate, sent: 0, failed: 0, skipped: 0, realSent: 0 });
+      exitCode = 0;
+    } else if (parsed.mode === "dry-run") {
+      // parseWeeklyCli only uses this mode together with dryRun, which already returned.
       exitCode = 0;
     } else {
+      const mode = parsed.mode;
       const transport = newsletterTransport();
       const byId = new Map(eligible.map((row) => [row.id, row]));
 
-      async function sendOne(sub: WeeklyAudienceRow): Promise<
+      async function sendOne(sub: WeeklyAudienceRow, idempotencyKey: string): Promise<
         { ok: true; id: string; skipped?: boolean } | { ok: false; error: string }
       > {
         const inserted = await database
@@ -194,7 +241,7 @@ try {
             html: mail.html,
             text: mail.text,
             headers: listUnsubscribeHeaders(siteUrl, token),
-            idempotencyKey: weeklyIdempotencyKey(issue!.issue, editionDate, sub.id),
+            idempotencyKey,
           });
           await database
             .update(newsletterSend)
@@ -211,47 +258,41 @@ try {
         }
       }
 
-      async function sendMany(phase: string, rows: WeeklyAudienceRow[]) {
-        let sent = 0;
-        let failed = 0;
-        let skipped = 0;
-        const results: unknown[] = [];
-        for (const sub of rows) {
-          const res = await sendOne(sub);
-          results.push({ to: maskEmail(sub.email), subscriberId: sub.id, ...res });
-          if (!res.ok) failed += 1;
-          else if (res.skipped) skipped += 1;
-          else sent += 1;
-          if (transport.mode === "live" && !("skipped" in res && res.skipped)) {
+      const result = await executeWeeklyGatedSend({
+        mode,
+        dryRun: false,
+        issue: issue.issue,
+        editionDate,
+        canary,
+        held,
+        plannedIds: allPlan.action === "send" ? allPlan.subscriberIds : [],
+        ledger: mailed,
+        plan: mode === "all" ? allPlan.action : "send",
+        send: async ({ subscriberId, idempotencyKey }) => {
+          const sub = byId.get(subscriberId);
+          if (!sub) return { ok: false, error: "unknown subscriber" };
+          const sent = await sendOne(sub, idempotencyKey);
+          if (transport.mode === "live" && sent.ok && !sent.skipped) {
             await new Promise((resolve) => setTimeout(resolve, WEEKLY_LIVE_SEND_GAP_MS));
           }
-        }
-        log({ phase, sent, failed, skipped, results });
-        return failed;
-      }
-
-      if (parsed.mode === "canary") {
-        const canary = preferredCanary(audience.canaries);
-        if (!canary) {
-          log({ phase: "refused", reason: "no canary *@mail.grokbot.com active confirmed" });
-          exitCode = 3;
-        } else {
-          const failed = await sendMany("canary", [canary]);
-          exitCode = failed > 0 ? 4 : 0;
-        }
-      } else if (parsed.mode === "real") {
-        const failed = await sendMany("real", audience.reals);
-        exitCode = failed > 0 ? 5 : 0;
-      } else {
-        const targets = allPlan.action === "send"
-          ? allPlan.subscriberIds.flatMap((id) => {
-              const row = byId.get(id);
-              return row ? [row] : [];
-            })
-          : [];
-        const failed = await sendMany("all", targets);
-        exitCode = failed > 0 ? 5 : 0;
-      }
+          return sent;
+        },
+        queryDelivery: async (messageId) => {
+          if (!transport.getDelivery) return { ok: false, error: "delivery query is not available on this transport" };
+          return transport.getDelivery(messageId);
+        },
+        markTerminal: async ({ subscriberId, status }) => {
+          await database
+            .update(newsletterSend)
+            .set({ status })
+            .where(and(
+              eq(newsletterSend.editionDate, editionDate),
+              eq(newsletterSend.subscriberId, subscriberId),
+            ));
+        },
+      });
+      log(result.log);
+      exitCode = result.exitCode;
     }
   }
 } finally {

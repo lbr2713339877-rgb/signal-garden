@@ -19,9 +19,18 @@ export interface SentMail extends OutboundMail {
   replyTo: string;
 }
 
+export type DeliveryLookup =
+  | { ok: true; lastEvent: string }
+  | { ok: false; error: string };
+
 export interface MailTransport {
   mode: "mock" | "live";
   send(mail: OutboundMail): Promise<{ id: string }>;
+  /**
+   * Live provider read. Omitted on the mock transport so a fake id cannot
+   * be reported as delivered.
+   */
+  getDelivery?(messageId: string): Promise<DeliveryLookup>;
 }
 
 const outbox = globalThis as unknown as { __newsletterOutbox?: SentMail[] };
@@ -80,6 +89,28 @@ export function mockTransport(): MailTransport {
   };
 }
 
+function redactDeliveryError(value: string): string {
+  const redacted = value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(/\b(?:re|whsec)_[A-Za-z0-9]+/gi, "[redacted-secret]")
+    .replace(/bearer\s+[A-Za-z0-9._\-]+/gi, "bearer [redacted-secret]")
+    .replace(/[\r\n]+/g, " ");
+  return redacted.length > 240 ? `${redacted.slice(0, 240)}…` : redacted;
+}
+
+function lastEventFromProvider(value: unknown): { lastEvent: string } | { error: string } {
+  if (!value || typeof value !== "object") return { error: "delivery query returned an empty body" };
+  const record = value as {
+    data?: { last_event?: unknown } | null;
+    error?: { message?: string } | null;
+    last_event?: unknown;
+  };
+  if (record.error) return { error: record.error.message || "delivery query failed" };
+  const event = record.data && typeof record.data === "object" ? record.data.last_event : record.last_event;
+  if (typeof event !== "string" || !event.trim()) return { error: "delivery query returned no last_event" };
+  return { lastEvent: event.trim() };
+}
+
 export function liveTransport(): MailTransport {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("[newsletter] RESEND_API_KEY is required when NEWSLETTER_SEND_MODE=live");
@@ -98,6 +129,16 @@ export function liveTransport(): MailTransport {
       }, { idempotencyKey: mail.idempotencyKey });
       if (error || !data) throw new Error(error?.message ?? "resend send failed");
       return { id: data.id };
+    },
+    async getDelivery(messageId) {
+      try {
+        const parsed = lastEventFromProvider(await resend.emails.get(messageId));
+        if ("error" in parsed) return { ok: false, error: redactDeliveryError(parsed.error) };
+        return { ok: true, lastEvent: parsed.lastEvent };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { ok: false, error: redactDeliveryError(message) };
+      }
     },
   };
 }

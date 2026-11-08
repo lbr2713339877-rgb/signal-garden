@@ -195,6 +195,10 @@ export type WeeklyAllPlan =
  * sent or bounced. A later Monday does not start a new blast and does not pick
  * up subscribers who joined after the edition. It only retries rows left
  * queued or failed. Sent and bounced rows are never mailed again.
+ *
+ * `sent` is not delivery. The provider accept path and the delivered webhook
+ * both store `sent`. `scripts/newsletter-weekly.tsx` still has to see
+ * `delivered` for this edition's canary before it mails anyone else.
  */
 export function planWeeklyAllSend(input: {
   editionDate: string;
