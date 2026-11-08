@@ -40,7 +40,7 @@ function ProjectBlock({ item, siteUrl }: { item: WeeklySampleItem; siteUrl: stri
         </Link>
       </Text>
       <Text className="text-muted m-0 mt-1 text-[14px] leading-6">{item.zh}</Text>
-      <Text className="text-dim m-0 mt-1 text-[12px] leading-5">{item.en}</Text>
+      {item.en ? <Text className="text-dim m-0 mt-1 text-[12px] leading-5">{item.en}</Text> : null}
       {item.starsLine ? <Text className="text-dim m-0 mt-1 text-[12px]">{item.starsLine}</Text> : null}
     </Section>
   );
@@ -63,7 +63,7 @@ function EditorPickBlock({ pick, siteUrl }: { pick: WeeklyEditorPick; siteUrl: s
           </Link>
         </Text>
         <Text className="text-muted m-0 mt-1 text-[14px] leading-6">{pick.zh}</Text>
-        <Text className="text-dim m-0 mt-1 text-[12px] leading-5">{pick.en}</Text>
+        {pick.en ? <Text className="text-dim m-0 mt-1 text-[12px] leading-5">{pick.en}</Text> : null}
         <Text className="text-dim m-0 mt-1 text-[12px]">{pick.starsLine}</Text>
         <Text className="text-muted m-0 mt-2 text-[13px] leading-6">{weeklyPlainCopy(pick.reasonZh)}</Text>
       </Section>

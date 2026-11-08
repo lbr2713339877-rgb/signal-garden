@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { renderWeeklyOg, weeklyOgContent } from "./render";
-import { WEEKLY_ISSUE_1, WEEKLY_ISSUE_2, WEEKLY_ISSUE_3 } from "../weekly-sample";
+import { WEEKLY_ISSUE_1, WEEKLY_ISSUE_2, WEEKLY_ISSUE_3, WEEKLY_ISSUE_4 } from "../weekly-sample";
 
 test("weekly issue 1 share card uses the public sample and the site card style", () => {
   const content = weeklyOgContent({
@@ -45,6 +45,18 @@ test("weekly issue 1 share card uses the public sample and the site card style",
   assert.equal(issue3.range, "2026-10-27 – 2026-11-02");
   assert.deepEqual(issue3.names, ["DeepSeekBot", "cleanyourtv", "design-agent", "reanimate", "EAC-design-world"]);
   assert.equal(JSON.stringify(issue3).includes("unsubscribe"), false);
+
+  const issue4 = weeklyOgContent({
+    issue: WEEKLY_ISSUE_4.issue,
+    from: WEEKLY_ISSUE_4.from,
+    to: WEEKLY_ISSUE_4.to,
+    names: WEEKLY_ISSUE_4.items.map((item) => item.name),
+  });
+  assert.equal(issue4.title, "第 4 期");
+  assert.equal(issue4.range, "2026-11-03 – 2026-11-09");
+  assert.deepEqual(issue4.names, ["wallstreet-explainer", "code-animation-prompts", "bops", "open-3d-skills", "claude-animation-skills"]);
+  assert.equal(JSON.stringify(issue4).includes("unsubscribe"), false);
+  assert.equal(JSON.stringify(issue4).includes("boardui"), false);
 });
 
 test("weekly issue 3 open graph image renders a png", async () => {
@@ -53,6 +65,20 @@ test("weekly issue 3 open graph image renders a png", async () => {
     from: WEEKLY_ISSUE_3.from,
     to: WEEKLY_ISSUE_3.to,
     names: WEEKLY_ISSUE_3.items.map((item) => item.name),
+  });
+  assert.equal(image.status, 200);
+  assert.match(image.headers.get("content-type") ?? "", /image\/png/);
+  const bytes = Buffer.from(await image.arrayBuffer());
+  assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  assert.ok(bytes.length > 1000);
+});
+
+test("weekly issue 4 open graph image renders a png", async () => {
+  const image = await renderWeeklyOg({
+    issue: WEEKLY_ISSUE_4.issue,
+    from: WEEKLY_ISSUE_4.from,
+    to: WEEKLY_ISSUE_4.to,
+    names: WEEKLY_ISSUE_4.items.map((item) => item.name),
   });
   assert.equal(image.status, 200);
   assert.match(image.headers.get("content-type") ?? "", /image\/png/);

@@ -22,6 +22,7 @@ The email newsletter is the Monday weekly digest (每周一周刊).
 - [Weekly issue 1](${base}/weekly/1): sample of the Monday weekly digest (每周一周刊): the 10 hottest new GitHub projects of the week. Static page, no subscriber data
 - [Weekly issue 2](${base}/weekly/2): Monday weekly digest for 2026-10-20 – 2026-10-26. Ten projects by momentum, plus one editor pick. Static page, no subscriber data
 - [Weekly issue 3](${base}/weekly/3): Monday weekly digest for 2026-10-27 – 2026-11-02. Ten projects by momentum, plus one editor pick. Static page, no subscriber data
+- [Weekly issue 4](${base}/weekly/4): Monday weekly digest for 2026-11-03 – 2026-11-09. Ten projects by momentum, plus one editor pick. Static page, no subscriber data
 - [Sponsor](${base}/sponsor): sponsorships for the daily list and the Monday weekly digest (每周一周刊). No rate card
 
 ## Contact

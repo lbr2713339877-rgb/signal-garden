@@ -7,6 +7,7 @@ import {
   WEEKLY_ISSUE_1,
   WEEKLY_ISSUE_2,
   WEEKLY_ISSUE_3,
+  WEEKLY_ISSUE_4,
   latestPublishedWeeklyIssue,
   publicWeeklyIssues,
   weeklyIssueByNumber,
@@ -58,13 +59,15 @@ test("every public issue is one /weekly/[issue] route", () => {
   assert.equal(weeklyIssueByNumber(1)?.issue, WEEKLY_ISSUE_1.issue);
   assert.equal(weeklyIssueByNumber(2)?.issue, WEEKLY_ISSUE_2.issue);
   assert.equal(weeklyIssueByNumber(3)?.issue, WEEKLY_ISSUE_3.issue);
-  assert.equal(weeklyIssueByNumber(4), null);
+  assert.equal(weeklyIssueByNumber(4)?.issue, WEEKLY_ISSUE_4.issue);
+  assert.equal(weeklyIssueByNumber(5), null);
   assert.deepEqual(
     publicWeeklyIssues().map((row) => [row.number, row.publishedOn]),
     [
       [1, WEEKLY_ISSUE_1.to],
       [2, WEEKLY_ISSUE_2.to],
       [3, WEEKLY_ISSUE_3.to],
+      [4, WEEKLY_ISSUE_4.to],
     ],
   );
   const entries = readdirSync(new URL("../app/(site)/weekly", import.meta.url), { withFileTypes: true });
@@ -82,8 +85,8 @@ test("/weekly 301s to the latest published issue", async () => {
   const numbers = publicWeeklyIssues().map((issue) => issue.number);
   const latest = latestPublishedWeeklyIssue();
   assert.equal(latest, Math.max(...numbers));
-  assert.equal(latest, WEEKLY_ISSUE_3.issue);
-  assert.equal(latest, 3);
+  assert.equal(latest, WEEKLY_ISSUE_4.issue);
+  assert.equal(latest, 4);
   assert.equal(weeklyIssueByNumber(latest)?.issue, latest);
 
   const config = readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
@@ -270,5 +273,117 @@ test("issue 3 is the locked max-heat Top 10 plus chaojifeng-video-design", () =>
   const ogImage = Array.isArray(meta.openGraph?.images) ? meta.openGraph.images[0] : meta.openGraph?.images;
   const ogUrl = typeof ogImage === "string" ? ogImage : ogImage && typeof ogImage === "object" && "url" in ogImage ? String(ogImage.url) : "";
   assert.equal(ogUrl, "https://signalgarden.site/weekly/3/opengraph-image");
+  assert.equal(meta.twitter && "card" in meta.twitter ? meta.twitter.card : undefined, "summary_large_image");
+});
+
+test("issue 4 is the locked max-heat Top 10 plus boardui", () => {
+  assert.equal(WEEKLY_ISSUE_4.issue, 4);
+  assert.equal(WEEKLY_ISSUE_4.from, "2026-11-03");
+  assert.equal(WEEKLY_ISSUE_4.to, "2026-11-09");
+  assert.equal(WEEKLY_ISSUE_4.items.length, 10);
+  assert.equal(WEEKLY_ISSUE_4.sponsor, true);
+  assert.deepEqual(
+    WEEKLY_ISSUE_4.items.map((item) => `${item.rank} ${item.name} ${item.slug} ${item.heat} ${item.peakDate} ${item.starsLine}`),
+    [
+      "1 wallstreet-explainer heychengc-wallstreet-explainer 93 2026-11-07 414 → 617 stars（+49.0%）",
+      "2 code-animation-prompts xiaoyecodes-code-animation-prompts 74 2026-11-04 62 → 700 stars（+1029.0%）",
+      "3 bops orgoai-bops 69 2026-11-05 259 → 495 stars（+91.1%）",
+      "4 open-3d-skills moh4696-open-3d-skills 68 2026-11-08 28 → 287 stars（+925.0%）",
+      "5 claude-animation-skills artemnovitckii-claude-animation-skills 67 2026-11-07 47 → 442 stars（+840.4%）",
+      "6 vibe-knowledge andyhuo520-vibe-knowledge 66 2026-11-05 408 → 546 stars（+33.8%）",
+      "7 aidlc-workflows awslabs-aidlc-workflows 66 2026-11-07 5.7k → 5.9k stars（+3.0%）",
+      "8 diorama sloemo01-diorama 66 2026-11-05 122 → 342 stars（+180.3%）",
+      "9 dsh-mattpocock-skills-deck featherhunter-dsh-mattpocock-skills-deck 65 2026-11-08 270 → 318 stars（+17.8%）",
+      "10 Agentic-Bug-Hunter awarexone-agentic-bug-hunter 62 2026-11-03 5.4k → 5.6k stars（+3.6%）",
+    ],
+  );
+  assert.deepEqual(
+    WEEKLY_ISSUE_4.items.map((item) => item.zh),
+    [
+      "给要拍财经解读视频的人用：AI 助手装上它，就能做出华尔街风格短片。",
+      "给代码动画选风格的离线工具包，含341种提示词和参考图，装进Claude Code或Codex就能用。",
+      "给每个业务机器人配一台电脑、一个邮箱和电话号码，在 Mac 上替你跑日常运营。",
+      "给AI编程助手的8个三维网页制作技能包",
+      "给Claude Code的动画技能，输入命令就能生成六种短视频动画。",
+      "一个Claude Code技能，输入知识点就能生成有旁白、有出处的知识短片。",
+      "一套规则，让AI编码助手按固定阶段管理开发流程。",
+      "给AI agent用的像素立体模型自动构建工具包",
+      "DSH 插件，一次安装获得 27 个 AI 工程技能，加速代码审查、调试和设计。",
+      "帮漏洞赏金猎人和安全研究员自动完成侦察、挖洞、验证和写报告。",
+    ],
+  );
+  assert.deepEqual(
+    WEEKLY_ISSUE_4.items.map((item) => item.en),
+    [
+      "",
+      "Offline library of 341 code animation style prompts with reference stills, a picker, and one-click import for Claude Code and Codex.",
+      "Bops: a team of AI bots that run your business ops, each with its own computer, email and phone number. bops.bot",
+      "Eight agent skills that turn text prompts into 3D scenes, scroll films, transparent video, cursor rigs, and more.",
+      "Six Claude Code skills that turn text prompts into animated reels—no video footage required.",
+      "Make a citation-backed narrated video from any single knowledge point, in any of 44 styles.",
+      "Adaptive rules that guide your AI coding assistant through the entire development lifecycle, stage by stage.",
+      "A research-first playbook and code kit for building pixel-art dioramas in Three.js, with automatic palette and animation.",
+      "A pre-loaded deck of 40 engineering and productivity skills for DSH, ready to use with zero manual setup.",
+      "A free AI toolkit that automates bug bounty hunting from recon to report.",
+    ],
+  );
+  assert.equal(WEEKLY_ISSUE_4.items[0]?.en, "");
+  assert.equal(JSON.stringify(WEEKLY_ISSUE_4).includes("设计思路、风格语言"), false);
+  assert.equal(
+    WEEKLY_ISSUE_4.items[8]?.zh.includes("27"),
+    true,
+  );
+  assert.equal(WEEKLY_ISSUE_4.items[8]?.en.includes("40"), true);
+  assert.equal(
+    WEEKLY_ISSUE_4.editorNote?.zh,
+    "本周热度分榜被**视频 / 动画 / 3D 生成类 agent 技能**占了大半：wallstreet-explainer（华尔街风财经短片）、code-animation-prompts、claude-animation-skills、vibe-knowledge（带出处的知识短片）、open-3d-skills、diorama 都在让编程助手直接「出片、出动画、出 3D」；另一条线是**让 AI 按流程干活**——bops 给每个业务 Bot 配电脑、邮箱和电话，aidlc-workflows 和 dsh-mattpocock-skills-deck 把开发流程与工程技能打包，Agentic-Bug-Hunter 则把漏洞赏金从侦察做到报告。",
+  );
+  assert.equal(
+    WEEKLY_ISSUE_4.editorNote?.en,
+    "This week's momentum board was dominated by **video, animation, and 3D agent skills**—wallstreet-explainer (Wall Street–style finance explainers), code-animation-prompts, claude-animation-skills, vibe-knowledge (cited, narrated explainers), open-3d-skills, and diorama all let a coding assistant ship clips, motion, or 3D scenes directly. The other thread is **AI that works to a process**: bops gives each business bot its own computer, inbox, and phone number; aidlc-workflows and dsh-mattpocock-skills-deck package dev lifecycles and engineering skills; Agentic-Bug-Hunter runs bug bounties from recon to report.",
+  );
+  const pick = WEEKLY_ISSUE_4.editorPick;
+  assert.ok(pick);
+  assert.equal(pick.slug, "boardui-boardui");
+  assert.equal(pick.name, "boardui");
+  assert.equal(pick.heat, 61);
+  assert.equal(pick.peakDate, "2026-11-05");
+  assert.equal(pick.starsLine, "551 → 1.1k stars（+93.3%）");
+  assert.equal(pick.zh, "智能体界面的 React 组件库，组件源码免费可下，自带 AI 聊天示例。");
+  assert.equal(
+    pick.en,
+    "A free React design system that gives you a working AI chat app and source-available components for agentic interfaces.",
+  );
+  assert.equal(
+    pick.reasonZh,
+    "选它的理由：本周榜单多是「让 agent 产出内容」的技能，boardui 则是给 agent 产品本身做界面的组件库（自带 AI 聊天示例），换个角度看同一波 agent 热；A- 质量、窗口内翻倍。",
+  );
+  assert.equal(pick.reasonEn, "");
+  assert.equal(WEEKLY_ISSUE_4.items.some((item) => item.slug === pick.slug), false);
+  for (const item of WEEKLY_ISSUE_4.items) {
+    assert.equal(item.labelZh, `热度分 ${item.heat}`);
+    assert.equal(item.labelEn, `Heat ${item.heat}`);
+  }
+  for (const item of WEEKLY_ISSUE_4.items) {
+    assert.equal(
+      item.href,
+      `/p/${item.slug}?utm_source=email&utm_medium=weekly&utm_campaign=weekly-4`,
+    );
+    assert.ok(item.zh.length > 0);
+    if (item.slug !== "heychengc-wallstreet-explainer") assert.ok(item.en.length > 0);
+  }
+  assert.equal(
+    pick.href,
+    "/p/boardui-boardui?utm_source=email&utm_medium=weekly&utm_campaign=weekly-4",
+  );
+  assert.doesNotMatch(JSON.stringify(WEEKLY_ISSUE_4), BANNED);
+
+  const meta = weeklyIssueMetadata(WEEKLY_ISSUE_4, "https://signalgarden.site");
+  assert.equal(meta.alternates?.canonical, "https://signalgarden.site/weekly/4");
+  assert.match(String(meta.description), /第 4 期/);
+  assert.match(String(meta.description), /2026-11-03 – 2026-11-09/);
+  const ogImage = Array.isArray(meta.openGraph?.images) ? meta.openGraph.images[0] : meta.openGraph?.images;
+  const ogUrl = typeof ogImage === "string" ? ogImage : ogImage && typeof ogImage === "object" && "url" in ogImage ? String(ogImage.url) : "";
+  assert.equal(ogUrl, "https://signalgarden.site/weekly/4/opengraph-image");
   assert.equal(meta.twitter && "card" in meta.twitter ? meta.twitter.card : undefined, "summary_large_image");
 });

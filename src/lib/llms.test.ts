@@ -28,4 +28,5 @@ test("links the sample weekly issue", () => {
   assert.ok(text.includes("https://signalgarden.site/weekly/1"));
   assert.ok(text.includes("https://signalgarden.site/weekly/2"));
   assert.ok(text.includes("https://signalgarden.site/weekly/3"));
+  assert.ok(text.includes("https://signalgarden.site/weekly/4"));
 });
