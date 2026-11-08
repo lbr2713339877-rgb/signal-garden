@@ -308,7 +308,7 @@ test("issue 4 is the locked max-heat Top 10 plus boardui", () => {
       "一个Claude Code技能，输入知识点就能生成有旁白、有出处的知识短片。",
       "一套规则，让AI编码助手按固定阶段管理开发流程。",
       "给AI agent用的像素立体模型自动构建工具包",
-      "DSH 插件，一次安装获得 27 个 AI 工程技能，加速代码审查、调试和设计。",
+      "DSH 插件，一次安装获得 AI 工程技能，加速代码审查、调试和设计。",
       "帮漏洞赏金猎人和安全研究员自动完成侦察、挖洞、验证和写报告。",
     ],
   );
@@ -323,17 +323,16 @@ test("issue 4 is the locked max-heat Top 10 plus boardui", () => {
       "Make a citation-backed narrated video from any single knowledge point, in any of 44 styles.",
       "Adaptive rules that guide your AI coding assistant through the entire development lifecycle, stage by stage.",
       "A research-first playbook and code kit for building pixel-art dioramas in Three.js, with automatic palette and animation.",
-      "A pre-loaded deck of 40 engineering and productivity skills for DSH, ready to use with zero manual setup.",
+      "A pre-loaded deck of engineering and productivity skills for DSH, ready to use with zero manual setup.",
       "A free AI toolkit that automates bug bounty hunting from recon to report.",
     ],
   );
   assert.equal(WEEKLY_ISSUE_4.items[0]?.en, "");
   assert.equal(JSON.stringify(WEEKLY_ISSUE_4).includes("设计思路、风格语言"), false);
-  assert.equal(
-    WEEKLY_ISSUE_4.items[8]?.zh.includes("27"),
-    true,
-  );
-  assert.equal(WEEKLY_ISSUE_4.items[8]?.en.includes("40"), true);
+  assert.equal(WEEKLY_ISSUE_4.items[8]?.zh.includes("27"), false);
+  assert.equal(WEEKLY_ISSUE_4.items[8]?.en.includes("40"), false);
+  assert.match(WEEKLY_ISSUE_4.items[8]?.zh ?? "", /一次安装获得 AI 工程技能，加速代码审查、调试和设计/);
+  assert.match(WEEKLY_ISSUE_4.items[8]?.en ?? "", /pre-loaded deck of engineering and productivity skills for DSH/);
   assert.equal(
     WEEKLY_ISSUE_4.editorNote?.zh,
     "本周热度分榜被**视频 / 动画 / 3D 生成类 agent 技能**占了大半：wallstreet-explainer（华尔街风财经短片）、code-animation-prompts、claude-animation-skills、vibe-knowledge（带出处的知识短片）、open-3d-skills、diorama 都在让编程助手直接「出片、出动画、出 3D」；另一条线是**让 AI 按流程干活**——bops 给每个业务 Bot 配电脑、邮箱和电话，aidlc-workflows 和 dsh-mattpocock-skills-deck 把开发流程与工程技能打包，Agentic-Bug-Hunter 则把漏洞赏金从侦察做到报告。",

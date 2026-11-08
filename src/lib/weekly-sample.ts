@@ -11,7 +11,8 @@
  * pick and is not in the Top 10.
  * Issue 4 is the provisional lock from 2026-11-08 09:05 SGT (window 11/03–11/09;
  * the 11/09 board was not published yet). boardui is the editor pick and is not
- * in the Top 10. Monday content may reopen if any 11/09 heat is above 62.
+ * in the Top 10. Monday content may reopen if any 11/09 heat is >70.
+ * This Top 10 stays until an explicit new lock.
  * Names and summaries are the locked copy. This module does not read the mailing list.
  */
 
@@ -640,9 +641,9 @@ export const WEEKLY_ISSUE_4: WeeklyIssue = {
       slug: "featherhunter-dsh-mattpocock-skills-deck",
       heat: 65,
       peakDate: "2026-11-08",
-      // Locked lines disagree: Chinese says 27 skills, English says 40. Both kept.
-      zh: "DSH 插件，一次安装获得 27 个 AI 工程技能，加速代码审查、调试和设计。",
-      en: "A pre-loaded deck of 40 engineering and productivity skills for DSH, ready to use with zero manual setup.",
+      // Conflicting skill counts were removed. The rest of each locked line stays.
+      zh: "DSH 插件，一次安装获得 AI 工程技能，加速代码审查、调试和设计。",
+      en: "A pre-loaded deck of engineering and productivity skills for DSH, ready to use with zero manual setup.",
       starsLine: "270 → 318 stars（+17.8%）",
     }, WEEKLY_4_CAMPAIGN),
     frozenHeatItem({
