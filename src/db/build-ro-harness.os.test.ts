@@ -101,11 +101,14 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
     const code = await new Promise<number | null>((resolve) => child.on("close", resolve));
     const report = JSON.parse(stdout.trim());
     assert.notEqual(code, 0);
-    assert.equal(report.reason, "missing-url");
-    assert.equal(report.driver, "none");
+    assert.equal(report.stage, "getDb");
+    assert.equal(report.driver, "unknown");
+    assert.equal(report.init, "unknown");
+    assert.equal(report.query, "unknown");
     assert.equal(report.flag, true);
     assert.equal(report.candidate, checkout);
     assert.equal(stdout.includes("postgres://"), false);
+    assert.equal(stdout.includes("nonempty DATABASE_URL"), false);
   });
 
   test("getDb query timeout fires without a second pool", async () => {
@@ -127,7 +130,11 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
     const code = await new Promise<number | null>((resolve) => child.on("close", resolve));
     const report = JSON.parse(stdout.trim());
     assert.notEqual(code, 0);
-    assert.equal(report.reason, "timeout");
-    assert.equal(report.query, "off");
+    assert.equal(report.stage, "query");
+    assert.equal(report.driver, "postgres");
+    assert.equal(report.init, "on");
+    assert.equal(report.query, "unknown");
+    assert.equal(stdout.includes("Query read timeout"), false);
+    assert.equal(stdout.includes(databaseUrl), false);
   });
 });

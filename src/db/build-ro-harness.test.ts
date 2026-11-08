@@ -370,6 +370,9 @@ test("the worker checks the approved sha and the real flag before any connection
     });
     assert.equal(wrongSha.report.reason, "sha");
     assert.equal(wrongSha.report.candidate, HEAD);
+    assert.equal(wrongSha.report.driver, "unknown");
+    assert.equal(wrongSha.report.init, "unknown");
+    assert.equal(wrongSha.report.query, "unknown");
     assert.notEqual(wrongSha.code, 0);
     assert.equal(connects, 0);
     const wrongFlag = await runWorker({

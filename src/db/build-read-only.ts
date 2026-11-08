@@ -15,6 +15,7 @@
  * TO off` in the same session still works. No role is created.
  */
 import type { ClientBase, PoolConfig } from "pg";
+import { stampStage } from "./build-ro-report";
 
 export const BUILD_READ_ONLY_SQL = "SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY";
 
@@ -29,15 +30,30 @@ function showValue(rows: Array<Record<string, unknown>>, key: string): string {
 
 /** Run on each new client. Throws so pg-pool ends the client and fails checkout. */
 export async function enforceBuildReadOnly(client: ClientBase): Promise<void> {
-  await client.query(BUILD_READ_ONLY_SQL);
-  const defaultReadOnly = await client.query("SHOW default_transaction_read_only");
-  const transactionReadOnly = await client.query("SHOW transaction_read_only");
+  try {
+    await client.query(BUILD_READ_ONLY_SQL);
+  } catch (err) {
+    throw stampStage(err, "init-set");
+  }
+  let defaultReadOnly: { rows: Array<Record<string, unknown>> };
+  try {
+    defaultReadOnly = await client.query("SHOW default_transaction_read_only");
+  } catch (err) {
+    throw stampStage(err, "init-show-default");
+  }
+  let transactionReadOnly: { rows: Array<Record<string, unknown>> };
+  try {
+    transactionReadOnly = await client.query("SHOW transaction_read_only");
+  } catch (err) {
+    throw stampStage(err, "init-show-tx");
+  }
   const defaultValue = showValue(defaultReadOnly.rows, "default_transaction_read_only");
   const transactionValue = showValue(transactionReadOnly.rows, "transaction_read_only");
   if (defaultValue !== "on" || transactionValue !== "on") {
-    throw new Error(
+    const stage = defaultValue !== "on" ? "init-show-default" : "init-show-tx";
+    throw stampStage(new Error(
       `build read-only init failed: default_transaction_read_only=${defaultValue || "missing"} transaction_read_only=${transactionValue || "missing"}`,
-    );
+    ), stage, "off");
   }
 }
 

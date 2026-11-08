@@ -7,6 +7,7 @@
  * is never logged.
  */
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { allowlistedSqlState, knownDriver, measured, workerStage, type KnownDriver, type Measured, type WorkerStage } from "./build-ro-report";
 
 export type HarnessMode = "production" | "local";
 
@@ -49,9 +50,11 @@ export type SafeWorkerReport = {
   port?: number;
   /** Backend inet_server_port, informational. Not a pass/fail check. */
   backendPort?: number;
-  driver?: "postgres" | "pglite" | "none";
-  init?: "on" | "off";
-  query?: "on" | "off";
+  driver?: KnownDriver;
+  init?: Measured;
+  query?: Measured;
+  stage?: WorkerStage;
+  sqlstate?: string;
   attempt?: number;
 };
 
@@ -134,9 +137,11 @@ function safeReport(stdout: string): SafeWorkerReport {
       urlNonempty: parsed.urlNonempty === true ? true : parsed.urlNonempty === false ? false : undefined,
       port: Number.isInteger(parsed.port) ? parsed.port : undefined,
       backendPort: Number.isInteger(parsed.backendPort) ? parsed.backendPort : undefined,
-      driver: parsed.driver === "postgres" || parsed.driver === "pglite" || parsed.driver === "none" ? parsed.driver : undefined,
-      init: parsed.init === "on" || parsed.init === "off" ? parsed.init : undefined,
-      query: parsed.query === "on" || parsed.query === "off" ? parsed.query : undefined,
+      driver: parsed.driver === undefined ? undefined : knownDriver(parsed.driver),
+      init: parsed.init === undefined ? undefined : measured(parsed.init),
+      query: parsed.query === undefined ? undefined : measured(parsed.query),
+      stage: workerStage(parsed.stage),
+      sqlstate: allowlistedSqlState({ code: parsed.sqlstate }),
       attempt: parsed.attempt === 1 ? 1 : undefined,
     };
   } catch {
