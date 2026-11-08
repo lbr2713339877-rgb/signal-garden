@@ -19,9 +19,18 @@ export interface SentMail extends OutboundMail {
   replyTo: string;
 }
 
+export type DeliveryLookup =
+  | { ok: true; lastEvent: string }
+  | { ok: false; error: string };
+
 export interface MailTransport {
   mode: "mock" | "live";
-  send(mail: OutboundMail): Promise<{ id: string }>;
+  send(mail: OutboundMail, options?: { signal?: AbortSignal }): Promise<{ id: string }>;
+  /**
+   * Live provider read. Omitted on the mock transport so a fake id cannot
+   * be reported as delivered. `signal` cancels the underlying fetch.
+   */
+  getDelivery?(messageId: string, signal?: AbortSignal): Promise<DeliveryLookup>;
 }
 
 const outbox = globalThis as unknown as { __newsletterOutbox?: SentMail[] };
@@ -80,13 +89,53 @@ export function mockTransport(): MailTransport {
   };
 }
 
+function redactDeliveryError(value: string): string {
+  const redacted = value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+    .replace(/\b(?:re|whsec)_[A-Za-z0-9]+/gi, "[redacted-secret]")
+    .replace(/bearer\s+[A-Za-z0-9._\-]+/gi, "bearer [redacted-secret]")
+    .replace(/[\r\n]+/g, " ");
+  return redacted.length > 240 ? `${redacted.slice(0, 240)}…` : redacted;
+}
+
+/**
+ * Resend's client resolves `{ data: null, error }` instead of throwing,
+ * including when `fetch` rejects. `emails.get(id, { signal })` forwards
+ * `signal` into that fetch, so aborting cancels the socket. The SDK's
+ * `fetchRequest` catch then returns `{ error: { message: "Unable to fetch..." } }`
+ * and does not rethrow. Callers treat `{ error }` as a failed read.
+ */
+export function deliveryLookupFromProvider(value: unknown): DeliveryLookup {
+  if (!value || typeof value !== "object") return { ok: false, error: "delivery query returned an empty body" };
+  const record = value as {
+    data?: { last_event?: unknown } | null;
+    error?: { message?: string } | null;
+    last_event?: unknown;
+  };
+  if (record.error) return { ok: false, error: redactDeliveryError(record.error.message || "delivery query failed") };
+  const event = record.data && typeof record.data === "object" ? record.data.last_event : record.last_event;
+  if (typeof event !== "string" || !event.trim()) return { ok: false, error: "delivery query returned no last_event" };
+  return { ok: true, lastEvent: event.trim() };
+}
+
+export class ProviderRejectedError extends Error {
+  readonly statusCode: number | null;
+  readonly providerName: string | null;
+  constructor(message: string, statusCode: number | null, providerName: string | null = null) {
+    super(message);
+    this.name = "ProviderRejectedError";
+    this.statusCode = statusCode;
+    this.providerName = providerName;
+  }
+}
+
 export function liveTransport(): MailTransport {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("[newsletter] RESEND_API_KEY is required when NEWSLETTER_SEND_MODE=live");
   const resend = new Resend(apiKey);
   return {
     mode: "live",
-    async send(mail) {
+    async send(mail, options) {
       const { data, error } = await resend.emails.send({
         from: newsletterFrom(),
         to: mail.to,
@@ -95,9 +144,24 @@ export function liveTransport(): MailTransport {
         html: mail.html,
         text: mail.text,
         headers: mail.headers,
-      }, { idempotencyKey: mail.idempotencyKey });
-      if (error || !data) throw new Error(error?.message ?? "resend send failed");
+      }, { idempotencyKey: mail.idempotencyKey, signal: options?.signal });
+      if (options?.signal?.aborted) {
+        throw new ProviderRejectedError("send aborted", null, null);
+      }
+      if (error || !data?.id) {
+        const statusCode = error && typeof error.statusCode === "number" ? error.statusCode : null;
+        const providerName = error && typeof error.name === "string" ? error.name : null;
+        throw new ProviderRejectedError(redactDeliveryError(error?.message ?? "resend send failed"), statusCode, providerName);
+      }
       return { id: data.id };
+    },
+    async getDelivery(messageId, signal) {
+      try {
+        return deliveryLookupFromProvider(await resend.emails.get(messageId, { signal }));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { ok: false, error: redactDeliveryError(message) };
+      }
     },
   };
 }

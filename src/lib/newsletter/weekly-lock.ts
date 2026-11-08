@@ -182,19 +182,44 @@ export function weeklySendBlocker(input: {
 export interface WeeklySendRow {
   subscriberId: string;
   status: string;
+  /** Null means `sent` is an unknown hold, not a completed accept. */
+  resendMessageId?: string | null;
 }
 
 export type WeeklyAllPlan =
-  | { action: "noop"; reason: "no-recipients" | "already-mailed" | "edition-not-due" }
+  | { action: "noop"; reason: "no-recipients" | "already-mailed" | "edition-not-due" | "reconciliation-held" }
   | { action: "send"; subscriberIds: string[] };
+
+function providerId(row: WeeklySendRow | undefined): string | null {
+  if (!row || row.resendMessageId == null) return null;
+  const id = row.resendMessageId.trim();
+  return id || null;
+}
+
+/** `sent` with no provider id is an unknown hold, not a finished delivery. */
+export function isUnknownWeeklyHold(row: WeeklySendRow | undefined): boolean {
+  return row?.status === "sent" && !providerId(row);
+}
 
 /**
  * Cron `--all` plan.
  *
  * Sends on the edition day (`issue.to` in Asia/Singapore) to anyone not already
- * sent or bounced. A later Monday does not start a new blast and does not pick
- * up subscribers who joined after the edition. It only retries rows left
- * queued or failed. Sent and bounced rows are never mailed again.
+ * accepted or terminal. A later Monday does not start a new blast and does not
+ * pick up subscribers who joined after the edition. It retries `queued` and
+ * `failed` rows that have no provider id. `failed` or `bounced` rows that
+ * still have an id are not mailed again. `bounced` is not mailed again.
+ * `sent` with a provider id is not mailed again. `sent` with no provider id is
+ * an unknown hold: it is not mailed, and the plan is `reconciliation-held`
+ * rather than `already-mailed` when nothing else is sendable.
+ *
+ * The planner can still list queued or failed rows on another day. Live
+ * `--all` and `--real` do not execute that list unless the edition date is
+ * today's signal date.
+ *
+ * `sent` is not delivery. The provider accept path and the delivered webhook
+ * both store `sent`. `scripts/newsletter-weekly.tsx` still has to see
+ * `delivered` for this edition's canary before it mails anyone else.
  */
 export function planWeeklyAllSend(input: {
   editionDate: string;
@@ -203,17 +228,24 @@ export function planWeeklyAllSend(input: {
   rows: readonly WeeklySendRow[];
 }): WeeklyAllPlan {
   if (input.eligibleIds.length === 0) return { action: "noop", reason: "no-recipients" };
-  const statusById = new Map(input.rows.map((row) => [row.subscriberId, row.status]));
+  const rowById = new Map(input.rows.map((row) => [row.subscriberId, row]));
   const due = input.editionDate === input.today;
+  let held = false;
   const subscriberIds: string[] = [];
   for (const id of input.eligibleIds) {
-    const status = statusById.get(id);
-    if (status === "sent" || status === "bounced") continue;
-    if (!due && status == null) continue;
+    const row = rowById.get(id);
+    if (isUnknownWeeklyHold(row)) {
+      held = true;
+      continue;
+    }
+    if (row?.status === "sent" || row?.status === "bounced") continue;
+    if (row?.status === "failed" && providerId(row)) continue;
+    if (!due && row == null) continue;
     subscriberIds.push(id);
   }
   if (subscriberIds.length > 0) return { action: "send", subscriberIds };
-  const anyRow = input.eligibleIds.some((id) => statusById.has(id));
+  if (held) return { action: "noop", reason: "reconciliation-held" };
+  const anyRow = input.eligibleIds.some((id) => rowById.has(id));
   if (!due && !anyRow) return { action: "noop", reason: "edition-not-due" };
   return { action: "noop", reason: "already-mailed" };
 }
