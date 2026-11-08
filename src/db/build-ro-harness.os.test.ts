@@ -82,9 +82,8 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
     });
     assert.equal(result.ok, false);
     assert.equal(result.reason, "sha");
-    assert.equal(result.attempts, 2);
-    assert.equal(result.reports[0]?.candidate, checkout);
-    assert.notEqual(result.reports[0]?.candidate, "e3d878d922fb0654222987497d02a8b3df956d25");
+    assert.equal(result.attempts, 0);
+    assert.equal(result.reports.length, 0);
   });
 
   test("an explicit read-only worker with an empty URL does not open PGlite", async () => {
@@ -93,6 +92,7 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
         ...process.env,
         DATABASE_URL: "",
         SG_BUILD_READ_ONLY: "true",
+        BUILD_RO_EXPECT_SHA: checkout,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -118,6 +118,7 @@ describe("build read-only harness on disposable postgres", { concurrency: 1 }, (
         SG_BUILD_DB_CONNECT_TIMEOUT_MS: "5000",
         SG_BUILD_DB_QUERY_TIMEOUT_MS: "200",
         BUILD_RO_TEST_SLEEP: "1",
+        BUILD_RO_EXPECT_SHA: checkout,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

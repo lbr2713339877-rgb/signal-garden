@@ -37,13 +37,18 @@ export const HARNESS_LIMITS: HarnessLimits = {
   killGraceMs: 2_000,
 };
 
+const PS_BUDGET_MS = 1_000;
+
 export type SafeWorkerReport = {
   ok: boolean;
   reason: "ok" | "missing-url" | "flag" | "driver" | "init-off" | "port" | "sha" | "timeout" | "fail";
   candidate?: string;
   flag?: boolean;
   urlNonempty?: boolean;
+  /** Frontend port from pg connectionParameters. Not inet_server_port. */
   port?: number;
+  /** Backend inet_server_port, informational. Not a pass/fail check. */
+  backendPort?: number;
   driver?: "postgres" | "pglite" | "none";
   init?: "on" | "off";
   query?: "on" | "off";
@@ -107,6 +112,16 @@ export function verifierDatabaseUrl(raw: string | undefined, mode: HarnessMode):
   return { url: `${scheme}${prefix}${hostMatch[1]}:5432${rest}`, port: 5432 };
 }
 
+export function actualCheckoutSha(): string {
+  const sha = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: PS_BUDGET_MS,
+  }).trim();
+  if (!/^[0-9a-f]{40}$/.test(sha)) throw coded("sha", "sha");
+  return sha;
+}
+
 function safeReport(stdout: string): SafeWorkerReport {
   const line = stdout.trim().split("\n").filter(Boolean).at(-1) ?? "";
   try {
@@ -118,6 +133,7 @@ function safeReport(stdout: string): SafeWorkerReport {
       flag: parsed.flag === true ? true : parsed.flag === false ? false : undefined,
       urlNonempty: parsed.urlNonempty === true ? true : parsed.urlNonempty === false ? false : undefined,
       port: Number.isInteger(parsed.port) ? parsed.port : undefined,
+      backendPort: Number.isInteger(parsed.backendPort) ? parsed.backendPort : undefined,
       driver: parsed.driver === "postgres" || parsed.driver === "pglite" || parsed.driver === "none" ? parsed.driver : undefined,
       init: parsed.init === "on" || parsed.init === "off" ? parsed.init : undefined,
       query: parsed.query === "on" || parsed.query === "off" ? parsed.query : undefined,
@@ -153,16 +169,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function groupAlive(child: Spawned): boolean {
-  if (!child.checkGroup || !child.pid || child.pid <= 0) return false;
-  try {
-    const out = execFileSync("ps", ["-o", "pid=", "-g", String(child.pid)], { encoding: "utf8", timeout: 1000 });
-    return out.split(/\s+/).some((part) => Number(part) > 0);
-  } catch (err) {
-    return (err as { status?: number }).status !== 1;
-  }
-}
-
 export async function runBuildRoHarness(input: {
   databaseUrl: string | undefined;
   flag: string | undefined;
@@ -173,6 +179,13 @@ export async function runBuildRoHarness(input: {
 }): Promise<HarnessResult> {
   const limits = resolveHarnessLimits(input.mode, input.limits);
   if (input.flag !== "true") return { ok: false, reason: "flag", attempts: 0, failures: 1, reports: [] };
+  let head = "";
+  try {
+    head = actualCheckoutSha();
+  } catch {
+    return { ok: false, reason: "sha", attempts: 0, failures: 1, reports: [] };
+  }
+  if (input.candidate !== head) return { ok: false, reason: "sha", attempts: 0, failures: 1, reports: [] };
   let rewritten: { url: string; port: number };
   try {
     rewritten = verifierDatabaseUrl(input.databaseUrl, input.mode);
@@ -186,31 +199,65 @@ export async function runBuildRoHarness(input: {
   let attempts = 0;
   let failures = 0;
   let unclean = false;
-  const expected = { candidate: input.candidate, port: rewritten.port };
+  let timedOut = false;
+  const expected = { candidate: head, port: rewritten.port };
   const spawnOne = input.spawnWorker ?? ((env) => defaultSpawn(env));
+  const startedAt = Date.now();
+  const deadlineAt = startedAt + limits.parentTimeoutMs + limits.killGraceMs + PS_BUDGET_MS;
+  const remaining = () => Math.max(0, deadlineAt - Date.now());
 
-  async function stopAll(): Promise<boolean> {
-    const pending = () => tracked.filter((child) => !child.settled() || groupAlive(child));
-    if (pending().length === 0) return true;
-    for (const child of pending()) child.kill("SIGTERM");
-    await delay(limits.killGraceMs);
-    for (const child of pending()) child.kill("SIGKILL");
-    await Promise.race([
-      Promise.all(pending().map((child) => child.done.catch(() => null))),
-      delay(limits.killGraceMs),
-    ]);
-    return pending().length === 0;
+  async function boundedDelay(ms: number): Promise<void> {
+    const wait = Math.min(Math.max(0, ms), remaining());
+    if (wait === 0) return;
+    await delay(wait);
+  }
+
+  function groupAlive(child: Spawned): boolean {
+    if (!child.checkGroup || !child.pid || child.pid <= 0) return false;
+    const budget = Math.min(PS_BUDGET_MS, remaining());
+    if (budget < 50) return true;
+    try {
+      const out = execFileSync("ps", ["-o", "pid=", "-g", String(child.pid)], {
+        encoding: "utf8",
+        timeout: budget,
+        killSignal: "SIGKILL",
+      });
+      return out.split(/\s+/).some((part) => Number(part) > 0);
+    } catch (err) {
+      return (err as { status?: number }).status !== 1;
+    }
+  }
+
+  function groupsClear(): boolean {
+    return tracked.every((child) => !groupAlive(child));
+  }
+
+  let cleanupPromise: Promise<boolean> | null = null;
+  function beginCleanup(): Promise<boolean> {
+    if (!cleanupPromise) {
+      cleanupPromise = (async () => {
+        for (const child of tracked) child.kill("SIGTERM");
+        await boundedDelay(limits.killGraceMs);
+        for (const child of tracked) child.kill("SIGKILL");
+        await Promise.race([
+          Promise.all(tracked.map((child) => child.done.catch(() => null))),
+          boundedDelay(limits.killGraceMs),
+        ]);
+        return tracked.every((child) => child.settled() && !groupAlive(child));
+      })();
+    }
+    return cleanupPromise;
   }
 
   async function wave(count: number): Promise<boolean> {
-    if (unclean || attempts + count > limits.maxConnections) {
+    if (unclean || cleanupPromise || attempts + count > limits.maxConnections) {
       failures += 1;
       return false;
     }
     const children: Spawned[] = [];
     for (let i = 0; i < count; i += 1) {
       attempts += 1;
-      const child = spawnOne(workerEnv(rewritten.url, limits));
+      const child = spawnOne(workerEnv(rewritten.url, head, limits));
       tracked.push(child);
       children.push(child);
     }
@@ -219,84 +266,111 @@ export async function runBuildRoHarness(input: {
     await new Promise<void>((resolve) => {
       let pending = children.length;
       const finished = new Set<Spawned>();
+      const timers: NodeJS.Timeout[] = [];
+      let settledWave = false;
+      let cap: NodeJS.Timeout | undefined;
+      const resolveOnce = () => {
+        if (settledWave) return;
+        settledWave = true;
+        clearTimeout(cap);
+        for (const timer of timers) clearTimeout(timer);
+        resolve();
+      };
       const finish = (child: Spawned) => {
         if (finished.has(child)) return;
         finished.add(child);
         pending -= 1;
-        if (pending === 0) resolve();
+        if (pending === 0) resolveOnce();
       };
       const mark = (child: Spawned) => {
         if (counted.has(child)) return;
         counted.add(child);
         failed = true;
         failures += 1;
-        for (const other of children) other.kill("SIGTERM");
+        void beginCleanup().then(() => resolveOnce());
       };
+      cap = setTimeout(() => {
+        failed = true;
+        failures += 1;
+        void beginCleanup().then(() => resolveOnce());
+      }, Math.max(0, deadlineAt - Date.now()));
       for (const child of children) {
-        const timer = setTimeout(() => {
-          mark(child);
-          child.kill("SIGTERM");
-        }, limits.workerTimeoutMs);
-        const cap = setTimeout(() => finish(child), limits.workerTimeoutMs + limits.killGraceMs);
+        const timer = setTimeout(() => mark(child), Math.min(limits.workerTimeoutMs, Math.max(0, deadlineAt - Date.now())));
+        timers.push(timer);
         child.done.then((code) => {
           clearTimeout(timer);
-          clearTimeout(cap);
           const report = safeReport(child.stdout);
           reports.push(report);
           if (code !== 0 || !accepted(report, expected)) mark(child);
           finish(child);
         }).catch(() => {
           clearTimeout(timer);
-          clearTimeout(cap);
           mark(child);
           finish(child);
         });
       }
     });
-    if (!failed) return true;
-    unclean = !(await stopAll());
-    return false;
+    if (failed || timedOut) {
+      const clean = await beginCleanup();
+      if (!clean) unclean = true;
+      return false;
+    }
+    if (!groupsClear()) {
+      unclean = true;
+      const clean = await beginCleanup();
+      if (!clean) unclean = true;
+      return false;
+    }
+    return true;
   }
 
-  let timedOut = false;
-  const parentTimer = setTimeout(() => {
-    timedOut = true;
-    void stopAll().then((clean) => { unclean = unclean || !clean; });
-  }, limits.parentTimeoutMs);
-
-  const first = await wave(limits.workers);
-  if (!first || timedOut || unclean) {
-    clearTimeout(parentTimer);
-    if (!(await stopAll())) unclean = true;
+  function result(ok: boolean): HarnessResult {
     return {
-      ok: false,
-      reason: unclean ? "cleanup" : timedOut ? "timeout" : reports.map((report) => outcome(report, expected)).find((reason) => reason !== "ok") ?? "fail",
+      ok,
+      reason: unclean ? "cleanup" : timedOut ? "timeout" : ok ? "ok" : reports.map((report) => outcome(report, expected)).find((reason) => reason !== "ok") ?? "fail",
       attempts,
-      failures: Math.max(failures, 1),
+      failures: ok ? failures : Math.max(failures, 1),
       port: rewritten.port,
       reports,
     };
   }
+
+  const parentTimer = setTimeout(() => {
+    timedOut = true;
+    void beginCleanup();
+  }, Math.min(limits.parentTimeoutMs, Math.max(0, deadlineAt - Date.now())));
+
+  const first = await wave(limits.workers);
+  if (!first || timedOut || unclean || !groupsClear()) {
+    if (!groupsClear()) unclean = true;
+    clearTimeout(parentTimer);
+    const clean = await beginCleanup();
+    if (!clean) unclean = true;
+    return result(false);
+  }
   const second = await wave(limits.workers);
   clearTimeout(parentTimer);
-  if (timedOut || unclean || !second) {
-    if (!(await stopAll())) unclean = true;
+  if (!second || timedOut || unclean || !groupsClear()) {
+    if (!groupsClear()) unclean = true;
+    const clean = await beginCleanup();
+    if (!clean) unclean = true;
+    return result(false);
   }
-  return {
-    ok: second && failures === 0 && !timedOut && !unclean,
-    reason: unclean ? "cleanup" : timedOut ? "timeout" : second ? "ok" : reports.map((report) => outcome(report, expected)).find((reason) => reason !== "ok") ?? "fail",
-    attempts,
-    failures,
-    port: rewritten.port,
-    reports,
-  };
+  if (timedOut || !groupsClear()) {
+    if (!groupsClear()) unclean = true;
+    const clean = await beginCleanup();
+    if (!clean) unclean = true;
+    return result(false);
+  }
+  return result(true);
 }
 
-function workerEnv(url: string, limits: HarnessLimits): NodeJS.ProcessEnv {
+function workerEnv(url: string, approvedSha: string, limits: HarnessLimits): NodeJS.ProcessEnv {
   return {
     ...process.env,
     DATABASE_URL: url,
     SG_BUILD_READ_ONLY: "true",
+    BUILD_RO_EXPECT_SHA: approvedSha,
     PG_POOL_MAX: "1",
     SG_BUILD_DB_CONNECT_TIMEOUT_MS: String(limits.connectionTimeoutMs),
     SG_BUILD_DB_QUERY_TIMEOUT_MS: String(limits.queryTimeoutMs),

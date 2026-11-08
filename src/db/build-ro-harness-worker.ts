@@ -1,9 +1,10 @@
 /**
  * One process, one pool from getDb(). Prints one safe JSON line.
- * The SHA is this checkout. The port is pg's parsed connection port.
+ * Approved SHA and the real flag are checked before getDb().
+ * `port` is pg's parsed frontend connectionParameters.port.
+ * inet_server_port is backend-only and is not compared to that port.
  */
 import { execFileSync } from "node:child_process";
-import { closeDb, getDb } from "./client";
 
 function classify(err: unknown): "missing-url" | "init-off" | "timeout" | "fail" {
   const message = err instanceof Error ? err.message : "";
@@ -15,16 +16,49 @@ function classify(err: unknown): "missing-url" | "init-off" | "timeout" | "fail"
 }
 
 function checkoutSha(): string {
-  return execFileSync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), encoding: "utf8" }).trim();
+  return execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: 1_000,
+  }).trim();
 }
 
 const flag = process.env.SG_BUILD_READ_ONLY === "true";
 const urlNonempty = Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim());
+let actual = "";
+try {
+  actual = checkoutSha();
+} catch {
+  actual = "";
+}
+const approved = process.env.BUILD_RO_EXPECT_SHA ?? "";
+const shaOk = /^[0-9a-f]{40}$/.test(actual) && actual === approved;
+
+function emit(body: Record<string, unknown>, code: number): never {
+  console.log(JSON.stringify(body));
+  process.exit(code);
+}
+
+if (!flag || !shaOk) {
+  emit({
+    ok: false,
+    reason: flag ? "sha" : "flag",
+    candidate: actual,
+    flag,
+    urlNonempty,
+    driver: "none",
+    init: "off",
+    query: "off",
+    attempt: 1,
+  }, 1);
+}
+
+const { closeDb, getDb } = await import("./client");
 let code = 1;
 let body: Record<string, unknown> = {
   ok: false,
   reason: "fail",
-  candidate: "",
+  candidate: actual,
   flag,
   urlNonempty,
   driver: "none",
@@ -34,7 +68,6 @@ let body: Record<string, unknown> = {
 };
 
 try {
-  body.candidate = checkoutSha();
   const handle = await getDb();
   if (handle.driver !== "postgres") {
     body = { ...body, reason: "driver", driver: handle.driver };
@@ -50,13 +83,15 @@ try {
       );
       const row = result.rows[0] ?? {};
       const queryOn = row.default_transaction_read_only === "on" && row.transaction_read_only === "on";
-      const samePort = Number(row.server_port) === parsedPort;
-      const reason = !samePort ? "port" : queryOn ? "ok" : "init-off";
+      const backendPort = Number(row.server_port);
+      const frontendOk = Number.isInteger(parsedPort) && parsedPort > 0;
+      const reason = frontendOk ? (queryOn ? "ok" : "init-off") : "port";
       body = {
         ...body,
-        ok: reason === "ok" && flag,
+        ok: reason === "ok",
         reason,
-        port: parsedPort,
+        port: frontendOk ? parsedPort : undefined,
+        backendPort: Number.isInteger(backendPort) ? backendPort : undefined,
         driver: "postgres",
         init: "on",
         query: queryOn ? "on" : "off",
@@ -71,6 +106,5 @@ try {
   code = 1;
 } finally {
   await closeDb().catch(() => {});
-  console.log(JSON.stringify(body));
-  process.exit(code);
+  emit(body, code);
 }
