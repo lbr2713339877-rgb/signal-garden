@@ -10,9 +10,13 @@ import {
   executeWeeklyGatedSend,
   ledgerStatusForTerminalEvent,
   previewWeeklyCanaryGate,
+  sanitizeProviderEvent,
+  settleAcceptedSend,
   type ExecuteWeeklyGatedSendInput,
   type WeeklyEditionSendRow,
 } from "./canary-gate";
+import { deliveryLookupFromProvider } from "./transport";
+import { runWeeklySnapshot } from "./weekly-run";
 import type { WeeklyAudienceRow } from "./weekly-lock";
 
 const CANARY: WeeklyAudienceRow = {
@@ -68,9 +72,9 @@ function run(partial: Partial<ExecuteWeeklyGatedSendInput> = {}) {
       if (partial.send) return partial.send(input);
       return { ok: true, id: `id-${input.subscriberId}` };
     },
-    queryDelivery: async (messageId) => {
+    queryDelivery: async (messageId, signal) => {
       queries.push(messageId);
-      if (partial.queryDelivery) return partial.queryDelivery(messageId);
+      if (partial.queryDelivery) return partial.queryDelivery(messageId, signal);
       return { ok: true, lastEvent: "delivered" };
     },
     markTerminal: async (input) => {
@@ -455,25 +459,283 @@ test("queries use this edition's canary message only", async () => {
 
 test("the weekly script gates live sends and leaves dry-run before transport", () => {
   const script = readFileSync(new URL("../../../scripts/newsletter-weekly.tsx", import.meta.url), "utf8");
+  const runner = readFileSync(new URL("./weekly-run.ts", import.meta.url), "utf8");
   const transport = readFileSync(new URL("./transport.ts", import.meta.url), "utf8");
-  const dry = script.indexOf("if (parsed.dryRun)");
+  const snapshot = script.indexOf("runWeeklySnapshot(");
   const created = script.indexOf("newsletterTransport()");
-  const noop = script.indexOf('parsed.mode === "all" && allPlan.action === "noop"');
-  const execute = script.indexOf("executeWeeklyGatedSend(");
-  assert.ok(dry !== -1 && created !== -1 && dry < created);
-  assert.ok(noop !== -1 && execute !== -1 && noop < execute);
+  assert.ok(snapshot !== -1 && created !== -1 && snapshot < created);
+  assert.match(runner, /input\.dryRun \|\| input\.mode === "dry-run"/);
+  assert.match(runner, /canary-live-disabled/);
+  assert.match(runner, /edition-not-due/);
+  assert.match(runner, /allPlan\.action === "noop"/);
   assert.match(script, /eq\(newsletterSend\.editionDate, editionDate\)/);
   assert.match(script, /previewWeeklyCanaryGate/);
   assert.match(script, /getDelivery/);
+  assert.match(script, /settleAcceptedSend/);
   assert.match(script, /sg-newsletter-weekly/);
   assert.match(script, /gateMode === "real"/);
   assert.match(script, /audience\.reals/);
   assert.match(script, /idempotencyKey/);
   assert.doesNotMatch(script, /sendMany\(/);
-  assert.match(transport, /emails\.get/);
+  assert.match(transport, /emails\.get\(messageId, \{ signal \}\)/);
   assert.match(transport, /last_event/);
   const mockStart = transport.indexOf("export function mockTransport");
   const liveStart = transport.indexOf("export function liveTransport");
   assert.ok(mockStart !== -1 && liveStart > mockStart);
   assert.doesNotMatch(transport.slice(mockStart, liveStart), /getDelivery/);
+});
+
+test("a timed-out delivery read aborts its signal", async () => {
+  let saw: AbortSignal | undefined;
+  const { result, sends } = await run({
+    queryTimeoutMs: 20,
+    queryDelivery: (_messageId, signal) => {
+      saw = signal;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          reject(new Error("aborted"));
+        });
+      });
+    },
+  });
+  assert.equal(saw?.aborted, true);
+  assert.equal(result.exitCode, 7);
+  assert.equal(result.realSends, 0);
+  assert.equal(result.deliveredConfirmed, false);
+  assert.deepEqual(sends.map((row) => row.subscriberId), ["canary"]);
+  assert.match(String(result.log.error), /timed out/);
+});
+
+test("an illegal or overlong last_event is logged as unknown", async () => {
+  const poison = `not-a-real-event ${"A".repeat(400)} raynlee@mail.grokbot.com re_livekey123`;
+  const { result } = await run({
+    maxPolls: 1,
+    queryDelivery: async () => ({ ok: true, lastEvent: poison }),
+  });
+  assert.equal(sanitizeProviderEvent(poison), "unknown");
+  assert.equal(result.lastEvent, "unknown");
+  assert.equal(result.log.lastEvent, "unknown");
+  assert.equal(result.realSends, 0);
+  assert.equal(result.deliveredConfirmed, false);
+  assert.equal(result.exitCode, 7);
+  const dumped = JSON.stringify(result);
+  assert.equal(dumped.includes(poison), false);
+  assert.equal(dumped.includes("raynlee@"), false);
+  assert.equal(dumped.includes("re_livekey123"), false);
+  assert.equal(dumped.includes("A".repeat(80)), false);
+});
+
+test("a stored provider id is not resent when the sent-status write failed", async () => {
+  const patches: Array<{ status?: "sent"; resendMessageId: string }> = [];
+  const settled = await settleAcceptedSend("msg-canary", async (patch) => {
+    patches.push(patch);
+    if (patch.status === "sent") throw new Error("db status write failed");
+  });
+  assert.equal(settled.ok, false);
+  if (settled.ok) return;
+  assert.equal(settled.id, "msg-canary");
+  assert.deepEqual(patches[1], { resendMessageId: "msg-canary" });
+
+  const lost = await settleAcceptedSend("msg-canary", async () => {
+    throw new Error("db down");
+  });
+  assert.equal(lost.ok, false);
+  if (!lost.ok) assert.equal(lost.id, "msg-canary");
+
+  const first = await run({
+    send: async () => ({ ok: false, id: "msg-canary", error: "provider accepted but sent-status update failed" }),
+  });
+  assert.deepEqual(first.sends.map((row) => row.subscriberId), ["canary"]);
+  assert.equal(first.sends[0]?.idempotencyKey, "newsletter-weekly-3/2026-11-02/canary");
+  assert.equal(first.result.reason, "canary-ledger-persist-failed");
+  assert.equal(first.result.realSends, 0);
+  assert.equal(first.queries.length, 0);
+
+  const second = await run({
+    ledger: [{ subscriberId: "canary", status: "queued", resendMessageId: "msg-canary" }],
+    maxPolls: 1,
+    queryDelivery: async () => ({ ok: true, lastEvent: "sent" }),
+  });
+  assert.equal(second.sends.length, 0);
+  assert.deepEqual(second.queries, ["msg-canary"]);
+  assert.equal(second.result.realSends, 0);
+  assert.equal(second.result.deliveredConfirmed, false);
+});
+
+test("overlapping runs share one idempotency key and are not an exclusive lock", async () => {
+  let entered = 0;
+  let release = () => {};
+  const bothEntered = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const send: ExecuteWeeklyGatedSendInput["send"] = async (input) => {
+    entered += 1;
+    if (entered >= 2) release();
+    await bothEntered;
+    return { ok: true, id: `id-${input.subscriberId}` };
+  };
+  const pending = async () => ({ ok: true as const, lastEvent: "sent" });
+  const [left, right] = await Promise.race([
+    Promise.all([
+      run({ maxPolls: 1, send, queryDelivery: pending }),
+      run({ maxPolls: 1, send, queryDelivery: pending }),
+    ]),
+    new Promise<never>((_resolve, reject) => {
+      setTimeout(() => reject(new Error("overlap hung")), 1000);
+    }),
+  ]);
+  assert.equal(left.sends.length, 1);
+  assert.equal(right.sends.length, 1);
+  assert.equal(left.sends[0]?.idempotencyKey, right.sends[0]?.idempotencyKey);
+  assert.equal(left.sends[0]?.idempotencyKey, "newsletter-weekly-3/2026-11-02/canary");
+  assert.equal(left.result.realSends, 0);
+  assert.equal(right.result.realSends, 0);
+});
+
+test("a provider error object sends zero real recipients", async () => {
+  const poison = "mailbox raynlee@mail.grokbot.com rejected re_livekey123";
+  const lookup = deliveryLookupFromProvider({ data: null, error: { message: poison } });
+  assert.equal(lookup.ok, false);
+  if (lookup.ok) return;
+  assert.equal(lookup.error.includes("raynlee@"), false);
+  assert.equal(lookup.error.includes("re_livekey123"), false);
+  const { result, sends, queries } = await run({
+    queryDelivery: async () => lookup,
+  });
+  assert.equal(result.exitCode, 7);
+  assert.equal(result.reason, "delivery-query-error");
+  assert.equal(result.realSends, 0);
+  assert.deepEqual(sends.map((row) => row.subscriberId), ["canary"]);
+  assert.equal(queries.length, 1);
+  const dumped = JSON.stringify(result);
+  assert.equal(dumped.includes("raynlee@"), false);
+  assert.equal(dumped.includes("re_livekey123"), false);
+});
+
+test("script dry-run performs zero writes, sends, and delivery queries", async () => {
+  let writes = 0;
+  let sends = 0;
+  let queries = 0;
+  const outcome = await runWeeklySnapshot({
+    mode: "all",
+    dryRun: true,
+    editionDate: "2026-11-02",
+    today: "2026-11-02",
+    eligibleIds: ["canary", "real-a"],
+    ledger: [{ subscriberId: "canary", status: "sent", resendMessageId: "msg-canary" }],
+    weeklyEnabled: true,
+    sendMode: "live",
+    unsubSecret: "secret",
+    liveSend: async () => {
+      writes += 1;
+      sends += 1;
+      queries += 1;
+      throw new Error("dry-run invoked the live sender");
+    },
+  });
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.phase, "dry-run");
+  assert.equal(writes, 0);
+  assert.equal(sends, 0);
+  assert.equal(queries, 0);
+});
+
+test("live real mode does not send before the edition day", async () => {
+  let sends = 0;
+  const early = await runWeeklySnapshot({
+    mode: "real",
+    dryRun: false,
+    editionDate: "2026-11-02",
+    today: "2026-11-09",
+    eligibleIds: ["canary", "real-a"],
+    ledger: [{ subscriberId: "canary", status: "sent", resendMessageId: "msg-canary" }],
+    weeklyEnabled: true,
+    sendMode: "live",
+    unsubSecret: "secret",
+    liveSend: async () => {
+      sends += 1;
+      return { exitCode: 0 };
+    },
+  });
+  assert.equal(early.exitCode, 7);
+  assert.equal(early.phase, "refused");
+  assert.equal(early.reason, "edition-not-due");
+  assert.equal(sends, 0);
+
+  const later = await runWeeklySnapshot({
+    mode: "all",
+    dryRun: false,
+    editionDate: "2026-11-02",
+    today: "2026-11-09",
+    eligibleIds: ["canary", "real-a"],
+    ledger: [{ subscriberId: "canary", status: "sent", resendMessageId: "msg-canary" }],
+    weeklyEnabled: true,
+    sendMode: "live",
+    unsubSecret: "secret",
+    liveSend: async () => {
+      sends += 1;
+      return { exitCode: 0 };
+    },
+  });
+  assert.equal(later.phase, "noop");
+  assert.equal(later.exitCode, 0);
+  assert.equal(sends, 0);
+
+  const due = await runWeeklySnapshot({
+    mode: "real",
+    dryRun: false,
+    editionDate: "2026-11-02",
+    today: "2026-11-02",
+    eligibleIds: ["canary", "real-a"],
+    ledger: [{ subscriberId: "canary", status: "sent", resendMessageId: "msg-canary" }],
+    weeklyEnabled: true,
+    sendMode: "live",
+    unsubSecret: "secret",
+    liveSend: async () => {
+      sends += 1;
+      return { exitCode: 0 };
+    },
+  });
+  assert.equal(due.phase, "send");
+  assert.equal(sends, 1);
+});
+
+test("live canary mode does not send", async () => {
+  let sends = 0;
+  const outcome = await runWeeklySnapshot({
+    mode: "canary",
+    dryRun: false,
+    editionDate: "2026-11-02",
+    today: "2026-11-02",
+    eligibleIds: ["canary", "real-a"],
+    ledger: [],
+    weeklyEnabled: true,
+    sendMode: "live",
+    unsubSecret: "secret",
+    liveSend: async () => {
+      sends += 1;
+      return { exitCode: 0 };
+    },
+  });
+  assert.equal(outcome.exitCode, 7);
+  assert.equal(outcome.reason, "canary-live-disabled");
+  assert.equal(sends, 0);
+
+  const preview = await runWeeklySnapshot({
+    mode: "canary",
+    dryRun: true,
+    editionDate: "2026-11-02",
+    today: "2026-11-02",
+    eligibleIds: ["canary"],
+    ledger: [],
+    weeklyEnabled: false,
+    sendMode: "mock",
+    liveSend: async () => {
+      sends += 1;
+      return { exitCode: 0 };
+    },
+  });
+  assert.equal(preview.exitCode, 0);
+  assert.equal(preview.phase, "dry-run");
+  assert.equal(sends, 0);
 });

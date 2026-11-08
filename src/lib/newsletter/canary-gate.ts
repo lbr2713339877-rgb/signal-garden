@@ -37,6 +37,22 @@ const TERMINAL_NON_DELIVERY = new Set([
   "suppressed",
 ]);
 
+/**
+ * Provider `last_event` values this process will repeat in logs.
+ * Anything else, including overlong or secret-bearing text, is `unknown`.
+ * `opened` and `clicked` are known and still do not open the gate.
+ */
+const KNOWN_PROVIDER_EVENTS = new Set([
+  "delivered",
+  "sent",
+  "queued",
+  "scheduled",
+  "delivery_delayed",
+  "opened",
+  "clicked",
+  ...TERMINAL_NON_DELIVERY,
+]);
+
 export type CanaryProviderClass = "delivered" | "pending" | "terminal";
 
 /** Only an exact delivered event opens the gate. Everything else is pending or terminal. */
@@ -45,6 +61,14 @@ export function classifyCanaryProviderEvent(lastEvent: string): CanaryProviderCl
   if (value === "delivered") return "delivered";
   if (TERMINAL_NON_DELIVERY.has(value)) return "terminal";
   return "pending";
+}
+
+/** Allowlisted token, or `unknown`. Never returns the raw provider string. */
+export function sanitizeProviderEvent(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const token = value.trim().toLowerCase();
+  if (!token) return null;
+  return KNOWN_PROVIDER_EVENTS.has(token) ? token : "unknown";
 }
 
 export function ledgerStatusForTerminalEvent(lastEvent: string): "bounced" | "failed" {
@@ -86,7 +110,7 @@ export type DeliveryQueryResult =
 
 export type WeeklyRecipientSendResult =
   | { ok: true; id: string; skipped?: boolean }
-  | { ok: false; error: string };
+  | { ok: false; error: string; id?: string };
 
 export type WeeklyGateMode = "canary" | "real" | "all";
 
@@ -120,7 +144,7 @@ export interface WeeklyCanaryPreview {
 
 export interface PollCanaryDeliveryInput {
   messageId: string;
-  query: (messageId: string) => Promise<DeliveryQueryResult>;
+  query: (messageId: string, signal: AbortSignal) => Promise<DeliveryQueryResult>;
   now: () => number;
   sleep: (ms: number) => Promise<void>;
   pollIntervalMs?: number;
@@ -148,7 +172,7 @@ export interface ExecuteWeeklyGatedSendInput {
   /** Rows for this edition only. */
   ledger: readonly WeeklyEditionSendRow[];
   send: (input: { subscriberId: string; idempotencyKey: string }) => Promise<WeeklyRecipientSendResult>;
-  queryDelivery: (messageId: string) => Promise<DeliveryQueryResult>;
+  queryDelivery: (messageId: string, signal: AbortSignal) => Promise<DeliveryQueryResult>;
   markTerminal?: (input: { subscriberId: string; status: "bounced" | "failed"; lastEvent: string }) => Promise<void>;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
@@ -314,26 +338,66 @@ export function previewWeeklyCanaryGate(input: {
   };
 }
 
-async function waitForQuery<T>(query: Promise<T>, timeoutMs: number): Promise<T> {
+/**
+ * Starts one read with an AbortSignal and stops waiting at `timeoutMs`.
+ * The signal is aborted when the deadline wins, and again in `finally` if the
+ * read has not finished. Callers that pass the signal through to fetch cancel
+ * the socket. A caller that ignores the signal can still leave a promise
+ * pending; the race does not wait for it.
+ */
+async function waitForQuery<T>(
+  start: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let timedOut = false;
-  const guarded = query.then(
-    (value) => value,
-    (err: unknown) => {
-      if (timedOut) return undefined as T;
-      throw err;
-    },
-  );
+  let settled = false;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      timedOut = true;
+      controller.abort();
       reject(new Error("delivery query timed out"));
     }, timeoutMs);
   });
+  const work = Promise.resolve()
+    .then(() => start(controller.signal))
+    .then(
+      (value) => {
+        settled = true;
+        return value;
+      },
+      (err: unknown) => {
+        if (controller.signal.aborted) throw new Error("delivery query timed out");
+        throw err;
+      },
+    );
   try {
-    return await Promise.race([guarded, timeout]);
+    return await Promise.race([work, timeout]);
   } finally {
     if (timer) clearTimeout(timer);
+    if (!settled) controller.abort();
+  }
+}
+
+/**
+ * Provider accepted `id`. Try to store `sent` plus the id. If that write fails,
+ * store the id alone so a later run can poll it instead of sending again.
+ * Returns the id either way. A second write failure means this process still
+ * has the id, but the next process will not.
+ */
+export async function settleAcceptedSend(
+  id: string,
+  write: (patch: { status?: "sent"; resendMessageId: string }) => Promise<void>,
+): Promise<{ ok: true } | { ok: false; id: string; error: string }> {
+  try {
+    await write({ status: "sent", resendMessageId: id });
+    return { ok: true };
+  } catch {
+    try {
+      await write({ resendMessageId: id });
+    } catch {
+      return { ok: false, id, error: "provider accepted but ledger update failed" };
+    }
+    return { ok: false, id, error: "provider accepted but sent-status update failed" };
   }
 }
 
@@ -364,7 +428,7 @@ export async function pollCanaryDelivery(input: PollCanaryDeliveryInput): Promis
     try {
       const remaining = Math.max(1, deadline - input.now());
       const cap = Math.min(queryTimeoutMs, remaining);
-      report = await waitForQuery(Promise.resolve().then(() => input.query(input.messageId)), cap);
+      report = await waitForQuery((signal) => input.query(input.messageId, signal), cap);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { outcome: "query-error", polls, error: redactSensitive(message), elapsedMs: elapsed(), lastEvent };
@@ -378,7 +442,7 @@ export async function pollCanaryDelivery(input: PollCanaryDeliveryInput): Promis
         lastEvent,
       };
     }
-    const event = report.lastEvent.trim();
+    const event = sanitizeProviderEvent(report.lastEvent);
     if (!event) {
       return {
         outcome: "query-error",
@@ -440,6 +504,7 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
     const canarySends = partial.canarySends ?? 0;
     const realSends = partial.realSends ?? 0;
     const deliveredConfirmed = partial.deliveredConfirmed ?? false;
+    const safeLastEvent = sanitizeProviderEvent(partial.lastEvent);
     const log: Record<string, unknown> = {
       phase: "canary-gate",
       result: partial.reason === "canary-delivery-timeout" ? "timeout" : partial.reason,
@@ -456,7 +521,7 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
       budgetMs,
       queryTimeoutMs,
       elapsedMs: partial.elapsedMs ?? 0,
-      lastEvent: partial.lastEvent ?? null,
+      lastEvent: safeLastEvent,
       canarySends,
       realSends,
       realSent: realSends,
@@ -473,7 +538,7 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
       failed: partial.failed ?? 0,
       skipped: partial.skipped ?? 0,
       polls: partial.polls ?? 0,
-      lastEvent: partial.lastEvent ?? null,
+      lastEvent: safeLastEvent,
       deliveredConfirmed,
       queriedMessageIds: [...queriedMessageIds],
       attempts: attempts.map(({ subscriberId, idempotencyKey, ok, skipped, error }) => ({
@@ -523,7 +588,7 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
         ok: sent.ok,
         skipped: sent.ok ? Boolean(sent.skipped) : false,
         error: sent.ok ? undefined : redactSensitive(sent.error),
-        id: sent.ok ? sent.id : undefined,
+        id: sent.id,
       };
       attempts.push(attempt);
       return attempt;
@@ -580,8 +645,11 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
       return finish({ exitCode: WEEKLY_EXIT_GATE_CLOSED, reason: "canary-not-accepted" });
     }
     const attempt = await sendRecipient(input.canary);
-    if (!attempt.ok) return finish({ exitCode: WEEKLY_EXIT_CANARY_API, reason: "canary-api-error", failed: 1 });
     messageId = usableMessageId(attempt.id);
+    if (!attempt.ok && !messageId) return finish({ exitCode: WEEKLY_EXIT_CANARY_API, reason: "canary-api-error", failed: 1 });
+    if (!attempt.ok) {
+      return finish({ exitCode: WEEKLY_EXIT_GATE_CLOSED, reason: "canary-ledger-persist-failed", failed: 1 });
+    }
     if (!messageId) return finish({ exitCode: WEEKLY_EXIT_GATE_CLOSED, reason: "canary-accepted-id-missing" });
     if (!attempt.skipped) canarySends = 1;
   }
@@ -594,9 +662,9 @@ export async function executeWeeklyGatedSend(input: ExecuteWeeklyGatedSendInput)
     maxPolls,
     budgetMs,
     queryTimeoutMs,
-    query: async (id) => {
+    query: async (id, signal) => {
       queriedMessageIds.push(id);
-      return input.queryDelivery(id);
+      return input.queryDelivery(id, signal);
     },
   });
 

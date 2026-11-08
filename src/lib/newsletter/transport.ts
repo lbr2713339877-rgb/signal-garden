@@ -28,9 +28,9 @@ export interface MailTransport {
   send(mail: OutboundMail): Promise<{ id: string }>;
   /**
    * Live provider read. Omitted on the mock transport so a fake id cannot
-   * be reported as delivered.
+   * be reported as delivered. `signal` cancels the underlying fetch.
    */
-  getDelivery?(messageId: string): Promise<DeliveryLookup>;
+  getDelivery?(messageId: string, signal?: AbortSignal): Promise<DeliveryLookup>;
 }
 
 const outbox = globalThis as unknown as { __newsletterOutbox?: SentMail[] };
@@ -98,17 +98,24 @@ function redactDeliveryError(value: string): string {
   return redacted.length > 240 ? `${redacted.slice(0, 240)}…` : redacted;
 }
 
-function lastEventFromProvider(value: unknown): { lastEvent: string } | { error: string } {
-  if (!value || typeof value !== "object") return { error: "delivery query returned an empty body" };
+/**
+ * Resend's client resolves `{ data: null, error }` instead of throwing,
+ * including when `fetch` rejects. `emails.get(id, { signal })` forwards
+ * `signal` into that fetch, so aborting cancels the socket. The SDK's
+ * `fetchRequest` catch then returns `{ error: { message: "Unable to fetch..." } }`
+ * and does not rethrow. Callers treat `{ error }` as a failed read.
+ */
+export function deliveryLookupFromProvider(value: unknown): DeliveryLookup {
+  if (!value || typeof value !== "object") return { ok: false, error: "delivery query returned an empty body" };
   const record = value as {
     data?: { last_event?: unknown } | null;
     error?: { message?: string } | null;
     last_event?: unknown;
   };
-  if (record.error) return { error: record.error.message || "delivery query failed" };
+  if (record.error) return { ok: false, error: redactDeliveryError(record.error.message || "delivery query failed") };
   const event = record.data && typeof record.data === "object" ? record.data.last_event : record.last_event;
-  if (typeof event !== "string" || !event.trim()) return { error: "delivery query returned no last_event" };
-  return { lastEvent: event.trim() };
+  if (typeof event !== "string" || !event.trim()) return { ok: false, error: "delivery query returned no last_event" };
+  return { ok: true, lastEvent: event.trim() };
 }
 
 export function liveTransport(): MailTransport {
@@ -130,11 +137,9 @@ export function liveTransport(): MailTransport {
       if (error || !data) throw new Error(error?.message ?? "resend send failed");
       return { id: data.id };
     },
-    async getDelivery(messageId) {
+    async getDelivery(messageId, signal) {
       try {
-        const parsed = lastEventFromProvider(await resend.emails.get(messageId));
-        if ("error" in parsed) return { ok: false, error: redactDeliveryError(parsed.error) };
-        return { ok: true, lastEvent: parsed.lastEvent };
+        return deliveryLookupFromProvider(await resend.emails.get(messageId, { signal }));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { ok: false, error: redactDeliveryError(message) };
